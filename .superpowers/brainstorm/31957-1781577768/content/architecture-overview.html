@@ -1,0 +1,94 @@
+<h2>Architecture EVAGRI — Vue d'ensemble</h2>
+<p class="subtitle">Coolify auto-hébergé sur VPS OVHcloud Canada (Beauharnois)</p>
+
+<div class="mockup">
+  <div class="mockup-header">Utilisateurs</div>
+  <div class="mockup-body">
+    <div style="display:flex;gap:8px;justify-content:center;margin-bottom:16px">
+      <div style="padding:8px 16px;background:#66995c;color:white;border-radius:6px">Admin</div>
+      <div style="padding:8px 16px;background:#66995c;color:white;border-radius:6px">Évaluateur</div>
+      <div style="padding:8px 16px;background:#66995c;color:white;border-radius:6px">Développeur</div>
+    </div>
+  </div>
+</div>
+
+<div style="text-align:center;margin:8px 0">↓ HTTPS, SSL auto (Coolify)</div>
+
+<div class="mockup">
+  <div class="mockup-header">Application Next.js 15 (TypeScript)</div>
+  <div class="mockup-body">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <div class="placeholder">UI Évaluateur<br>Fiches, Paniers, Carte</div>
+      <div class="placeholder">UI Admin<br>Champs, Filtres, Utilisateurs</div>
+      <div class="placeholder">API + Auth<br>Server Actions, JWT</div>
+    </div>
+  </div>
+</div>
+
+<div style="text-align:center;margin:8px 0">↓ Prisma ORM</div>
+
+<div class="mockup">
+  <div class="mockup-header">Base de données PostgreSQL</div>
+  <div class="mockup-body">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="placeholder">Métier<br>Transactions, Dossiers, Paniers</div>
+      <div class="placeholder">Config + Audit<br>Champs, Filtres, Journal</div>
+    </div>
+  </div>
+</div>
+
+<div style="text-align:center;margin:8px 0">↓ Redis</div>
+
+<div class="mockup">
+  <div class="mockup-header">Tâches asynchrones (BullMQ)</div>
+  <div class="mockup-body">
+    <div style="display:flex;gap:8px;justify-content:center">
+      <div class="placeholder">Import JLR</div>
+      <div class="placeholder">Import Excel</div>
+      <div class="placeholder">Export Excel/PNG</div>
+    </div>
+  </div>
+</div>
+
+<div style="text-align:center;margin:8px 0">↓ Object Storage OVHcloud Canada</div>
+
+<div class="mockup">
+  <div class="mockup-header">Stockage Canada</div>
+  <div class="mockup-body">
+    <div style="display:flex;gap:8px;justify-content:center">
+      <div class="placeholder">PDF d'actes</div>
+      <div class="placeholder">Backups pg_dump</div>
+      <div class="placeholder">Exports générés</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Points clés</h3>
+  <ul>
+    <li>Données personnelles et transactions hébergées au Québec, conforme Loi 25.</li>
+    <li>Déploiement via Coolify (interface web) pour le technicien de maintenance.</li>
+    <li>Backups quotidiens automatiques vers Object Storage + rétention paramétrable.</li>
+    <li>Une seule base de données relationnelle (PostgreSQL) pour toutes les entités métier.</li>
+  </ul>
+</div>
+
+<div style="margin-top:24px">
+  <p><strong>Cette architecture correspond-elle à votre vision ? Cliquez sur une option ci-dessous ou répondez directement dans le terminal.</strong></p>
+  <div class="options">
+    <div class="option" data-choice="yes" onclick="toggleSelect(this)">
+      <div class="letter">A</div>
+      <div class="content">
+        <h3>Oui, architecture validée</h3>
+        <p>Passer aux choix suivants.</p>
+      </div>
+    </div>
+    <div class="option" data-choice="adjust" onclick="toggleSelect(this)">
+      <div class="letter">B</div>
+      <div class="content">
+        <h3>À ajuster</h3>
+        <p>Préciser les modifications souhaitées dans le terminal.</p>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,73 @@
+<h2>Feuille de route EVAGRI — Version révisée</h2>
+<p class="subtitle">Découpage en 3 vagues validé avec vous</p>
+
+<div class="mockup">
+  <div class="mockup-header">Vague 1 — Fondations + Données + Exploration</div>
+  <div class="mockup-body">
+    <ul style="margin:0;padding-left:20px">
+      <li><strong>Setup technique</strong> : Docker, PostgreSQL, Next.js, Prisma, auth, déploiement Coolify.</li>
+      <li><strong>Import initial</strong> : base Excel historique (~1 600 transactions) → <code>TransactionSource</code>.</li>
+      <li><strong>Tableau dynamique</strong> : recherche multicritères, tri, pagination, colonnes masquables.</li>
+      <li><strong>Carte interactive OSM</strong> : pins, clustering, popup de base.</li>
+    </ul>
+    <div style="margin-top:12px;padding:8px;background:#fff9db;border-radius:6px;color:#674f00">
+      <strong>Livrable</strong> : l’équipe peut consulter et explorer toutes les transactions sur une carte et dans un tableau.
+    </div>
+  </div>
+</div>
+
+<div style="text-align:center;margin:16px 0">↓</div>
+
+<div class="mockup">
+  <div class="mockup-header">Vague 2 — Fiche transaction + Configuration champs</div>
+  <div class="mockup-body">
+    <ul style="margin:0;padding-left:20px">
+      <li><strong>Configuration admin des champs enrichissables</strong> (saisissables et calculés) avec règles arithmétiques.</li>
+      <li><strong>Fiche transaction détaillée</strong> : zone principale saisissable + zone latérale calculés.</li>
+      <li><strong>Recalcul automatique</strong> des champs calculés à la perte de focus.</li>
+      <li><strong>Statut Analysée / Non analysée</strong> + enregistrement du Contributeur.</li>
+      <li><strong>Documents associés</strong> : upload et association PDF.</li>
+    </ul>
+    <div style="margin-top:12px;padding:8px;background:#fff9db;border-radius:6px;color:#674f00">
+      <strong>Livrable</strong> : l’évaluateur peut analyser une transaction et faire calculer les indicateurs de base.
+    </div>
+  </div>
+</div>
+
+<div style="text-align:center;margin:16px 0">↓</div>
+
+<div class="mockup">
+  <div class="mockup-header">Vague 3 — Dossiers, Analyses, Exports et Admin</div>
+  <div class="mockup-body">
+    <ul style="margin:0;padding-left:20px">
+      <li><strong>Dossiers et Paniers</strong> : création, partage, ajout de transactions analysées.</li>
+      <li><strong>Analyse de Dossier</strong> : paramètres de marché + indicateurs ajustés dans le temps.</li>
+      <li><strong>Export Excel</strong> calé sur le modèle EVAGRI.</li>
+      <li><strong>Export carte PNG</strong> statique avec pins.</li>
+      <li><strong>Administration avancée</strong> : utilisateurs, filtres de recherche, suivi des imports JLR, audit.</li>
+    </ul>
+    <div style="margin-top:12px;padding:8px;background:#fff9db;border-radius:6px;color:#674f00">
+      <strong>Livrable</strong> : production de rapports de comparables complets.
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:24px">
+  <p><strong>Validez-vous ce découpage révisé ?</strong></p>
+  <div class="options">
+    <div class="option" data-choice="yes" onclick="toggleSelect(this)">
+      <div class="letter">A</div>
+      <div class="content">
+        <h3>Oui, découpage validé</h3>
+        <p>Passer à la définition détaillée de la Vague 1.</p>
+      </div>
+    </div>
+    <div class="option" data-choice="adjust" onclick="toggleSelect(this)">
+      <div class="letter">B</div>
+      <div class="content">
+        <h3>À ajuster</h3>
+        <p>Préciser les modifications dans le terminal.</p>
+      </div>
+    </div>
+  </div>
+</div>
