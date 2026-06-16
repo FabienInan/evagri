@@ -1,0 +1,23 @@
+# Project artifacts
+.superpowers/
+.DS_Store
+*.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Docker
+docker-compose.override.yml
+
+# IDE
+.vscode/
+.idea/
