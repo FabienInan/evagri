@@ -44,9 +44,20 @@ export function parseWorkbook(buffer: ArrayBuffer | Uint8Array) {
   return results
 }
 
+function normalizeHeader(header: string): string {
+  return header
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
 export function findHeaderIndex(headers: (string | null)[], headerKeys: string[]): number {
+  const normalizedHeaders = headers.map((h) => (h ? normalizeHeader(h) : null))
   for (const key of headerKeys) {
-    const idx = headers.findIndex((h) => h?.trim().toLowerCase() === key.toLowerCase())
+    const normalizedKey = normalizeHeader(key)
+    const idx = normalizedHeaders.findIndex((h) => h === normalizedKey)
     if (idx !== -1) return idx
   }
   return -1
