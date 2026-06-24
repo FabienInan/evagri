@@ -148,7 +148,7 @@ export function TransactionTable({
   const visible = useMemo(() => COLUMNS.filter((c) => visibleColumns.has(c.key)), [visibleColumns])
 
   return (
-    <Card className="flex flex-col">
+    <Card className="flex flex-col min-w-0" ref={containerRef}>
       <div className="flex items-center justify-between border-b px-4 py-1">
         <span className="text-sm font-semibold text-foreground">
           Résultats
@@ -200,53 +200,51 @@ export function TransactionTable({
         </div>
       </div>
       <CardContent className="p-0">
-        <div className="overflow-auto" ref={containerRef}>
-          <Table>
-            <TableHeader className="bg-muted/50">
-              <TableRow>
-                {visible.map((col) => (
-                  <TableHead
-                    key={col.key}
-                    className={`py-2 ${col.numeric ? "text-right" : ""}`}
-                    onClick={() => col.sortable && onSort(col.key)}
-                  >
-                    {col.sortable ? (
-                      <button className="flex items-center gap-1 font-semibold">
-                        {col.label}
-                        {sortField === col.key &&
-                          (sortOrder === "asc" ? (
-                            <ChevronUp className="h-3.5 w-3.5" />
-                          ) : (
-                            <ChevronDown className="h-3.5 w-3.5" />
-                          ))}
-                      </button>
-                    ) : (
-                      <span className="font-semibold">{col.label}</span>
-                    )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.transactions.map((t) => (
-                <TableRow key={t.id} className="cursor-pointer hover:bg-muted/30">
-                  {visibleColumns.has("numeroInscription") && <TableCell className="py-2 font-medium">{t.numeroInscription}</TableCell>}
-                  {visibleColumns.has("typeTransaction") && <TableCell className="py-2">{t.typeTransaction ?? "—"}</TableCell>}
-                  {visibleColumns.has("dateVente") && <TableCell className="py-2">{new Date(t.dateVente).toLocaleDateString("fr-CA")}</TableCell>}
-                  {visibleColumns.has("mrc") && <TableCell className="py-2">{t.mrc ?? "—"}</TableCell>}
-                  {visibleColumns.has("municipalite") && <TableCell className="py-2">{t.municipalite ?? "—"}</TableCell>}
-                  {visibleColumns.has("superficieTotaleHectare") && <TableCell className="py-2 text-right">{formatNumber(t.superficieTotaleHectare)}</TableCell>}
-                  {visibleColumns.has("prixVente") && <TableCell className="py-2 text-right">{formatCurrency(t.prixVente)}</TableCell>}
-                  {visibleColumns.has("tauxGlobal") && <TableCell className="py-2 text-right">{formatCurrency(computeTauxGlobal(t))}</TableCell>}
-                  {visibleColumns.has("statut") && <TableCell className="py-2">{statusBadge(t.enrichie?.statut)}</TableCell>}
-                  <TableCell className="py-2 text-right">
-                    <Actions statut={t.enrichie?.statut} />
-                  </TableCell>
-                </TableRow>
+        <Table>
+          <TableHeader className="bg-muted/50">
+            <TableRow>
+              {visible.map((col) => (
+                <TableHead
+                  key={col.key}
+                  className={`py-2 ${col.numeric ? "text-right" : ""}`}
+                  onClick={() => col.sortable && onSort(col.key)}
+                >
+                  {col.sortable ? (
+                    <button className="flex items-center gap-1 font-semibold">
+                      {col.label}
+                      {sortField === col.key &&
+                        (sortOrder === "asc" ? (
+                          <ChevronUp className="h-3.5 w-3.5" />
+                        ) : (
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        ))}
+                    </button>
+                  ) : (
+                    <span className="font-semibold">{col.label}</span>
+                  )}
+                </TableHead>
               ))}
-            </TableBody>
-          </Table>
-        </div>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data.transactions.map((t) => (
+              <TableRow key={t.id} className="cursor-pointer hover:bg-muted/30">
+                {visibleColumns.has("numeroInscription") && <TableCell className="py-2 font-medium">{t.numeroInscription}</TableCell>}
+                {visibleColumns.has("typeTransaction") && <TableCell className="py-2">{t.typeTransaction ?? "—"}</TableCell>}
+                {visibleColumns.has("dateVente") && <TableCell className="py-2">{new Date(t.dateVente).toLocaleDateString("fr-CA")}</TableCell>}
+                {visibleColumns.has("mrc") && <TableCell className="py-2">{t.mrc ?? "—"}</TableCell>}
+                {visibleColumns.has("municipalite") && <TableCell className="py-2">{t.municipalite ?? "—"}</TableCell>}
+                {visibleColumns.has("superficieTotaleHectare") && <TableCell className="py-2 text-right">{formatNumber(t.superficieTotaleHectare)}</TableCell>}
+                {visibleColumns.has("prixVente") && <TableCell className="py-2 text-right">{formatCurrency(t.prixVente)}</TableCell>}
+                {visibleColumns.has("tauxGlobal") && <TableCell className="py-2 text-right">{formatCurrency(computeTauxGlobal(t))}</TableCell>}
+                {visibleColumns.has("statut") && <TableCell className="py-2">{statusBadge(t.enrichie?.statut)}</TableCell>}
+                <TableCell className="py-2 text-right">
+                  <Actions statut={t.enrichie?.statut} />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
         {loading && (
           <div className="flex items-center justify-center gap-2 border-t border-border py-3 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
