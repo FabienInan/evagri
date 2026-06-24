@@ -13,13 +13,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Sidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
-        onCollapseClick={() => setIsSidebarCollapsed((prev) => !prev)}
         collapsed={isSidebarCollapsed}
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header
-          onMenuClick={() => setIsSidebarOpen(true)}
-          onCollapseClick={() => setIsSidebarCollapsed((prev) => !prev)}
+          onMenuClick={() => setIsSidebarCollapsed((prev) => !prev)}
           isSidebarCollapsed={isSidebarCollapsed}
         />
         <main className="flex-1 overflow-auto p-4 lg:p-6">{children}</main>

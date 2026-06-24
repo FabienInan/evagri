@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutList, Upload, SlidersHorizontal, LogOut, PanelLeft, PanelLeftClose, Sprout } from "lucide-react"
+import { LayoutList, Upload, SlidersHorizontal, LogOut, Sprout } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
@@ -15,12 +15,10 @@ const NAV_ITEMS = [
 export function Sidebar({
   isOpen,
   onClose,
-  onCollapseClick,
   collapsed = false,
 }: {
   isOpen: boolean
   onClose: () => void
-  onCollapseClick: () => void
   collapsed?: boolean
 }) {
   const pathname = usePathname()
@@ -46,21 +44,6 @@ export function Sidebar({
             <Sprout className="h-5 w-5" />
           </div>
           {!collapsed && <span className="text-lg font-bold text-foreground">EVAGRI</span>}
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn(
-              "text-muted-foreground hover:text-foreground",
-              collapsed ? "ml-0" : "ml-auto"
-            )}
-            onClick={() => {
-              onCollapseClick()
-              onClose()
-            }}
-            aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
-          >
-            {collapsed ? <PanelLeft className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
-          </Button>
         </div>
 
         <nav className="flex-1 overflow-auto px-3 py-4">
