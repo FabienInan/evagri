@@ -2,10 +2,14 @@ import { PrismaClient } from "@prisma/client"
 
 const prisma = new PrismaClient()
 
+const DEFAULT_ORGANISATION_ID = "90a5866e-06e5-46ce-9941-56582b8ca15c"
+
 async function main() {
-  let org = await prisma.organisation.findFirst({ where: { nom: "EVAGRI" } })
+  let org = await prisma.organisation.findUnique({ where: { id: DEFAULT_ORGANISATION_ID } })
   if (!org) {
-    org = await prisma.organisation.create({ data: { nom: "EVAGRI" } })
+    org = await prisma.organisation.create({
+      data: { id: DEFAULT_ORGANISATION_ID, nom: "EVAGRI" },
+    })
     console.log("Created default organisation:", org.id)
   }
 
