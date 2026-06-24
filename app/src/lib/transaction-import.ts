@@ -107,7 +107,13 @@ export async function importTransactions(
       }
 
       if (!raw.numeroInscription || !raw.dateVente) {
-        throw new Error("Missing numeroInscription or dateVente")
+        const context = SOURCE_FIELDS
+          .map((field) => {
+            const value = raw[field as keyof ParsedRow]
+            return `${field}=${value === undefined || value === null || value === "" ? "(empty)" : String(value).slice(0, 50)}`
+          })
+          .join(", ")
+        throw new Error(`Missing numeroInscription or dateVente [${context}]`)
       }
 
       const dateVente = parseDate(raw.dateVente)
