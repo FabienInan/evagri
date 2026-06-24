@@ -46,7 +46,7 @@ export function Header({
           {isSidebarCollapsed ? <PanelLeft className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
         </Button>
 
-        <h1 className="hidden text-lg font-semibold text-foreground lg:inline">{title}</h1>
+        <h1 className="truncate text-lg font-semibold text-foreground">{title}</h1>
       </div>
 
       <div className="flex items-center gap-3 text-sm text-muted-foreground">
