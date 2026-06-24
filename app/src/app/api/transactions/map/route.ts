@@ -1,8 +1,22 @@
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
+import type { Prisma } from "@prisma/client"
+
+type MapTransaction = Prisma.TransactionSourceGetPayload<{
+  select: {
+    id: true
+    numeroInscription: true
+    dateVente: true
+    prixVente: true
+    superficieTotaleHectare: true
+    latitude: true
+    longitude: true
+    municipalite: true
+  }
+}>
 
 export async function GET() {
-  const transactions = await prisma.transactionSource.findMany({
+  const transactions: MapTransaction[] = await prisma.transactionSource.findMany({
     where: {
       organisationId: process.env.DEFAULT_ORGANISATION_ID || "",
       latitude: { not: null },
