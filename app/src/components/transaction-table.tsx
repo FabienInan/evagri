@@ -142,7 +142,7 @@ export function TransactionTable({
     toggleColumn,
     resetColumns,
     hasUserOverride,
-  } = useResponsiveColumns(columnMeta, initialVisible, ["actions"])
+  } = useResponsiveColumns(columnMeta, initialVisible, ["actions", "statut"])
 
   const [showColumnMenu, setShowColumnMenu] = useState(false)
   const visible = useMemo(() => COLUMNS.filter((c) => visibleColumns.has(c.key)), [visibleColumns])
