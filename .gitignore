@@ -22,3 +22,5 @@ docker-compose.override.yml
 .vscode/
 .idea/
 .worktrees/
+
+/app/generated/prisma
