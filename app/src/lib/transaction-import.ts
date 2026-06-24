@@ -2,6 +2,21 @@ import { prisma } from "./prisma"
 import { geocodeAddress } from "./geocode"
 import Decimal from "decimal.js"
 
+const SOURCE_FIELDS = [
+  "numeroInscription",
+  "dateVente",
+  "vendeur",
+  "acheteur",
+  "lotsCadastraux",
+  "prixVente",
+  "mrc",
+  "municipalite",
+  "adresse",
+  "superficieTotaleHectare",
+  "latitude",
+  "longitude",
+]
+
 function parseDate(value: unknown): Date | null {
   if (value instanceof Date) return value
   if (typeof value === "number") {
@@ -79,7 +94,18 @@ export async function importTransactions(
 
   for (let i = 0; i < rows.length; i++) {
     const raw = rows[i]
+    const rawRow = rawRows[i]
     try {
+      const hasAnySourceValue = SOURCE_FIELDS.some((field) => {
+        const v = raw[field as keyof ParsedRow]
+        return v !== undefined && v !== null && v !== ""
+      })
+
+      if (!raw.numeroInscription && !raw.dateVente && !hasAnySourceValue) {
+        ignored++
+        continue
+      }
+
       if (!raw.numeroInscription || !raw.dateVente) {
         throw new Error("Missing numeroInscription or dateVente")
       }
@@ -150,8 +176,7 @@ export async function importTransactions(
           },
         })
 
-        const rawRow = rawRows[i]
-        for (const champ of enrichmentChamps) {
+          for (const champ of enrichmentChamps) {
           const parsed = parseEnrichmentValue(champ, rawRow?.[champ.header])
           if (parsed.nombre !== null || parsed.texte !== null || parsed.booleen !== null) {
             await tx.valeurEnrichissement.create({
