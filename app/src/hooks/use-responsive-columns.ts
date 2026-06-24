@@ -40,7 +40,6 @@ export function useResponsiveColumns(
 
   useEffect(() => {
     if (hasUserOverride || !container) return
-    calculate()
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         if (entry.contentRect.width > 0) {
