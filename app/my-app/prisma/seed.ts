@@ -39,6 +39,26 @@ async function main() {
     })
   }
 
+  const sourceChamps = [
+    { codeMachine: "numeroInscription", nomAffichage: "N° d'inscription", typeDonnees: "TEXTE", unite: "N/A" },
+    { codeMachine: "dateVente", nomAffichage: "Date de vente", typeDonnees: "DATE", unite: "N/A" },
+    { codeMachine: "vendeur", nomAffichage: "Vendeur", typeDonnees: "TEXTE", unite: "N/A" },
+    { codeMachine: "acheteur", nomAffichage: "Acheteur", typeDonnees: "TEXTE", unite: "N/A" },
+    { codeMachine: "prixVente", nomAffichage: "Prix de vente", typeDonnees: "DECIMAL", unite: "$" },
+    { codeMachine: "mrc", nomAffichage: "MRC", typeDonnees: "TEXTE", unite: "N/A" },
+    { codeMachine: "municipalite", nomAffichage: "Municipalité", typeDonnees: "TEXTE", unite: "N/A" },
+    { codeMachine: "adresse", nomAffichage: "Adresse", typeDonnees: "TEXTE", unite: "N/A" },
+    { codeMachine: "superficieTotaleHectare", nomAffichage: "Superficie totale (ha)", typeDonnees: "DECIMAL", unite: "ha" },
+  ]
+
+  for (const c of sourceChamps) {
+    await prisma.champEnrichissable.upsert({
+      where: { organisationId_codeMachine: { organisationId: org.id, codeMachine: c.codeMachine } },
+      update: {},
+      create: { organisationId: org.id, ...c, nature: "SAISISSABLE", applicableATypes: [] },
+    })
+  }
+
   console.log("Seed completed.")
 }
 
