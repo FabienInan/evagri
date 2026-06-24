@@ -1,11 +1,13 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { importExcel } from "@/server/actions/import"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 
 export function ImportExcelForm({ onImported }: { onImported?: () => void }) {
+  const router = useRouter()
   const [report, setReport] = useState<{
     totalRows: number
     inserted: number
@@ -17,6 +19,7 @@ export function ImportExcelForm({ onImported }: { onImported?: () => void }) {
     const res = await importExcel(formData)
     setReport(res)
     onImported?.()
+    router.refresh()
   }
 
   return (

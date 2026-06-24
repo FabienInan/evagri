@@ -59,6 +59,9 @@ export function buildWhereClause(filters: FilterInput[]): Prisma.TransactionSour
       case "BOOLEEN":
         clause = { [field]: f.value === "true" }
         break
+      case "NUMERO_LOT":
+        clause = { lotsCadastraux: { has: f.value } }
+        break
     }
 
     andClauses.push(clause)

@@ -25,6 +25,7 @@ export function TransactionFilters({
     string,
     { operator: string; value: string }
   >>({})
+  const [lotValue, setLotValue] = useState("")
 
   const defaultOperator = (type: string) => {
     switch (type) {
@@ -56,6 +57,18 @@ export function TransactionFilters({
           value: v.value,
         }
       })
+
+    const lot = lotValue.trim()
+    if (lot) {
+      active.push({
+        id: "lot",
+        typeFiltre: "NUMERO_LOT",
+        field: "lotsCadastraux",
+        operator: "has",
+        value: lot,
+      })
+    }
+
     onSearch(active)
   }
 
@@ -98,6 +111,15 @@ export function TransactionFilters({
             </div>
           )
         })}
+      <div className="flex gap-2 items-center">
+        <span className="w-40 text-sm">N° de lot (revente)</span>
+        <Input
+          className="flex-1 text-sm"
+          placeholder="ex: 123"
+          value={lotValue}
+          onChange={(e) => setLotValue(e.target.value)}
+        />
+      </div>
       <Button onClick={handleSearch}>Rechercher</Button>
     </div>
   )
