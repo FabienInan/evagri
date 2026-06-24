@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma"
 import { searchTransactions } from "@/server/actions/transaction"
 import { TransactionsPageClient } from "@/components/transactions-page-client"
 
+export const dynamic = "force-dynamic"
+
 const DEFAULT_ORG_ID = process.env.DEFAULT_ORGANISATION_ID || ""
 
 export default async function TransactionsPage() {

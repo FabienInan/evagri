@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import { ImportExcelForm } from "@/components/import-excel-form"
 import { ImportHistory } from "@/components/import-history"
 import { listImports } from "@/server/actions/import"
