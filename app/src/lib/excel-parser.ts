@@ -8,7 +8,7 @@ export const SHEET_MAPPING: Record<string, { typologieCode: string }> = {
 }
 
 export const SOURCE_COLUMNS = [
-  { headerKeys: ["No d'enregistrement", "No d'enr."], field: "numeroInscription" },
+  { headerKeys: ["No d'enregistrement", "No d'enr.", "SIA"], field: "numeroInscription" },
   { headerKeys: ["Date de L'acte", "Date de l'acte ou de l'avant contrat"], field: "dateVente" },
   { headerKeys: ["Vendeur"], field: "vendeur" },
   { headerKeys: ["Acheteur"], field: "acheteur" },
@@ -102,9 +102,7 @@ export function extractNonEmptyEnrichmentHeaders(
     const firstNonEmpty = rows
       .map((r) => r[trimmedHeader])
       .find((v) => v !== null && v !== undefined && v !== "")
-    if (firstNonEmpty !== undefined) {
-      candidates.push({ header: trimmedHeader, sample: firstNonEmpty })
-    }
+    candidates.push({ header: trimmedHeader, sample: firstNonEmpty ?? null })
   }
 
   return candidates

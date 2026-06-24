@@ -45,13 +45,15 @@ describe("excel parser", () => {
     expect(mapped.superficieTotaleHectare).toBe(6.25)
   })
 
-  it("ignores source headers and empty enrichment columns", () => {
+  it("ignores source headers but keeps all enrichment columns", () => {
     const rows = [
       { "No d'enr.": "1", "Colonne vide": "", "Colonne pleine": "ABC" },
       { "No d'enr.": "2", "Colonne vide": null, "Colonne pleine": "DEF" },
     ]
     const candidates = extractNonEmptyEnrichmentHeaders(rows)
-    expect(candidates.map((c) => c.header)).toEqual(["Colonne pleine"])
+    expect(candidates.map((c) => c.header)).toEqual(["Colonne vide", "Colonne pleine"])
+    expect(candidates.find((c) => c.header === "Colonne pleine")?.sample).toBe("ABC")
+    expect(candidates.find((c) => c.header === "Colonne vide")?.sample).toBeNull()
   })
 
   it("infers types correctly", () => {
