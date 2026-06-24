@@ -1,8 +1,16 @@
 "use client"
 
 import { useState } from "react"
+import { Search, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 
 type FilterConfig = {
   id: string
@@ -72,55 +80,76 @@ export function TransactionFilters({
     onSearch(active)
   }
 
+  function handleReset() {
+    setValues({})
+    setLotValue("")
+    onSearch([])
+  }
+
   return (
-    <div className="space-y-3 mb-4">
-      <p className="font-medium">Filtres</p>
-      {filtersConfig
-        .filter((f) => f.estActif)
-        .sort((a, b) => a.ordreAffichage - b.ordreAffichage)
-        .map((f) => {
-          const operators = f.operateursDisponibles || [defaultOperator(f.typeFiltre)]
-          return (
-            <div key={f.id} className="flex gap-2 items-center">
-              <span className="w-40 text-sm">{f.nomFiltre}</span>
-              <select
-                className="border rounded p-1 text-sm"
-                value={values[f.id]?.operator || defaultOperator(f.typeFiltre)}
-                onChange={(e) =>
-                  setValues((prev) => ({
-                    ...prev,
-                    [f.id]: { ...(prev[f.id] || { value: "" }), operator: e.target.value },
-                  }))
-                }
-              >
-                {operators.map((op) => (
-                  <option key={op} value={op}>{op}</option>
-                ))}
-              </select>
-              <Input
-                className="flex-1 text-sm"
-                placeholder="valeur"
-                value={values[f.id]?.value || ""}
-                onChange={(e) =>
-                  setValues((prev) => ({
-                    ...prev,
-                    [f.id]: { ...(prev[f.id] || { operator: defaultOperator(f.typeFiltre) }), value: e.target.value },
-                  }))
-                }
-              />
-            </div>
-          )
-        })}
-      <div className="flex gap-2 items-center">
-        <span className="w-40 text-sm">N° de lot (revente)</span>
-        <Input
-          className="flex-1 text-sm"
-          placeholder="ex: 123"
-          value={lotValue}
-          onChange={(e) => setLotValue(e.target.value)}
-        />
-      </div>
-      <Button onClick={handleSearch}>Rechercher</Button>
-    </div>
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">Filtres</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {filtersConfig
+          .filter((f) => f.estActif)
+          .sort((a, b) => a.ordreAffichage - b.ordreAffichage)
+          .map((f) => {
+            const operators = f.operateursDisponibles || [defaultOperator(f.typeFiltre)]
+            return (
+              <div key={f.id} className="space-y-1.5">
+                <Label className="text-xs font-medium text-muted-foreground">{f.nomFiltre}</Label>
+                <div className="flex gap-2">
+                  <select
+                    className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    value={values[f.id]?.operator || defaultOperator(f.typeFiltre)}
+                    onChange={(e) =>
+                      setValues((prev) => ({
+                        ...prev,
+                        [f.id]: { ...(prev[f.id] || { value: "" }), operator: e.target.value },
+                      }))
+                    }
+                  >
+                    {operators.map((op) => (
+                      <option key={op} value={op}>{op}</option>
+                    ))}
+                  </select>
+                  <Input
+                    className="flex-1 text-sm"
+                    placeholder="valeur"
+                    value={values[f.id]?.value || ""}
+                    onChange={(e) =>
+                      setValues((prev) => ({
+                        ...prev,
+                        [f.id]: { ...(prev[f.id] || { operator: defaultOperator(f.typeFiltre) }), value: e.target.value },
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+            )
+          })}
+
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-muted-foreground">N° de lot (revente)</Label>
+          <Input
+            placeholder="ex: 123"
+            value={lotValue}
+            onChange={(e) => setLotValue(e.target.value)}
+          />
+        </div>
+
+        <div className="flex gap-2 pt-2">
+          <Button onClick={handleSearch} className="flex-1 gap-2">
+            <Search className="h-4 w-4" />
+            Rechercher
+          </Button>
+          <Button variant="outline" size="icon" onClick={handleReset} aria-label="Réinitialiser les filtres">
+            <RotateCcw className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   )
 }

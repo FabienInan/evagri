@@ -48,8 +48,7 @@ export function TransactionsPageClient({
   }
 
   return (
-    <main className="p-8">
-      <h1 className="text-2xl font-bold mb-4">Liste des transactions</h1>
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[300px_1fr] lg:gap-6">
       <TransactionFilters filtersConfig={filtersConfig} onSearch={handleSearch} />
       <TransactionTable
         data={data}
@@ -58,6 +57,6 @@ export function TransactionsPageClient({
         sortField={sortField}
         sortOrder={sortOrder}
       />
-    </main>
+    </div>
   )
 }

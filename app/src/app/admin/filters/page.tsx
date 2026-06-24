@@ -2,6 +2,13 @@ export const dynamic = "force-dynamic"
 
 import { prisma } from "@/lib/prisma"
 import { FiltersAdminForm } from "@/components/filters-admin-form"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 
 const DEFAULT_ORG_ID = process.env.DEFAULT_ORGANISATION_ID || ""
 
@@ -16,9 +23,16 @@ export default async function FiltersAdminPage() {
   ])
 
   return (
-    <main className="p-8">
-      <h1 className="text-2xl font-bold mb-4">Configuration des filtres de recherche</h1>
-      <FiltersAdminForm filters={filters} champs={champs} />
-    </main>
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle>Configuration des filtres de recherche</CardTitle>
+        <CardDescription>
+          Créez, ordonnez et activez les filtres disponibles dans la liste des transactions.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <FiltersAdminForm filters={filters} champs={champs} />
+      </CardContent>
+    </Card>
   )
 }
