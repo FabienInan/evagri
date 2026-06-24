@@ -74,6 +74,8 @@ export async function importExcel(formData: FormData) {
   const allErrors: { sheet: string; row: number; message: string }[] = []
 
   try {
+    console.log("[importExcel] sheets:", parsed.map((s) => ({ sheet: s.sheet, rows: s.rows.length, headers: Object.keys(s.rows[0] || {}) })))
+
     for (const sheet of parsed) {
       const typologie = await prisma.typologie.findUnique({
         where: { organisationId_code: { organisationId: org.id, code: sheet.typologieCode } },

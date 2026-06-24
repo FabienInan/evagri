@@ -70,8 +70,8 @@ export function rowToSourceFields(row: Record<string, unknown>): Record<string, 
   for (const col of SOURCE_COLUMNS) {
     const idx = findHeaderIndex(headers, col.headerKeys)
     if (idx !== -1) {
-      const key = headers[idx] as string
-      result[col.field] = row[key]
+      const rawKey = Object.keys(row)[idx]
+      result[col.field] = row[rawKey]
     }
   }
 
