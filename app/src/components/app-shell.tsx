@@ -5,14 +5,11 @@ import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
 
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
         onCollapseClick={() => setIsSidebarCollapsed((prev) => !prev)}
         collapsed={isSidebarCollapsed}
       />
