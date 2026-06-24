@@ -7,7 +7,6 @@ import {
   Upload,
   SlidersHorizontal,
   LogOut,
-  PanelLeft,
   PanelLeftClose,
   Sprout,
 } from "lucide-react"
@@ -36,28 +35,22 @@ export function Sidebar({
         collapsed ? "w-16" : "w-64"
       )}
     >
-      <div
-        className={cn(
-          "flex h-16 items-center gap-2 border-b border-border px-4",
-          collapsed && "justify-center px-2"
-        )}
-      >
+      <div className={cn("flex h-16 items-center border-b border-border", collapsed ? "justify-center px-2" : "gap-2 px-4")}>
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
           <Sprout className="h-5 w-5" />
         </div>
         {!collapsed && <span className="text-lg font-bold text-foreground">EVAGRI</span>}
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn(
-            "shrink-0 text-muted-foreground hover:text-foreground",
-            collapsed ? "ml-0" : "ml-auto"
-          )}
-          onClick={onCollapseClick}
-          aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
-        >
-          {collapsed ? <PanelLeft className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
-        </Button>
+        {!collapsed && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="ml-auto shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={onCollapseClick}
+            aria-label="Replier le menu"
+          >
+            <PanelLeftClose className="h-5 w-5" />
+          </Button>
+        )}
       </div>
 
       <nav className="flex-1 overflow-auto px-3 py-4">
