@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import {
   computeVisibleColumns,
   loadColumnPreference,
@@ -15,19 +15,8 @@ export function useResponsiveColumns(
   requiredKeys: string[] = []
 ) {
   const [container, setContainer] = useState<HTMLDivElement | null>(null)
-
-  // Reactive ref: setting current notifies React so ResizeObserver can attach
-  const containerRef = useMemo(() => {
-    let currentValue: HTMLDivElement | null = null
-    return {
-      get current() {
-        return currentValue
-      },
-      set current(value: HTMLDivElement | null) {
-        currentValue = value
-        setContainer(value)
-      },
-    }
+  const containerRef = useCallback((node: HTMLDivElement | null) => {
+    setContainer(node)
   }, [])
 
   const [visibleColumns, setVisibleColumnsState] = useState<Set<string>>(() => {
@@ -41,23 +30,18 @@ export function useResponsiveColumns(
     return loadColumnPreference() !== null
   })
 
-  const hasUserOverrideRef = useRef(hasUserOverride)
-  useEffect(() => {
-    hasUserOverrideRef.current = hasUserOverride
-  }, [hasUserOverride])
-
   const calculate = useCallback(() => {
-    const el = containerRef.current
+    const el = container
     if (!el) return
     const width = el.clientWidth
     if (width <= 0) return
     setVisibleColumnsState(computeVisibleColumns(columns, width, requiredKeys))
-  }, [columns, requiredKeys])
+  }, [columns, container, requiredKeys])
 
   useEffect(() => {
     if (hasUserOverride || !container) return
+    calculate()
     const observer = new ResizeObserver((entries) => {
-      if (hasUserOverrideRef.current) return
       for (const entry of entries) {
         if (entry.contentRect.width > 0) {
           calculate()

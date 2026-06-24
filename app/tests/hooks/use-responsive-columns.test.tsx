@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
-import { renderHook, act } from "@testing-library/react"
+import { render, act } from "@testing-library/react"
+import { useCallback, useLayoutEffect, useRef, useState } from "react"
 import { useResponsiveColumns } from "@/hooks/use-responsive-columns"
 import { clearColumnPreference } from "@/lib/responsive-columns"
 
@@ -11,6 +12,7 @@ const columns = [
 ]
 
 const requiredKeys = ["a"]
+const STORAGE_KEY = "evagri:transaction-table:visible-columns"
 
 class MockResizeObserver {
   callback: ResizeObserverCallback
@@ -44,6 +46,62 @@ class MockResizeObserver {
   }
 }
 
+function setup(initialVisible: Set<string>, initialWidth: number = 0) {
+  const apiRef: { current: ReturnType<typeof useResponsiveColumns> | null } = {
+    current: null,
+  }
+  const setWidthRef: { current: (width: number) => void } = {
+    current: () => {},
+  }
+
+  function TestComponent({ initialWidth }: { initialWidth: number }) {
+    const [width, setWidth] = useState(initialWidth)
+    const result = useResponsiveColumns(columns, initialVisible, requiredKeys)
+    const containerRef = useRef<HTMLDivElement | null>(null)
+
+    apiRef.current = result
+    setWidthRef.current = setWidth
+
+    const setContainer = useCallback(
+      (node: HTMLDivElement | null) => {
+        containerRef.current = node
+        result.containerRef(node)
+      },
+      [result.containerRef]
+    )
+
+    useLayoutEffect(() => {
+      if (containerRef.current) {
+        Object.defineProperty(containerRef.current, "clientWidth", {
+          configurable: true,
+          value: width,
+          writable: true,
+        })
+      }
+    }, [width])
+
+    return (
+      <div
+        ref={setContainer}
+        style={{ width }}
+        data-testid="container"
+      />
+    )
+  }
+
+  render(<TestComponent initialWidth={initialWidth} />)
+
+  return {
+    get result() {
+      if (!apiRef.current) throw new Error("Hook not mounted")
+      return apiRef.current
+    },
+    setWidth(width: number) {
+      act(() => setWidthRef.current(width))
+    },
+  }
+}
+
 describe("useResponsiveColumns", () => {
   let observer: MockResizeObserver | null = null
 
@@ -66,76 +124,46 @@ describe("useResponsiveColumns", () => {
   })
 
   it("calculates visible columns from container width", () => {
-    const initialVisible = new Set<string>(["a"])
-    const { result } = renderHook(() =>
-      useResponsiveColumns(columns, initialVisible, requiredKeys)
-    )
+    const api = setup(new Set<string>(["a"]))
 
-    act(() => {
-      result.current.containerRef.current = {
-        clientWidth: 180,
-      } as HTMLDivElement
-    })
+    api.setWidth(180)
+    act(() => observer?.trigger(180))
 
-    act(() => {
-      observer?.trigger(180)
-    })
-
-    expect([...result.current.visibleColumns].sort()).toEqual(["a", "b"])
+    expect([...api.result.visibleColumns].sort()).toEqual(["a", "b"])
   })
 
   it("persists manual toggle and stops auto calculation", () => {
-    const initialVisible = new Set<string>(["a"])
-    const { result } = renderHook(() =>
-      useResponsiveColumns(columns, initialVisible, requiredKeys)
+    const api = setup(new Set<string>(["a"]))
+
+    api.setWidth(180)
+    act(() => observer?.trigger(180))
+    expect([...api.result.visibleColumns].sort()).toEqual(["a", "b"])
+
+    act(() => api.result.toggleColumn("c"))
+
+    expect(api.result.hasUserOverride).toBe(true)
+    expect([...api.result.visibleColumns].sort()).toEqual(["a", "b", "c"])
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBe(
+      JSON.stringify(["a", "b", "c"])
     )
 
-    act(() => {
-      result.current.containerRef.current = {
-        clientWidth: 180,
-      } as HTMLDivElement
-    })
+    api.setWidth(120)
+    act(() => observer?.trigger(120))
 
-    act(() => {
-      result.current.toggleColumn("c")
-    })
-
-    expect(result.current.hasUserOverride).toBe(true)
-    expect([...result.current.visibleColumns].sort()).toEqual(["a", "c"])
-    expect(window.localStorage.getItem("evagri:transaction-table:visible-columns")).toBe(
-      JSON.stringify(["a", "c"])
-    )
-
-    act(() => {
-      result.current.containerRef.current = {
-        clientWidth: 300,
-      } as HTMLDivElement
-      observer?.trigger(300)
-    })
-
-    expect([...result.current.visibleColumns].sort()).toEqual(["a", "c"])
+    expect([...api.result.visibleColumns].sort()).toEqual(["a", "b", "c"])
   })
 
   it("reset clears preference and resumes auto calculation", () => {
-    const initialVisible = new Set<string>(["a"])
-    const { result } = renderHook(() =>
-      useResponsiveColumns(columns, initialVisible, requiredKeys)
-    )
+    const api = setup(new Set<string>(["a"]))
 
-    act(() => {
-      result.current.toggleColumn("c")
-    })
+    act(() => api.result.toggleColumn("c"))
 
-    act(() => {
-      result.current.containerRef.current = {
-        clientWidth: 180,
-      } as HTMLDivElement
-      observer?.trigger(180)
-      result.current.resetColumns()
-    })
+    api.setWidth(180)
+    act(() => observer?.trigger(180))
+    act(() => api.result.resetColumns())
 
-    expect(result.current.hasUserOverride).toBe(false)
-    expect(window.localStorage.getItem("evagri:transaction-table:visible-columns")).toBeNull()
-    expect([...result.current.visibleColumns].sort()).toEqual(["a", "b"])
+    expect(api.result.hasUserOverride).toBe(false)
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull()
+    expect([...api.result.visibleColumns].sort()).toEqual(["a", "b"])
   })
 })
