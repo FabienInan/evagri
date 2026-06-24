@@ -33,3 +33,66 @@ describe("computeVisibleColumns", () => {
     expect([...result]).toEqual([])
   })
 })
+
+import { beforeEach, afterEach, vi } from "vitest"
+import {
+  loadColumnPreference,
+  saveColumnPreference,
+  clearColumnPreference,
+} from "@/lib/responsive-columns"
+
+describe("column preference storage", () => {
+  let storage: Record<string, string> = {}
+
+  beforeEach(() => {
+    storage = {}
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => storage[key] ?? null,
+      setItem: (key: string, value: string) => {
+        storage[key] = value
+      },
+      removeItem: (key: string) => {
+        delete storage[key]
+      },
+    })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it("returns null when no preference is saved", () => {
+    expect(loadColumnPreference()).toBeNull()
+  })
+
+  it("loads a saved preference", () => {
+    storage["evagri:transaction-table:visible-columns"] = JSON.stringify(["a", "c"])
+    expect(loadColumnPreference()).toEqual(["a", "c"])
+  })
+
+  it("ignores corrupted stored value", () => {
+    storage["evagri:transaction-table:visible-columns"] = "not-json"
+    expect(loadColumnPreference()).toBeNull()
+  })
+
+  it("ignores non-array stored value", () => {
+    storage["evagri:transaction-table:visible-columns"] = JSON.stringify({ a: true })
+    expect(loadColumnPreference()).toBeNull()
+  })
+
+  it("saves a preference", () => {
+    saveColumnPreference(["b", "c"])
+    expect(storage["evagri:transaction-table:visible-columns"]).toBe(JSON.stringify(["b", "c"]))
+  })
+
+  it("clears a preference", () => {
+    storage["evagri:transaction-table:visible-columns"] = JSON.stringify(["a"])
+    clearColumnPreference()
+    expect(storage["evagri:transaction-table:visible-columns"]).toBeUndefined()
+  })
+
+  it("returns null on server where localStorage is missing", () => {
+    vi.stubGlobal("localStorage", undefined)
+    expect(loadColumnPreference()).toBeNull()
+  })
+})

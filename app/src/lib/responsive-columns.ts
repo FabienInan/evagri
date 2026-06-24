@@ -33,3 +33,30 @@ export function computeVisibleColumns(
 
   return visible
 }
+
+const STORAGE_KEY = "evagri:transaction-table:visible-columns"
+
+export function loadColumnPreference(): string[] | null {
+  if (typeof globalThis.localStorage === "undefined" || !globalThis.localStorage) return null
+  try {
+    const raw = globalThis.localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (Array.isArray(parsed) && parsed.every((k) => typeof k === "string")) {
+      return parsed
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+export function saveColumnPreference(keys: string[]) {
+  if (typeof globalThis.localStorage === "undefined" || !globalThis.localStorage) return
+  globalThis.localStorage.setItem(STORAGE_KEY, JSON.stringify(keys))
+}
+
+export function clearColumnPreference() {
+  if (typeof globalThis.localStorage === "undefined" || !globalThis.localStorage) return
+  globalThis.localStorage.removeItem(STORAGE_KEY)
+}
