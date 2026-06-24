@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutList, Upload, SlidersHorizontal, LogOut, Sprout } from "lucide-react"
+import { LayoutList, Upload, SlidersHorizontal, LogOut, PanelLeft, PanelLeftClose, Sprout } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
@@ -15,10 +15,12 @@ const NAV_ITEMS = [
 export function Sidebar({
   isOpen,
   onClose,
+  onCollapseClick,
   collapsed = false,
 }: {
   isOpen: boolean
   onClose: () => void
+  onCollapseClick: () => void
   collapsed?: boolean
 }) {
   const pathname = usePathname()
@@ -27,16 +29,16 @@ export function Sidebar({
     <>
       {isOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/30 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/30 md:hidden"
           onClick={onClose}
           aria-hidden="true"
         />
       )}
       <aside
         className={cn(
-          "fixed top-0 left-0 z-50 flex h-full flex-col border-r border-border bg-card transition-all duration-200 ease-in-out lg:sticky lg:top-0 lg:h-screen",
+          "fixed top-0 left-0 z-50 flex h-full flex-col border-r border-border bg-card transition-all duration-200 ease-in-out md:sticky md:top-0 md:h-screen",
           collapsed ? "w-16" : "w-64",
-          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
       >
         <div className={cn("flex h-16 items-center gap-2 border-b border-border px-4", collapsed && "justify-center px-2")}>
@@ -44,6 +46,21 @@ export function Sidebar({
             <Sprout className="h-5 w-5" />
           </div>
           {!collapsed && <span className="text-lg font-bold text-foreground">EVAGRI</span>}
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "text-muted-foreground hover:text-foreground",
+              collapsed ? "ml-0" : "ml-auto"
+            )}
+            onClick={() => {
+              onCollapseClick()
+              onClose()
+            }}
+            aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
+          >
+            {collapsed ? <PanelLeft className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+          </Button>
         </div>
 
         <nav className="flex-1 overflow-auto px-3 py-4">

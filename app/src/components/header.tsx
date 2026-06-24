@@ -1,8 +1,7 @@
 "use client"
 
-import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Menu, PanelLeft, PanelLeftClose, Sprout, User } from "lucide-react"
+import { Menu, PanelLeft, PanelLeftClose, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 const PAGE_TITLES: Record<string, string> = {
@@ -30,7 +29,7 @@ export function Header({
         <Button
           variant="ghost"
           size="icon"
-          className="lg:hidden"
+          className="md:hidden"
           onClick={onMenuClick}
           aria-label="Ouvrir le menu"
         >
@@ -40,25 +39,18 @@ export function Header({
         <Button
           variant="ghost"
           size="icon"
-          className="hidden lg:flex"
+          className="hidden md:flex"
           onClick={onCollapseClick}
           aria-label={isSidebarCollapsed ? "Déplier le menu" : "Replier le menu"}
         >
           {isSidebarCollapsed ? <PanelLeft className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
         </Button>
 
-        <Link href="/transactions" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Sprout className="h-5 w-5" />
-          </div>
-          <span className="text-lg font-bold text-foreground">EVAGRI</span>
-        </Link>
-
-        <h1 className="hidden text-lg font-semibold text-foreground sm:inline">{title}</h1>
+        <h1 className="hidden text-lg font-semibold text-foreground lg:inline">{title}</h1>
       </div>
 
       <div className="flex items-center gap-3 text-sm text-muted-foreground">
-        <span className="hidden sm:inline">Connecté en tant que</span>
+        <span className="hidden lg:inline">Connecté en tant que</span>
         <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-1.5">
           <User className="h-4 w-4" />
           <span className="font-medium text-foreground">Simon Audoire</span>
