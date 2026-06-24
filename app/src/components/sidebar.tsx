@@ -36,9 +36,26 @@ export function Sidebar({
       )}
     >
       <div className={cn("flex h-16 items-center border-b border-border", collapsed ? "justify-center px-2" : "gap-2 px-4")}>
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
-          <Sprout className="h-5 w-5" />
-        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn(
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary p-0 text-primary-foreground hover:bg-primary hover:text-primary-foreground",
+            collapsed ? "cursor-pointer" : ""
+          )}
+          onClick={collapsed ? onCollapseClick : undefined}
+          aria-label={collapsed ? "Déplier le menu" : undefined}
+          asChild={!collapsed}
+        >
+          {collapsed ? (
+            <Sprout className="h-5 w-5" />
+          ) : (
+            <Link href="/transactions" className="flex h-8 w-8 items-center justify-center">
+              <Sprout className="h-5 w-5" />
+            </Link>
+          )}
+        </Button>
+
         {!collapsed && <span className="text-lg font-bold text-foreground">EVAGRI</span>}
         {!collapsed && (
           <Button
