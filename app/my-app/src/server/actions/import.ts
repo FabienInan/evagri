@@ -5,8 +5,6 @@ import { parseWorkbook, rowToSourceFields, extractNonEmptyEnrichmentHeaders, inf
 import { importTransactions } from "@/lib/transaction-import"
 import { logAudit } from "@/lib/audit"
 
-const DEFAULT_ORG_ID = process.env.DEFAULT_ORGANISATION_ID || ""
-
 async function ensureEnrichmentChamps(
   organisationId: string,
   sheetRows: Record<string, unknown>[]
@@ -55,7 +53,7 @@ export async function importExcel(formData: FormData) {
   const parsed = parseWorkbook(arrayBuffer)
   if (parsed.length === 0) throw new Error("Aucune feuille reconnue (Terre, Bois, Ventes erablière)")
 
-  const org = await prisma.organisation.findFirst({ where: { id: DEFAULT_ORG_ID } })
+  const org = await prisma.organisation.findFirst({ where: { id: process.env.DEFAULT_ORGANISATION_ID || "" } })
   if (!org) throw new Error("Organisation par défaut non initialisée")
 
   const importation = await prisma.importation.create({
@@ -145,7 +143,7 @@ export async function importExcel(formData: FormData) {
 }
 
 export async function listImports() {
-  const org = await prisma.organisation.findFirst({ where: { id: DEFAULT_ORG_ID } })
+  const org = await prisma.organisation.findFirst({ where: { id: process.env.DEFAULT_ORGANISATION_ID || "" } })
   if (!org) throw new Error("Organisation par défaut non initialisée")
 
   return prisma.importation.findMany({
@@ -156,7 +154,7 @@ export async function listImports() {
 }
 
 export async function retryImport(importationId: string) {
-  const org = await prisma.organisation.findFirst({ where: { id: DEFAULT_ORG_ID } })
+  const org = await prisma.organisation.findFirst({ where: { id: process.env.DEFAULT_ORGANISATION_ID || "" } })
   if (!org) throw new Error("Organisation par défaut non initialisée")
 
   const importation = await prisma.importation.findFirst({
