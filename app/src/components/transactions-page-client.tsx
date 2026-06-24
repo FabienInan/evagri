@@ -4,6 +4,7 @@ import { useState } from "react"
 import { searchTransactions } from "@/server/actions/transaction"
 import { TransactionTable } from "@/components/transaction-table"
 import { TransactionFilters } from "@/components/transaction-filters"
+import { TransactionViewToggle } from "@/components/transaction-view-toggle"
 
 type TableData = Awaited<ReturnType<typeof searchTransactions>>
 
@@ -48,15 +49,21 @@ export function TransactionsPageClient({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[300px_1fr] lg:gap-6">
-      <TransactionFilters filtersConfig={filtersConfig} onSearch={handleSearch} />
-      <TransactionTable
-        data={data}
-        onPageChange={loadPage}
-        onSort={handleSort}
-        sortField={sortField}
-        sortOrder={sortOrder}
-      />
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <TransactionViewToggle />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[300px_1fr] lg:gap-6">
+        <TransactionFilters filtersConfig={filtersConfig} onSearch={handleSearch} />
+        <TransactionTable
+          data={data}
+          onPageChange={loadPage}
+          onSort={handleSort}
+          sortField={sortField}
+          sortOrder={sortOrder}
+        />
+      </div>
     </div>
   )
 }

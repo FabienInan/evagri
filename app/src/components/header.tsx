@@ -1,7 +1,8 @@
 "use client"
 
+import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Menu, PanelLeft, PanelLeftClose, User } from "lucide-react"
+import { Menu, PanelLeft, PanelLeftClose, Sprout, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 const PAGE_TITLES: Record<string, string> = {
@@ -46,7 +47,14 @@ export function Header({
           {isSidebarCollapsed ? <PanelLeft className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
         </Button>
 
-        <h1 className="text-lg font-semibold text-foreground">{title}</h1>
+        <Link href="/transactions" className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
+            <Sprout className="h-5 w-5" />
+          </div>
+          <span className="text-lg font-bold text-foreground">EVAGRI</span>
+        </Link>
+
+        <h1 className="hidden text-lg font-semibold text-foreground sm:inline">{title}</h1>
       </div>
 
       <div className="flex items-center gap-3 text-sm text-muted-foreground">

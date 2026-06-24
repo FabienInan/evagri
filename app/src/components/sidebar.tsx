@@ -2,13 +2,12 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutList, Map, Upload, SlidersHorizontal, LogOut, Sprout } from "lucide-react"
+import { LayoutList, Upload, SlidersHorizontal, LogOut, Sprout } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
 const NAV_ITEMS = [
   { href: "/transactions", label: "Liste des transactions", icon: LayoutList },
-  { href: "/transactions/map", label: "Carte", icon: Map },
   { href: "/admin/import", label: "Gestion des imports", icon: Upload },
   { href: "/admin/filters", label: "Configuration des filtres", icon: SlidersHorizontal },
 ]
@@ -35,7 +34,7 @@ export function Sidebar({
       )}
       <aside
         className={cn(
-          "fixed top-0 left-0 z-50 flex h-full flex-col border-r border-border bg-card transition-all duration-200 ease-in-out lg:static",
+          "fixed top-0 left-0 z-50 flex h-full flex-col border-r border-border bg-card transition-all duration-200 ease-in-out lg:sticky lg:top-0 lg:h-screen",
           collapsed ? "w-16" : "w-64",
           isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
