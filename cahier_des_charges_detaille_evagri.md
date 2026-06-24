@@ -151,34 +151,23 @@ Le présent document constitue la spécification fonctionnelle exhaustive de la 
 
 Immuables après insertion.
 
-| Attribut | Type | Contrainte |
-|---|---|---|
-| `id` | UUID | PK |
-| `id_organisation` | UUID | FK → Organisation, NOT NULL |
-| `id_importation` | UUID | FK |
-| `systeme_source` | VARCHAR(20) | `JLR`, `EXISTANT_EVAGRI` |
-| `reference_externe` | VARCHAR(255) | |
-| `numero_inscription` | VARCHAR(50) | NOT NULL |
-| `numero_lot` | VARCHAR(50) | NOT NULL |
-| `date_vente` | DATE | NOT NULL |
-| `prix_vente` | NUMERIC(15,2) | |
-| `vendeur` | VARCHAR(255) | |
-| `acheteur` | VARCHAR(255) | |
-| `lots_cadastraux` | TEXT[] | |
-| `adresse` | TEXT | |
-| `municipalite` | VARCHAR(255) | |
-| `mrc` | VARCHAR(100) | |
-| `region_administrative` | VARCHAR(100) | |
-| `superficie_totale_hectare` | NUMERIC(12,4) | |
-| `evaluation_municipale` | NUMERIC(15,2) | |
-| `date_reference_eval_municipale` | DATE | |
-| `latitude` | NUMERIC(10,8) | |
-| `longitude` | NUMERIC(11,8) | |
-| `zone_agricole` | VARCHAR(100) | |
-| `presence_batiment` | BOOLEAN | |
-| `est_erabliere` | BOOLEAN | |
-| `cptaq` | VARCHAR(100) | |
-| `date_creation` | TIMESTAMPTZ | DEFAULT `now()` |
+| Attribut | Type | Contrainte | Source |
+|---|---|---|---|
+| `id` | UUID | PK | |
+| `id_organisation` | UUID | FK → Organisation, NOT NULL | |
+| `id_importation` | UUID | FK | Importation parente |
+| `systeme_source` | VARCHAR(20) | `JLR`, `EXISTANT_EVAGRI` | |
+| `numero_inscription` | VARCHAR(50) | NOT NULL | `No d'enregistrement` |
+| `date_vente` | DATE | NOT NULL | `Date de L'acte` |
+| `vendeur` | VARCHAR(255) | | `Vendeur` |
+| `acheteur` | VARCHAR(255) | | `Acheteur` |
+| `lots_cadastraux` | TEXT[] | | `Lots` |
+| `prix_vente` | NUMERIC(15,2) | | `Prix de vente` |
+| `mrc` | VARCHAR(100) | | `MRC` |
+| `municipalite` | VARCHAR(255) | | `Ville/Municipalité` |
+| `adresse` | TEXT | | `Adresse complete` |
+| `superficie_totale_hectare` | NUMERIC(12,4) | | `Superficie Totale (ha)` |
+| `date_creation` | TIMESTAMPTZ | DEFAULT `now()` | |
 
 **Contrainte** : `UNIQUE(id_organisation, numero_inscription, date_vente)`.
 
@@ -416,8 +405,9 @@ Interface Admin + Dev : statut, lignes, erreurs, relance, template vierge.
 #### 7.2.1 Mapping des données et documents
 
 - **Colonnes sources** : importées dans **Transaction Source**.
-- **Colonnes enrichies** : initialisent **ChampEnrichissable** (saisissables et calculés) et importées comme **ValeurEnrichissement** initiales.
-- **Documents d'acte (PDF)** : lors de la migration initiale, les fichiers PDF d'actes de vente associés aux transactions historiques d'EVAGRI sont importés en masse. L'administrateur fournit un dossier de PDF. Le système tente l'association automatique par correspondance `numero_inscription` ou `numero_lot` avec le nom de fichier (selon une convention à définir, ex. : `numero_inscription.pdf` ou `numero_lot_date.pdf`). Les PDF non appariés sont listés dans un rapport pour association manuelle.
+- **Colonnes enrichies** : initialisent **ChampEnrichissable** (saisissables et calculés) et importées comme **ValeurEnrichissement** initiales. Les colonnes qui ne sont pas dans l'entité des transactions sources, sont dans les champs enrichis.
+- **Colonnes vides**: les colonnes vides sont ignorés et aucun champ source ou enrichie n'est ajouté dans le modèle si la colonne est vide. La latitude/longitude sera calculé à partir d'une API à partir de l'adresse seulement si elle n'est pas présente dans le fichier d'import.
+- **Documents d'acte (PDF)** : lors de la migration initiale, les fichiers PDF d'actes de vente associés aux transactions historiques d'EVAGRI sont importés en masse. Ils se trouvent dans le dossier Base de données\Actes. Le système tente l'association automatique par correspondance `numero_inscription` avec le nom de fichier (selon une convention à définir, ex. : `numero_inscription.pdf`). Les PDF non appariés sont listés dans un rapport pour association manuelle. 
 
 #### 7.2.2 Rapport
 
@@ -579,7 +569,7 @@ Fonction dédiée permettant de saisir un numéro de lot pour lister l’ensembl
 
 #### 7.6.4 Carte interactive OpenStreetMap
 
-Affichage des résultats sous forme de pins. Popup : taux/ha, année, superficie, type de bâtiment (si enrichi), prix de vente, types/sous-types. Clustering automatique si concentration de points.
+Affichage des résultats sous forme de pins. Popup : taux/ha, année, superficie, type de bâtiment (si enrichi), prix de vente, types/sous-types. Clustering automatique si concentration de points. Il est possible de sélectionner plusieurs pins en traçant un polygone, quand le polygone sera tracé, on pourra ajouter les transactions circonscrits dans le polygone  dans un des paniers du dossier en cours
 
 ### 7.7 Module Dossiers et Paniers de comparables
 
@@ -790,3 +780,12 @@ L’Administrateur peut désactiver un compte utilisateur. Sur demande, il peut 
 | Capacité évolutive | L’application doit supporter plusieurs dizaines de milliers de transactions sans dégradation fonctionnelle visible. | Test de charge sur base extrapolée. |
 | Précision des calculs | Arrondi systématique à 2 décimales pour tous les indicateurs monétaires et unitaires. | Vérification formelle des formules. |
 | Rétention des archives | Fichiers sources conservés sans maximum. Sauvegardes de la base conservées 30 jours minimum. | Politique de rétention documentée. |
+
+## 9 . Priorités de livraison
+
+| Livrable | Contenu | Date de livraison |
+|---|---|---|
+| **Version alpha** | import evagri,<br>bd des transactions : vue dynamique et vue carte,<br>écran administrateur filtre, ecran administratif des imports | 17 juillet 2026 |
+| **Version beta** | Fiches transaction détaillé,<br>écran administrateur champs à enrichir,<br>Panier de dossiers comparables,<br>export Excel et export carte | fin octobre 2026 |
+| **Version gamma** | authentification et rôles,<br>écran administrateur gestion des utilisateurs | mi novembre 2026 |
+| **Version RC** | import JLR | fin novembre 2026 |

@@ -26,7 +26,6 @@
 | `src/lib/excel-parser.ts` | Analyse du fichier Excel historique EVAGRI. |
 | `src/lib/transaction-import.ts` | Insertion des transactions sources en base. |
 | `src/lib/filters.ts` | Conversion d'un filtre `FiltreRecherche` en clause Prisma. |
-| `src/lib/geo.ts` | Résolution géographique (MRC, région) via le référentiel. |
 | `src/app/layout.tsx` | Layout racine. |
 | `src/app/page.tsx` | Redirection vers `/transactions`. |
 | `src/app/transactions/page.tsx` | Page liste avec tableau. |
@@ -37,7 +36,9 @@
 | `src/components/transaction-filters.tsx` | Panneau de filtres alimenté par `FiltreRecherche`. |
 | `src/components/transaction-map.tsx` | Carte Leaflet avec pins et clustering. |
 | `src/components/import-excel-form.tsx` | Formulaire d'upload et rapport d'import. |
+| `src/components/import-history.tsx` | Tableau d'historique des importations + retry. |
 | `src/components/filters-admin-form.tsx` | CRUD filtres de recherche. |
+| `src/components/transactions-page-client.tsx` | Client wrapper pour la liste et les filtres. |
 | `src/server/actions/transaction.ts` | Recherche paginée des transactions. |
 | `src/server/actions/import.ts` | Import Excel. |
 | `src/server/actions/filters.ts` | CRUD filtres de recherche. |
@@ -108,9 +109,7 @@ model TransactionSource {
   organisationId        String    @map("id_organisation")
   importationId         String?   @map("id_importation")
   systemeSource         String    @map("systeme_source")
-  referenceExterne      String?   @map("reference_externe")
   numeroInscription     String    @map("numero_inscription")
-  numeroLot             String    @map("numero_lot")
   dateVente             DateTime  @map("date_vente") @db.Date
   prixVente             Decimal?  @map("prix_vente") @db.Decimal(15, 2)
   vendeur               String?
@@ -119,16 +118,9 @@ model TransactionSource {
   adresse               String?
   municipalite          String?
   mrc                   String?
-  regionAdministrative  String?   @map("region_administrative")
   superficieTotaleHectare Decimal?  @map("superficie_totale_hectare") @db.Decimal(12, 4)
-  evaluationMunicipale  Decimal?  @map("evaluation_municipale") @db.Decimal(15, 2)
-  dateReferenceEvalMunicipale DateTime? @map("date_reference_eval_municipale") @db.Date
-  latitude              Decimal?  @db.Decimal(10, 8)
-  longitude             Decimal?  @db.Decimal(11, 8)
-  zoneAgricole          String?   @map("zone_agricole")
-  presenceBatiment      Boolean?  @map("presence_batiment")
-  estErabliere          Boolean?  @map("est_erabliere")
-  cptaq                 String?
+  latitude              Decimal?  @db.Decimal(10, 8) // Géocodé depuis adresse/municipalité si absent de l'import
+  longitude             Decimal?  @db.Decimal(11, 8) // Géocodé depuis adresse/municipalité si absent de l'import
   createdAt             DateTime  @default(now()) @map("date_creation")
 
   organisation Organisation @relation(fields: [organisationId], references: [id])
@@ -730,7 +722,6 @@ git commit -m "feat(db): add full MVP Prisma schema, seed and storage helpers"
 **Files:**
 - Create: `src/lib/excel-parser.ts`
 - Create: `src/lib/transaction-import.ts`
-- Create: `src/lib/geo.ts`
 - Create: `tests/lib/excel-parser.test.ts`
 - Create: `tests/fixtures/minimal.xlsx`
 - Create: `src/server/actions/import.ts`
@@ -782,21 +773,18 @@ export const SHEET_MAPPING: Record<string, { typologieCode: string }> = {
 }
 
 export const SOURCE_COLUMNS = [
-  { headerKeys: ["No d'enr.", "No d'enregistrement", "No d'enr"], field: 'numeroInscription' },
-  { headerKeys: ['MLS', '# MLS', '#vente'], field: 'referenceExterne' },
-  { headerKeys: ["Date de l'acte ou de l'avant contrat", "Date de L'acte", "Date"], field: 'dateVente' },
+  { headerKeys: ["No d'enregistrement", "No d'enr."], field: 'numeroInscription' },
+  { headerKeys: ["Date de L'acte", "Date de l'acte ou de l'avant contrat"], field: 'dateVente' },
   { headerKeys: ['Vendeur'], field: 'vendeur' },
   { headerKeys: ['Acheteur'], field: 'acheteur' },
-  { headerKeys: ['Lots', 'Lot'], field: 'lotsCadastraux' },
-  { headerKeys: ['Prixdevente($)', 'Prix de vente ($)', 'Prix de vente'], field: 'prixVente' },
+  { headerKeys: ['Lots'], field: 'lotsCadastraux' },
+  { headerKeys: ['Prix de vente', 'Prix de vente ($)', 'Prixdevente($)'], field: 'prixVente' },
   { headerKeys: ['MRC'], field: 'mrc' },
-  { headerKeys: ['Ville/Municipalité', 'Ville', 'Municipalite'], field: 'municipalite' },
-  { headerKeys: ['Adresse complète', 'Adresse complette', 'Adresse'], field: 'adresse' },
+  { headerKeys: ['Ville/Municipalité'], field: 'municipalite' },
+  { headerKeys: ['Adresse complete', 'Adresse complète'], field: 'adresse' },
+  { headerKeys: ['Superficie Totale (ha)', 'Superficie totale (ha)'], field: 'superficieTotaleHectare' },
   { headerKeys: ['Latitude'], field: 'latitude' },
   { headerKeys: ['Longitude'], field: 'longitude' },
-  { headerKeys: ['Superficie totale (ha)', 'Superficie Totale (ha)', 'Superficie totale'], field: 'superficieTotaleHectare' },
-  { headerKeys: ['Région administrative', 'Region administrative'], field: 'regionAdministrative' },
-  { headerKeys: ['CPTAQ'], field: 'cptaq' },
 ]
 
 export function parseWorkbook(buffer: ArrayBuffer) {
@@ -846,6 +834,11 @@ export function isSourceHeader(header: string): boolean {
   return SOURCE_HEADER_SET.has(header.toLowerCase())
 }
 
+function isIgnoredHeader(header: string): boolean {
+  const h = header.trim().toLowerCase()
+  return h === '' || h.startsWith('__empty') || h.startsWith('column')
+}
+
 export function extractNonEmptyEnrichmentHeaders(
   rows: Record<string, unknown>[]
 ): { header: string; sample: unknown }[] {
@@ -854,7 +847,7 @@ export function extractNonEmptyEnrichmentHeaders(
   const candidates: { header: string; sample: unknown }[] = []
 
   for (const header of allHeaders) {
-    if (isSourceHeader(header)) continue
+    if (isSourceHeader(header) || isIgnoredHeader(header)) continue
     const trimmedHeader = header.trim()
     const firstNonEmpty = rows.map((r) => r[trimmedHeader]).find((v) => v !== null && v !== undefined && v !== '')
     if (firstNonEmpty !== undefined) {
@@ -877,7 +870,7 @@ export function inferType(value: unknown): 'TEXTE' | 'DECIMAL' | 'ENTIER' | 'BOO
 - [ ] **Step 4: Create fixture and write parser tests**
 
 Create a minimal workbook at `/Users/fabien/Documents/projets/Evagri/app/my-app/tests/fixtures/minimal.xlsx` containing one sheet named `Terre` with headers:
-- `No d'enr.` | `Date de l'acte ou de l'avant contrat` | `Prixdevente($)` | `MRC` | `Ville/Municipalité` | `Superficie totale (ha)`
+- `No d'enregistrement` | `Date de L'acte` | `Vendeur` | `Acheteur` | `Lots` | `Prix de vente` | `MRC` | `Ville/Municipalité` | `Adresse complete` | `Superficie Totale (ha)`
 
 and one data row.
 
@@ -900,22 +893,34 @@ describe('excel parser', () => {
 
   it('maps a row to source fields', () => {
     const row = {
-      "No d'enr.": '12345',
-      "Date de l'acte ou de l'avant contrat": '2023-01-15',
-      'Prixdevente($)': 50000,
+      "No d'enregistrement": '12345',
+      "Date de L'acte": '2023-01-15',
+      Vendeur: 'Vendeur A',
+      Acheteur: 'Acheteur B',
+      Lots: '1,2,3',
+      'Prix de vente': 50000,
       MRC: 'Nicolet-Yamaska',
+      'Ville/Municipalité': 'Nicolet',
+      'Adresse complete': '123 rue Principale',
+      'Superficie Totale (ha)': 12.5,
     }
     const mapped = rowToSourceFields(row)
     expect(mapped.numeroInscription).toBe('12345')
     expect(mapped.dateVente).toBe('2023-01-15')
+    expect(mapped.vendeur).toBe('Vendeur A')
+    expect(mapped.acheteur).toBe('Acheteur B')
+    expect(mapped.lotsCadastraux).toEqual(['1', '2', '3'])
     expect(mapped.prixVente).toBe(50000)
     expect(mapped.mrc).toBe('Nicolet-Yamaska')
+    expect(mapped.municipalite).toBe('Nicolet')
+    expect(mapped.adresse).toBe('123 rue Principale')
+    expect(mapped.superficieTotaleHectare).toBe(12.5)
   })
 
   it('ignores empty enrichment columns', () => {
     const rows = [
-      { "No d'enr.": '1', 'Colonne vide': '', 'Colonne pleine': 'ABC' },
-      { "No d'enr.": '2', 'Colonne vide': null, 'Colonne pleine': 'DEF' },
+      { "No d'enregistrement": '1', 'Colonne vide': '', 'Colonne pleine': 'ABC' },
+      { "No d'enregistrement": '2', 'Colonne vide': null, 'Colonne pleine': 'DEF' },
     ]
     const candidates = extractNonEmptyEnrichmentHeaders(rows)
     expect(candidates.map((c) => c.header)).toEqual(['Colonne pleine'])
@@ -929,35 +934,27 @@ describe('excel parser', () => {
 })
 ```
 
-- [ ] **Step 5: Create geographic resolution helper**
+- [ ] **Step 5: MRC and region**
 
-Create `/Users/fabien/Documents/projets/Evagri/app/my-app/src/lib/geo.ts`:
+The MRC is read directly from the `MRC` source column. `regionAdministrative` is not stored on `TransactionSource` in the Alpha schema; the referentiel `Municipalite` table keeps MRC/region mappings for future use.
+
+- [ ] **Step 6: Create geocoding helper (stub for Alpha)**
+
+Create `/Users/fabien/Documents/projets/Evagri/app/my-app/src/lib/geocode.ts`:
 ```ts
-import { prisma } from './prisma'
-
-export async function resolveGeography(organisationId: string, municipalite?: string | null, mrc?: string | null) {
-  if (!municipalite) return { mrc: mrc || null, regionAdministrative: null }
-
-  const ref = await prisma.municipalite.findFirst({
-    where: {
-      organisationId,
-      nomMunicipalite: { contains: municipalite.trim(), mode: 'insensitive' },
-    },
-  })
-
-  return {
-    mrc: ref?.mrc || mrc || null,
-    regionAdministrative: ref?.regionAdministrative || null,
-  }
+export async function geocodeAddress(query: string): Promise<{ latitude: number; longitude: number } | null> {
+  // Alpha stub: returns null. Replace with a Canada-hosted geocoding API (e.g. Nominatim or paid provider) in Beta/RC.
+  console.log('Geocoding skipped for Alpha:', query)
+  return null
 }
 ```
 
-- [ ] **Step 6: Create transaction import logic**
+- [ ] **Step 7: Create transaction import logic**
 
 Create `/Users/fabien/Documents/projets/Evagri/app/my-app/src/lib/transaction-import.ts`:
 ```ts
 import { prisma } from './prisma'
-import { resolveGeography } from './geo'
+import { geocodeAddress } from './geocode'
 import Decimal from 'decimal.js'
 
 function parseDate(value: unknown): Date | null {
@@ -974,19 +971,20 @@ function parseDate(value: unknown): Date | null {
 
 function parseNumber(value: unknown): number | null {
   if (value === null || value === undefined || value === '') return null
-  const n = Number(value)
+  const normalized = String(value).trim().replace(',', '.').replace(/\s/g, '')
+  const n = Number(normalized)
   return isNaN(n) ? null : n
 }
 
 function parseLots(value: unknown): string[] {
   if (Array.isArray(value)) return value.map(String)
+  if (typeof value === 'number') return [String(value)]
   if (typeof value === 'string') return value.split(/[,;]/).map((s) => s.trim()).filter(Boolean)
   return []
 }
 
 export interface ParsedRow {
   numeroInscription: string
-  referenceExterne?: string
   dateVente: string
   vendeur?: string
   acheteur?: string
@@ -995,11 +993,9 @@ export interface ParsedRow {
   mrc?: string
   municipalite?: string
   adresse?: string
+  superficieTotaleHectare?: number
   latitude?: number
   longitude?: number
-  superficieTotaleHectare?: number
-  regionAdministrative?: string
-  cptaq?: string
 }
 
 export interface EnrichmentChamp {
@@ -1047,12 +1043,19 @@ export async function importTransactions(
       if (!dateVente) throw new Error(`Invalid date: ${raw.dateVente}`)
 
       const numeroInscription = String(raw.numeroInscription).trim()
-      const numeroLot = parseLots(raw.lotsCadastraux)[0] || ''
       const lots = parseLots(raw.lotsCadastraux)
       const prixVente = parseNumber(raw.prixVente)
       const superficieTotaleHectare = parseNumber(raw.superficieTotaleHectare)
       const latitude = parseNumber(raw.latitude)
       const longitude = parseNumber(raw.longitude)
+
+      let coords: { latitude: number; longitude: number } | null = null
+      if (latitude !== null && longitude !== null) {
+        coords = { latitude, longitude }
+      } else {
+        const geoQuery = [raw.adresse, raw.municipalite].filter(Boolean).join(', ')
+        coords = geoQuery ? await geocodeAddress(geoQuery) : null
+      }
 
       if (dateVente > new Date()) {
         throw new Error('V-004: date de vente postérieure à aujourd\'hui')
@@ -1073,17 +1076,13 @@ export async function importTransactions(
         continue
       }
 
-      const geo = await resolveGeography(organisationId, raw.municipalite, raw.mrc)
-
       await prisma.$transaction(async (tx) => {
         const txSource = await tx.transactionSource.create({
           data: {
             organisationId,
             importationId,
             systemeSource,
-            referenceExterne: raw.referenceExterne || null,
             numeroInscription,
-            numeroLot,
             dateVente,
             prixVente: prixVente !== null ? new Decimal(prixVente) : null,
             vendeur: raw.vendeur || null,
@@ -1091,14 +1090,10 @@ export async function importTransactions(
             lotsCadastraux: lots,
             adresse: raw.adresse || null,
             municipalite: raw.municipalite || null,
-            mrc: geo.mrc,
-            regionAdministrative: geo.regionAdministrative,
+            mrc: raw.mrc || null,
             superficieTotaleHectare: superficieTotaleHectare !== null ? new Decimal(superficieTotaleHectare) : null,
-            latitude: latitude !== null ? new Decimal(latitude) : null,
-            longitude: longitude !== null ? new Decimal(longitude) : null,
-            cptaq: raw.cptaq || null,
-            estErabliere: false,
-            presenceBatiment: false,
+            latitude: coords?.latitude !== undefined ? new Decimal(coords.latitude) : null,
+            longitude: coords?.longitude !== undefined ? new Decimal(coords.longitude) : null,
           },
         })
 
@@ -1137,7 +1132,7 @@ export async function importTransactions(
 }
 ```
 
-- [ ] **Step 7: Create import Server Action**
+- [ ] **Step 8: Create import Server Action**
 
 Create `/Users/fabien/Documents/projets/Evagri/app/my-app/src/server/actions/import.ts`:
 ```ts
@@ -1217,45 +1212,57 @@ export async function importExcel(formData: FormData) {
   let totalIgnored = 0
   const allErrors: { sheet: string; row: number; message: string }[] = []
 
-  for (const sheet of parsed) {
-    const typologie = await prisma.typologie.findUnique({
-      where: { organisationId_code: { organisationId: org.id, code: sheet.typologieCode } },
-    })
-    if (!typologie) {
-      allErrors.push({ sheet: sheet.sheet, row: 0, message: `Typologie ${sheet.typologieCode} inconnue` })
-      continue
+  try {
+    for (const sheet of parsed) {
+      const typologie = await prisma.typologie.findUnique({
+        where: { organisationId_code: { organisationId: org.id, code: sheet.typologieCode } },
+      })
+      if (!typologie) {
+        allErrors.push({ sheet: sheet.sheet, row: 0, message: `Typologie ${sheet.typologieCode} inconnue` })
+        continue
+      }
+
+      const enrichmentChamps = await ensureEnrichmentChamps(org.id, sheet.rows)
+      const rows = sheet.rows.map((r) => rowToSourceFields(r) as any)
+      totalRows += rows.length
+
+      const { inserted, ignored, errors } = await importTransactions(
+        org.id,
+        rows,
+        enrichmentChamps,
+        sheet.rows,
+        typologie.id,
+        'EXISTANT_EVAGRI',
+        importation.id
+      )
+
+      totalInserted += inserted
+      totalIgnored += ignored
+      allErrors.push(...errors.map((e) => ({ ...e, sheet: sheet.sheet })))
     }
 
-    const enrichmentChamps = await ensureEnrichmentChamps(org.id, sheet.rows)
-    const rows = sheet.rows.map((r) => rowToSourceFields(r) as any)
-    totalRows += rows.length
-
-    const { inserted, ignored, errors } = await importTransactions(
-      org.id,
-      rows,
-      enrichmentChamps,
-      sheet.rows,
-      typologie.id,
-      'EXISTANT_EVAGRI',
-      importation.id
-    )
-
-    totalInserted += inserted
-    totalIgnored += ignored
-    allErrors.push(...errors.map((e) => ({ ...e, sheet: sheet.sheet })))
+    await prisma.importation.update({
+      where: { id: importation.id },
+      data: {
+        statut: allErrors.length > 0 ? 'TERMINE_AVEC_ERREURS' : 'TERMINE',
+        lignesTotal: totalRows,
+        lignesInserees: totalInserted,
+        lignesIgnorees: totalIgnored,
+        lignesErreurs: allErrors.length,
+        details: { errors: allErrors },
+      },
+    })
+  } catch (e) {
+    await prisma.importation.update({
+      where: { id: importation.id },
+      data: {
+        statut: 'EN_ECHEC',
+        lignesErreurs: 1,
+        details: { error: (e as Error).message },
+      },
+    })
+    throw e
   }
-
-  await prisma.importation.update({
-    where: { id: importation.id },
-    data: {
-      statut: allErrors.length > 0 ? 'TERMINE_AVEC_ERREURS' : 'TERMINE',
-      lignesTotal: totalRows,
-      lignesInserees: totalInserted,
-      lignesIgnorees: totalIgnored,
-      lignesErreurs: allErrors.length,
-      details: { errors: allErrors },
-    },
-  })
 
   await logAudit({
     organisationId: org.id,
@@ -1273,9 +1280,41 @@ export async function importExcel(formData: FormData) {
     errors: allErrors,
   }
 }
+
+export async function listImports() {
+  const org = await prisma.organisation.findFirst({ where: { id: DEFAULT_ORG_ID } })
+  if (!org) throw new Error('Organisation par défaut non initialisée')
+
+  return prisma.importation.findMany({
+    where: { organisationId: org.id },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  })
+}
+
+export async function retryImport(importationId: string) {
+  const org = await prisma.organisation.findFirst({ where: { id: DEFAULT_ORG_ID } })
+  if (!org) throw new Error('Organisation par défaut non initialisée')
+
+  const importation = await prisma.importation.findFirst({
+    where: { id: importationId, organisationId: org.id },
+  })
+  if (!importation) throw new Error('Importation introuvable')
+  if (importation.typeSource === 'EXISTANT_EVAGRI') {
+    throw new Error('Relance non disponible pour les imports Excel manuels. Veuillez ré-uploader le fichier.')
+  }
+
+  await prisma.importation.update({
+    where: { id: importationId },
+    data: { statut: 'EN_COURS', lignesErreurs: 0, details: {} },
+  })
+
+  // JLR retry hook for RC phase
+  return { success: true, message: 'Importation marquée pour relance.' }
+}
 ```
 
-- [ ] **Step 8: Create import UI**
+- [ ] **Step 9: Create import admin UI**
 
 Create `/Users/fabien/Documents/projets/Evagri/app/my-app/src/components/import-excel-form.tsx`:
 ```tsx
@@ -1286,7 +1325,7 @@ import { importExcel } from '@/server/actions/import'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 
-export function ImportExcelForm() {
+export function ImportExcelForm({ onImported }: { onImported?: () => void }) {
   const [report, setReport] = useState<{
     totalRows: number
     inserted: number
@@ -1297,6 +1336,7 @@ export function ImportExcelForm() {
   async function handleSubmit(formData: FormData) {
     const res = await importExcel(formData)
     setReport(res)
+    onImported?.()
   }
 
   return (
@@ -1330,21 +1370,149 @@ export function ImportExcelForm() {
 }
 ```
 
+Create `/Users/fabien/Documents/projets/Evagri/app/my-app/src/components/import-history.tsx`:
+```tsx
+'use client'
+
+import { useState } from 'react'
+import { retryImport } from '@/server/actions/import'
+import { Button } from '@/components/ui/button'
+
+type Importation = {
+  id: string
+  typeSource: string
+  statut: string
+  lignesTotal: number
+  lignesInserees: number
+  lignesIgnorees: number
+  lignesErreurs: number
+  details: any
+  createdAt: Date
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  EN_COURS: 'En cours',
+  TERMINE: 'Terminé',
+  TERMINE_AVEC_ERREURS: 'Terminé avec erreurs',
+  EN_ECHEC: 'En échec',
+}
+
+const STATUS_CLASSES: Record<string, string> = {
+  EN_COURS: 'bg-blue-100 text-blue-800',
+  TERMINE: 'bg-green-100 text-green-800',
+  TERMINE_AVEC_ERREURS: 'bg-yellow-100 text-yellow-800',
+  EN_ECHEC: 'bg-red-100 text-red-800',
+}
+
+export function ImportHistory({ initialImports }: { initialImports: Importation[] }) {
+  const [imports, setImports] = useState(initialImports)
+  const [selected, setSelected] = useState<Importation | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+
+  async function handleRetry(id: string) {
+    try {
+      const res = await retryImport(id)
+      setMessage(res.message)
+      setImports((prev) =>
+        prev.map((imp) => (imp.id === id ? { ...imp, statut: 'EN_COURS' } : imp))
+      )
+    } catch (e) {
+      setMessage((e as Error).message)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {message && (
+        <div className="border rounded p-3 bg-stone-50 text-sm">{message}</div>
+      )}
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className="border-b">
+            <th className="text-left p-2">Date</th>
+            <th className="text-left p-2">Source</th>
+            <th className="text-left p-2">Statut</th>
+            <th className="text-left p-2">Total</th>
+            <th className="text-left p-2">Insérées</th>
+            <th className="text-left p-2">Ignorées</th>
+            <th className="text-left p-2">Erreurs</th>
+            <th className="text-left p-2"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {imports.map((imp) => (
+            <tr key={imp.id} className="border-b hover:bg-stone-50">
+              <td className="p-2">{new Date(imp.createdAt).toLocaleString('fr-CA')}</td>
+              <td className="p-2">{imp.typeSource}</td>
+              <td className="p-2">
+                <span className={`px-2 py-1 rounded text-xs ${STATUS_CLASSES[imp.statut] || 'bg-gray-100'}`}>
+                  {STATUS_LABELS[imp.statut] || imp.statut}
+                </span>
+              </td>
+              <td className="p-2">{imp.lignesTotal}</td>
+              <td className="p-2">{imp.lignesInserees}</td>
+              <td className="p-2">{imp.lignesIgnorees}</td>
+              <td className="p-2">{imp.lignesErreurs}</td>
+              <td className="p-2">
+                <Button variant="outline" size="sm" onClick={() => setSelected(imp)}>
+                  Détails
+                </Button>
+                {imp.statut === 'EN_ECHEC' && (
+                  <Button variant="secondary" size="sm" className="ml-2" onClick={() => handleRetry(imp.id)}>
+                    Relancer
+                  </Button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {selected && (
+        <div className="border rounded p-4">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="font-medium">Détails de l'import {selected.id.slice(0, 8)}</h3>
+            <Button variant="ghost" size="sm" onClick={() => setSelected(null)}>
+              Fermer
+            </Button>
+          </div>
+          <pre className="text-xs bg-stone-100 p-2 rounded overflow-auto max-h-60">
+            {JSON.stringify(selected.details, null, 2)}
+          </pre>
+        </div>
+      )}
+    </div>
+  )
+}
+```
+
 Create `/Users/fabien/Documents/projets/Evagri/app/my-app/src/app/admin/import/page.tsx`:
 ```tsx
 import { ImportExcelForm } from '@/components/import-excel-form'
+import { ImportHistory } from '@/components/import-history'
+import { listImports } from '@/server/actions/import'
 
-export default function ImportPage() {
+export default async function ImportPage() {
+  const imports = await listImports()
+
   return (
     <main className="p-8">
-      <h1 className="text-2xl font-bold mb-4">Import des données historiques EVAGRI</h1>
-      <ImportExcelForm />
+      <h1 className="text-2xl font-bold mb-6">Gestion des imports</h1>
+      <div className="space-y-8">
+        <section>
+          <h2 className="text-lg font-semibold mb-4">Importer un fichier Excel EVAGRI</h2>
+          <ImportExcelForm />
+        </section>
+        <section>
+          <h2 className="text-lg font-semibold mb-4">Historique des importations</h2>
+          <ImportHistory initialImports={imports} />
+        </section>
+      </div>
     </main>
   )
 }
 ```
 
-- [ ] **Step 9: Run parser tests**
+- [ ] **Step 10: Run parser tests**
 
 Run:
 ```bash
@@ -1353,7 +1521,7 @@ npm run test
 ```
 Expected: tests pass.
 
-- [ ] **Step 10: Commit**
+- [ ] **Step 11: Commit**
 
 ```bash
 cd /Users/fabien/Documents/projets/Evagri/app/my-app
@@ -1702,7 +1870,6 @@ const DEFAULT_ORG_ID = process.env.DEFAULT_ORGANISATION_ID || ''
 
 const SOURCE_FIELDS = [
   { value: 'numeroInscription', label: "N° d'inscription" },
-  { value: 'numeroLot', label: 'N° de lot' },
   { value: 'dateVente', label: 'Date de vente' },
   { value: 'prixVente', label: 'Prix de vente' },
   { value: 'mrc', label: 'MRC' },
@@ -1741,7 +1908,6 @@ import { Button } from '@/components/ui/button'
 type TransactionRow = {
   id: string
   numeroInscription: string
-  numeroLot: string
   dateVente: Date
   mrc: string | null
   municipalite: string | null
@@ -1752,7 +1918,6 @@ type TransactionRow = {
 
 const COLUMNS = [
   { key: 'numeroInscription', label: "N° d'inscription" },
-  { key: 'numeroLot', label: 'Lot' },
   { key: 'dateVente', label: 'Date' },
   { key: 'mrc', label: 'MRC' },
   { key: 'municipalite', label: 'Municipalité' },
@@ -1836,7 +2001,6 @@ export function TransactionTable({
             {data.transactions.map((t) => (
               <tr key={t.id} className="border-b hover:bg-stone-50">
                 {!hiddenColumns.includes('numeroInscription') && <td className="p-2">{t.numeroInscription}</td>}
-                {!hiddenColumns.includes('numeroLot') && <td className="p-2">{t.numeroLot}</td>}
                 {!hiddenColumns.includes('dateVente') && (
                   <td className="p-2">{new Date(t.dateVente).toLocaleDateString('fr-CA')}</td>
                 )}
@@ -2020,7 +2184,6 @@ describe('searchTransactions', () => {
         organisationId: orgId,
         systemeSource: 'EXISTANT_EVAGRI',
         numeroInscription: '12345',
-        numeroLot: '54321',
         dateVente: new Date('2023-01-15'),
         prixVente: 50000,
         mrc: 'Test MRC',
