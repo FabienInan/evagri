@@ -66,3 +66,27 @@ export async function findChampByCodeMachine(
     select: { id: true, typeDonnees: true },
   })
 }
+
+export interface EnrichmentField {
+  id: string
+  codeMachine: string
+  nomAffichage: string
+  typeDonnees: string
+  unite: string
+}
+
+export async function findEnrichmentFieldsByOrganisation(
+  organisationId: string
+): Promise<EnrichmentField[]> {
+  return prisma.champEnrichissable.findMany({
+    where: { organisationId, actif: true },
+    select: {
+      id: true,
+      codeMachine: true,
+      nomAffichage: true,
+      typeDonnees: true,
+      unite: true,
+    },
+    orderBy: { ordreAffichage: "asc" },
+  })
+}
