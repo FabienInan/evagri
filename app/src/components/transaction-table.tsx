@@ -188,29 +188,31 @@ function ColumnMenu({
         Colonnes
       </Button>
       {show && (
-        <div className="absolute right-0 z-20 mt-1 max-h-80 w-64 overflow-y-auto rounded-md border border-border bg-card p-2 shadow-md">
-          <div className="space-y-0.5">
-            {columns
-              .filter((c) => c.key !== "actions")
-              .map((col) => (
-                <label
-                  key={col.key}
-                  className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"
-                >
-                  <input
-                    type="checkbox"
-                    checked={visibleColumns.has(col.key)}
-                    onChange={() => toggleColumn(col.key)}
-                  />
-                  {col.label}
-                </label>
-              ))}
+        <div className="absolute right-0 z-50 mt-1 flex max-h-[min(24rem,70vh)] w-64 flex-col overflow-hidden rounded-md border border-border bg-card p-2 shadow-md">
+          <div className="flex-1 overflow-y-auto pr-1">
+            <div className="space-y-0.5">
+              {columns
+                .filter((c) => c.key !== "actions")
+                .map((col) => (
+                  <label
+                    key={col.key}
+                    className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns.has(col.key)}
+                      onChange={() => toggleColumn(col.key)}
+                    />
+                    {col.label}
+                  </label>
+                ))}
+            </div>
           </div>
           {hasUserOverride && (
             <>
               <div className="my-1 border-t border-border" />
               <button
-                className="w-full rounded px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="w-full shrink-0 rounded px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
                 onClick={() => {
                   resetColumns()
                   setShow(false)
