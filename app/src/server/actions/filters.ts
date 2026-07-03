@@ -1,19 +1,29 @@
 "use server"
 
-import { prisma } from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
 import { getCurrentOrganisationId } from "@/repositories/organisation.repository"
+import {
+  createFilter as createFilterRepo,
+  deleteFilter as deleteFilterRepo,
+  findChampsByOrganisation,
+  findFilterByChampEnrichissableId,
+  findFilterByCodeMachine,
+  findFiltersByOrganisation,
+  updateFilter as updateFilterRepo,
+  updateFiltersOrder,
+} from "@/repositories/filters.repository"
 import { FILTER_OPERATORS, FILTER_TYPES } from "@/types/filter"
 import type { Prisma } from "@prisma/client"
 import { z } from "zod"
 
 export async function listFilters() {
   const organisationId = getCurrentOrganisationId()
-  return prisma.filtreRecherche.findMany({
-    where: { organisationId },
-    orderBy: { ordreAffichage: "asc" },
-    include: { champEnrichissable: true },
-  })
+  return findFiltersByOrganisation(organisationId, { includeChamp: true })
+}
+
+export async function listChamps() {
+  const organisationId = getCurrentOrganisationId()
+  return findChampsByOrganisation(organisationId)
 }
 
 const createFilterSchema = z.object({
@@ -32,35 +42,35 @@ export async function createFilter(input: CreateFilterInput) {
   const parsed = createFilterSchema.parse(input)
 
   if (parsed.champEnrichissableId) {
-    const existing = await prisma.filtreRecherche.findFirst({
-      where: { organisationId, champEnrichissableId: parsed.champEnrichissableId },
-    })
+    const existing = await findFilterByChampEnrichissableId(
+      organisationId,
+      parsed.champEnrichissableId
+    )
     if (existing) {
       throw new Error("Un filtre existe déjà pour ce champ.")
     }
   }
 
   if (parsed.codeMachine) {
-    const existing = await prisma.filtreRecherche.findUnique({
-      where: { organisationId_codeMachine: { organisationId, codeMachine: parsed.codeMachine } },
-    })
+    const existing = await findFilterByCodeMachine(organisationId, parsed.codeMachine)
     if (existing) {
       throw new Error("Un filtre existe déjà pour ce code virtuel.")
     }
   }
 
-  await prisma.filtreRecherche.create({
-    data: {
-      organisationId,
-      nomFiltre: parsed.nomFiltre,
-      typeFiltre: parsed.typeFiltre,
-      champEnrichissableId: parsed.champEnrichissableId,
-      codeMachine: parsed.codeMachine,
-      operateursDisponibles: parsed.operateurs as Prisma.InputJsonValue,
-      ordreAffichage: parsed.ordreAffichage,
-    },
-  })
+  const data: Prisma.FiltreRechercheCreateInput = {
+    organisation: { connect: { id: organisationId } },
+    nomFiltre: parsed.nomFiltre,
+    typeFiltre: parsed.typeFiltre,
+    champEnrichissable: parsed.champEnrichissableId
+      ? { connect: { id: parsed.champEnrichissableId } }
+      : undefined,
+    codeMachine: parsed.codeMachine,
+    operateursDisponibles: parsed.operateurs as Prisma.InputJsonValue,
+    ordreAffichage: parsed.ordreAffichage,
+  }
 
+  await createFilterRepo(data)
   revalidatePath("/admin/filters")
 }
 
@@ -80,23 +90,18 @@ export async function updateFilter(id: string, input: UpdateFilterInput) {
     ...input,
     operateursDisponibles: input.operateursDisponibles as Prisma.InputJsonValue,
   }
-  await prisma.filtreRecherche.update({ where: { id }, data })
+  await updateFilterRepo(id, data)
   revalidatePath("/admin/filters")
 }
 
 export async function updateFilterOrder(
   filters: { id: string; ordreAffichage: number; estActif: boolean }[]
 ) {
-  for (const f of filters) {
-    await prisma.filtreRecherche.update({
-      where: { id: f.id },
-      data: { ordreAffichage: f.ordreAffichage, estActif: f.estActif },
-    })
-  }
+  await updateFiltersOrder(filters)
   revalidatePath("/admin/filters")
 }
 
 export async function deleteFilter(id: string) {
-  await prisma.filtreRecherche.delete({ where: { id } })
+  await deleteFilterRepo(id)
   revalidatePath("/admin/filters")
 }

@@ -13,7 +13,7 @@ import {
 } from "@/repositories/import.repository"
 import { importSheet } from "@/services/import.service"
 import { logAudit } from "@/lib/audit"
-import { prisma } from "@/lib/prisma"
+import { findTypologieByCode } from "@/repositories/import.repository"
 import type { ParsedRow } from "@/types/import"
 
 export async function importExcel(formData: FormData) {
@@ -38,9 +38,7 @@ export async function importExcel(formData: FormData) {
 
   try {
     for (const sheet of parsed) {
-      const typologie = await prisma.typologie.findUnique({
-        where: { organisationId_code: { organisationId, code: sheet.typologieCode } },
-      })
+      const typologie = await findTypologieByCode(organisationId, sheet.typologieCode)
       if (!typologie) {
         allErrors.push({ sheet: sheet.sheet, row: 0, message: `Typologie ${sheet.typologieCode} inconnue` })
         continue

@@ -1,6 +1,15 @@
 import { prisma } from "@/lib/prisma"
 import type { Prisma } from "@prisma/client"
 
+export async function findTypologieByCode(
+  organisationId: string,
+  code: string
+) {
+  return prisma.typologie.findUnique({
+    where: { organisationId_code: { organisationId, code } },
+  })
+}
+
 export async function createImportation(
   organisationId: string,
   typeSource: string,

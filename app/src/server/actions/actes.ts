@@ -1,16 +1,17 @@
 "use server"
 
-import fs from "node:fs/promises"
-import path from "node:path"
-import { prisma } from "@/lib/prisma"
+import { getCurrentOrganisationId } from "@/repositories/organisation.repository"
+import {
+  createDocumentActe,
+  findDocumentActeByFileName,
+  findTransactionSourceByNumeroInscription,
+  updateDocumentActePath,
+} from "@/repositories/actes.repository"
+import { saveActePDF } from "@/lib/file-storage"
 import { logAudit } from "@/lib/audit"
 
-const DEFAULT_ORG_ID = process.env.DEFAULT_ORGANISATION_ID || ""
-
 function extractNumeroInscription(filename: string): string | null {
-  // Remove extension and common prefixes/suffixes
   const base = filename.replace(/\.pdf$/i, "")
-  // Try to find a number-like inscription at the start or as the whole name
   const match = base.match(/^(\d+)/)
   return match ? match[1] : null
 }
@@ -19,9 +20,7 @@ export async function importActesPDF(formData: FormData) {
   const files = formData.getAll("files") as File[]
   if (files.length === 0) throw new Error("Aucun fichier PDF fourni")
 
-  const org = await prisma.organisation.findFirst({ where: { id: DEFAULT_ORG_ID } })
-  if (!org) throw new Error("Organisation par défaut non initialisée")
-
+  const organisationId = getCurrentOrganisationId()
   const matched: { filename: string; numeroInscription: string | null; transactionSourceId: string }[] = []
   const unmatched: string[] = []
 
@@ -37,42 +36,26 @@ export async function importActesPDF(formData: FormData) {
       continue
     }
 
-    const transaction = await prisma.transactionSource.findFirst({
-      where: {
-        organisationId: org.id,
-        numeroInscription: { contains: numeroInscription, mode: "insensitive" },
-      },
-      orderBy: { dateVente: "desc" },
-    })
-
+    const transaction = await findTransactionSourceByNumeroInscription(
+      organisationId,
+      numeroInscription
+    )
     if (!transaction) {
       unmatched.push(`${file.name} (aucune transaction pour ${numeroInscription})`)
       continue
     }
 
-    const nomFichier = path.basename(file.name)
-    const cheminStockage = `uploads/actes/${org.id}/${transaction.id}/${nomFichier}`
-    const dir = path.join(process.cwd(), "uploads", "actes", org.id, transaction.id)
-    await fs.mkdir(dir, { recursive: true })
-    await fs.writeFile(path.join(dir, nomFichier), Buffer.from(await file.arrayBuffer()))
+    const { nomFichier, cheminStockage } = await saveActePDF(
+      file,
+      organisationId,
+      transaction.id
+    )
 
-    const existing = await prisma.documentActe.findFirst({
-      where: { transactionSourceId: transaction.id, nomFichier },
-    })
-
+    const existing = await findDocumentActeByFileName(transaction.id, nomFichier)
     if (existing) {
-      await prisma.documentActe.update({
-        where: { id: existing.id },
-        data: { cheminStockage },
-      })
+      await updateDocumentActePath(existing.id, cheminStockage)
     } else {
-      await prisma.documentActe.create({
-        data: {
-          transactionSourceId: transaction.id,
-          nomFichier,
-          cheminStockage,
-        },
-      })
+      await createDocumentActe(transaction.id, nomFichier, cheminStockage)
     }
 
     matched.push({
@@ -83,7 +66,7 @@ export async function importActesPDF(formData: FormData) {
   }
 
   await logAudit({
-    organisationId: org.id,
+    organisationId,
     tableCible: "document_acte",
     action: "INSERT",
     diff: { matched: matched.length, unmatched: unmatched.length },
