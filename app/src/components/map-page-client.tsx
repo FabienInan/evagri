@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { TransactionFilters } from "@/components/transaction-filters"
 import { useTransactionFilters } from "@/hooks/use-transaction-filters"
+import { useFilterPanelVisibility } from "@/hooks/use-filter-panel-visibility"
 import type { FilterConfig, FilterInput } from "@/types/filter"
 
 const TransactionMap = dynamic(
@@ -20,7 +21,7 @@ interface MapPageClientProps {
 
 export function MapPageClient({ filtersConfig }: MapPageClientProps) {
   const { filters, addOrReplaceFilter } = useTransactionFilters()
-  const [showFilters, setShowFilters] = useState(true)
+  const { visible: showFilters, toggle: toggleFilters } = useFilterPanelVisibility()
 
   function handleSearch(newFilters: FilterInput[]) {
     // Map page only supports geo + simple filters through URL; no server reload needed.
@@ -46,7 +47,7 @@ export function MapPageClient({ filtersConfig }: MapPageClientProps) {
           variant="outline"
           size="sm"
           className="w-fit gap-2"
-          onClick={() => setShowFilters((prev) => !prev)}
+          onClick={toggleFilters}
         >
           {showFilters ? (
             <>

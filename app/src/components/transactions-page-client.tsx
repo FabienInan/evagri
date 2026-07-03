@@ -7,6 +7,7 @@ import { searchTransactions } from "@/server/actions/transaction"
 import { TransactionTable } from "@/components/transaction-table"
 import { TransactionFilters } from "@/components/transaction-filters"
 import { useTransactionFilters } from "@/hooks/use-transaction-filters"
+import { useFilterPanelVisibility } from "@/hooks/use-filter-panel-visibility"
 import type { FilterConfig, FilterInput } from "@/types/filter"
 import type { TransactionSourceField } from "@/lib/transaction-source-fields"
 import type { EnrichmentField } from "@/repositories/enrichment.repository"
@@ -38,7 +39,7 @@ export function TransactionsPageClient({
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(initialData.transactions.length < initialData.total)
   const [loading, setLoading] = useState(false)
-  const [showFilters, setShowFilters] = useState(true)
+  const { visible: showFilters, toggle: toggleFilters } = useFilterPanelVisibility()
   const sentinelRef = useRef<HTMLDivElement>(null)
 
   const loadPage = useCallback(
@@ -130,7 +131,7 @@ export function TransactionsPageClient({
           variant="outline"
           size="sm"
           className="w-fit gap-2"
-          onClick={() => setShowFilters((prev) => !prev)}
+          onClick={toggleFilters}
         >
           {showFilters ? (
             <>
