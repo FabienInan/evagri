@@ -119,6 +119,20 @@ function isNumericEnrichment(typeDonnees: string): boolean {
   return typeDonnees === "DECIMAL" || typeDonnees === "ENTIER" || typeDonnees === "POURCENTAGE"
 }
 
+function dedupeColumns(columns: ColumnDef[]): ColumnDef[] {
+  const seen = new Set<string>()
+  return columns.filter((col) => {
+    if (seen.has(col.key)) {
+      if (process.env.NODE_ENV === "development") {
+        console.warn(`[TransactionTable] Duplicate column key ignored: ${col.key}`)
+      }
+      return false
+    }
+    seen.add(col.key)
+    return true
+  })
+}
+
 function useTableColumns(
   sourceFields: TransactionSourceField[],
   enrichmentFields: EnrichmentField[]
@@ -149,7 +163,7 @@ function useTableColumns(
         enrichment: true,
       }))
 
-    return [...sourceCols, ...enrichmentCols, ...COMPUTED_COLUMNS]
+    return dedupeColumns([...sourceCols, ...enrichmentCols, ...COMPUTED_COLUMNS])
   }, [sourceFields, enrichmentFields])
 }
 
