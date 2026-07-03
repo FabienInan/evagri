@@ -12,11 +12,11 @@ export interface AuditLogInput {
 }
 
 export async function createAuditLog(data: AuditLogInput) {
-  const { diff, ...rest } = data
+  const { organisationId, diff, ...rest } = data
   const createData: Prisma.JournalAuditCreateInput = {
     ...rest,
     ...(diff !== undefined ? { diff } : {}),
-    organisation: { connect: { id: data.organisationId } },
+    organisation: { connect: { id: organisationId } },
   }
   await prisma.journalAudit.create({ data: createData })
 }
