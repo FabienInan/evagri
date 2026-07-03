@@ -14,26 +14,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import type { SerializedTransaction, EnrichmentValues } from "@/serializers/transaction.serializer"
 
-type EnrichmentValues = Record<string, string | number | boolean | null>
-
-type TransactionRow = {
-  id: string
-  numeroInscription: string | null
-  dateVente: string | null
-  vendeur: string | null
-  acheteur: string | null
-  lotsCadastraux: string[]
-  mrc: string | null
-  municipalite: string | null
-  adresse: string | null
-  superficieTotaleHectare: number | null
-  prixVente: number | null
-  latitude: number | null
-  longitude: number | null
-  enrichment: EnrichmentValues
-  enrichie?: { statut: string } | null
-}
+export type TransactionRow = SerializedTransaction
 
 type TableData = {
   transactions: TransactionRow[]
@@ -61,7 +44,7 @@ const COMPUTED_COLUMNS = [
   { key: "actions", label: "Actions", numeric: false, sortable: false, defaultVisible: true, minWidth: 80, priority: 10 },
 ]
 
-function formatCurrency(value: number | null | undefined) {
+export function formatCurrency(value: number | null | undefined) {
   if (value === null || value === undefined) return "—"
   return new Intl.NumberFormat("fr-CA", {
     style: "currency",
@@ -70,7 +53,7 @@ function formatCurrency(value: number | null | undefined) {
   }).format(value)
 }
 
-function formatNumber(value: number | null | undefined, digits = 2) {
+export function formatNumber(value: number | null | undefined, digits = 2) {
   if (value === null || value === undefined) return "—"
   return new Intl.NumberFormat("fr-CA", {
     minimumFractionDigits: digits,
@@ -78,7 +61,7 @@ function formatNumber(value: number | null | undefined, digits = 2) {
   }).format(value)
 }
 
-function formatValue(value: string | number | boolean | null | undefined): string {
+export function formatValue(value: string | number | boolean | null | undefined): string {
   if (value === null || value === undefined) return "—"
   if (typeof value === "boolean") return value ? "Oui" : "Non"
   if (typeof value === "number") return formatNumber(value)
@@ -90,7 +73,7 @@ function computeTauxGlobal(row: TransactionRow): number | null {
   return row.prixVente / row.superficieTotaleHectare
 }
 
-function statusBadge(statut: string | null | undefined) {
+function StatusBadge({ statut }: { statut: string | null | undefined }) {
   const value = statut ?? "NON_ANALYSEE"
   switch (value.toUpperCase()) {
     case "ANALYSEE":
@@ -167,15 +150,7 @@ function useTableColumns(transactions: TransactionRow[]) {
   }, [transactions])
 }
 
-export function TransactionTable({
-  data,
-  onSort,
-  sortField,
-  sortOrder,
-  hasMore,
-  loading,
-  sentinelRef,
-}: {
+interface TransactionTableProps {
   data: TableData
   onSort: (field: string) => void
   sortField: string
@@ -183,7 +158,188 @@ export function TransactionTable({
   hasMore: boolean
   loading: boolean
   sentinelRef: React.RefObject<HTMLDivElement | null>
+}
+
+function ColumnMenu({
+  columns,
+  visibleColumns,
+  toggleColumn,
+  hasUserOverride,
+  resetColumns,
+}: {
+  columns: ColumnDef[]
+  visibleColumns: Set<string>
+  toggleColumn: (key: string) => void
+  hasUserOverride: boolean
+  resetColumns: () => void
 }) {
+  const [show, setShow] = useState(false)
+
+  return (
+    <div className="relative">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-8 gap-2 text-xs"
+        onClick={() => setShow((prev) => !prev)}
+      >
+        <Settings2 className="h-4 w-4" />
+        Colonnes
+      </Button>
+      {show && (
+        <div className="absolute right-0 z-20 mt-1 w-64 rounded-md border border-border bg-card p-2 shadow-md">
+          {columns
+            .filter((c) => c.key !== "actions")
+            .map((col) => (
+              <label
+                key={col.key}
+                className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"
+              >
+                <input
+                  type="checkbox"
+                  checked={visibleColumns.has(col.key)}
+                  onChange={() => toggleColumn(col.key)}
+                />
+                {col.label}
+              </label>
+            ))}
+          {hasUserOverride && (
+            <>
+              <div className="my-1 border-t border-border" />
+              <button
+                className="w-full rounded px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                onClick={() => {
+                  resetColumns()
+                  setShow(false)
+                }}
+              >
+                Réinitialiser l'affichage auto
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TransactionTableHeader({
+  visible,
+  sortField,
+  sortOrder,
+  onSort,
+}: {
+  visible: ColumnDef[]
+  sortField: string
+  sortOrder: "asc" | "desc"
+  onSort: (field: string) => void
+}) {
+  return (
+    <TableHeader className="bg-muted/50">
+      <TableRow>
+        {visible.map((col) => (
+          <TableHead
+            key={col.key}
+            className={`py-2 ${col.numeric ? "text-right" : ""}`}
+            onClick={() => col.sortable && onSort(col.key)}
+          >
+            {col.sortable ? (
+              <button className="flex items-center gap-1 font-semibold">
+                {col.label}
+                {sortField === col.key &&
+                  (sortOrder === "asc" ? (
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  ))}
+              </button>
+            ) : (
+              <span className="font-semibold">{col.label}</span>
+            )}
+          </TableHead>
+        ))}
+      </TableRow>
+    </TableHeader>
+  )
+}
+
+function TransactionTableCell({
+  row,
+  col,
+}: {
+  row: TransactionRow
+  col: ColumnDef
+}) {
+  if (col.key === "tauxGlobal") {
+    return <TableCell className="py-2 text-right">{formatCurrency(computeTauxGlobal(row))}</TableCell>
+  }
+  if (col.key === "statut") {
+    return <TableCell className="py-2"><StatusBadge statut={row.enrichie?.statut} /></TableCell>
+  }
+  if (col.key === "actions") {
+    return (
+      <TableCell className="py-2 text-right">
+        <Actions statut={row.enrichie?.statut} />
+      </TableCell>
+    )
+  }
+  if (col.enrichment) {
+    const value = row.enrichment[col.key]
+    return (
+      <TableCell className={`py-2 ${typeof value === "number" ? "text-right" : ""}`}>
+        {formatValue(value)}
+      </TableCell>
+    )
+  }
+  if (col.key === "numeroInscription") {
+    return <TableCell className="py-2 font-medium">{row.numeroInscription ?? row.enrichment["sia"] ?? "—"}</TableCell>
+  }
+  if (col.key === "dateVente") {
+    return <TableCell className="py-2">{row.dateVente ? new Date(row.dateVente).toLocaleDateString("fr-CA") : "—"}</TableCell>
+  }
+  if (col.key === "lotsCadastraux") {
+    return <TableCell className="py-2">{row.lotsCadastraux?.join(", ") ?? "—"}</TableCell>
+  }
+
+  const value = row[col.key as keyof TransactionRow]
+  if (col.numeric) {
+    return (
+      <TableCell className="py-2 text-right">
+        {formatValue(value as string | number | boolean | null)}
+      </TableCell>
+    )
+  }
+  return <TableCell className="py-2">{formatValue(value as string | number | boolean | null)}</TableCell>
+}
+
+function TransactionTableBody({
+  transactions,
+  visible,
+}: {
+  transactions: TransactionRow[]
+  visible: ColumnDef[]
+}) {
+  return (
+    <TableBody>
+      {transactions.map((t) => (
+        <TableRow key={t.id} className="cursor-pointer hover:bg-muted/30">
+          {visible.map((col) => (
+            <TransactionTableCell key={col.key} row={t} col={col} />
+          ))}
+        </TableRow>
+      ))}
+    </TableBody>
+  )
+}
+
+export function TransactionTable({
+  data,
+  onSort,
+  sortField,
+  sortOrder,
+  loading,
+  sentinelRef,
+}: TransactionTableProps) {
   const columns = useTableColumns(data.transactions)
   const initialVisible = useMemo(
     () => new Set(columns.filter((c) => c.defaultVisible).map((c) => c.key)),
@@ -201,51 +357,7 @@ export function TransactionTable({
     hasUserOverride,
   } = useResponsiveColumns(columnMeta, initialVisible, ["actions", "statut"])
 
-  const [showColumnMenu, setShowColumnMenu] = useState(false)
   const visible = useMemo(() => columns.filter((c) => visibleColumns.has(c.key)), [columns, visibleColumns])
-
-  function renderCell(t: TransactionRow, col: ColumnDef) {
-    if (col.key === "tauxGlobal") {
-      return <TableCell className="py-2 text-right">{formatCurrency(computeTauxGlobal(t))}</TableCell>
-    }
-    if (col.key === "statut") {
-      return <TableCell className="py-2">{statusBadge(t.enrichie?.statut)}</TableCell>
-    }
-    if (col.key === "actions") {
-      return (
-        <TableCell className="py-2 text-right">
-          <Actions statut={t.enrichie?.statut} />
-        </TableCell>
-      )
-    }
-    if (col.enrichment) {
-      const value = t.enrichment[col.key]
-      return (
-        <TableCell className={`py-2 ${typeof value === "number" ? "text-right" : ""}`}>
-          {formatValue(value)}
-        </TableCell>
-      )
-    }
-    if (col.key === "numeroInscription") {
-      return <TableCell className="py-2 font-medium">{t.numeroInscription ?? t.enrichment["sia"] ?? "—"}</TableCell>
-    }
-    if (col.key === "dateVente") {
-      return <TableCell className="py-2">{t.dateVente ? new Date(t.dateVente).toLocaleDateString("fr-CA") : "—"}</TableCell>
-    }
-    if (col.key === "lotsCadastraux") {
-      return <TableCell className="py-2">{t.lotsCadastraux?.join(", ") ?? "—"}</TableCell>
-    }
-
-    const value = t[col.key as keyof TransactionRow]
-    if (col.numeric) {
-      return (
-        <TableCell className="py-2 text-right">
-          {formatValue(value as string | number | boolean | null)}
-        </TableCell>
-      )
-    }
-    return <TableCell className="py-2">{formatValue(value as string | number | boolean | null)}</TableCell>
-  }
 
   return (
     <Card className="flex flex-col min-w-0" ref={containerRef}>
@@ -256,83 +368,23 @@ export function TransactionTable({
             ({data.total} transaction{data.total > 1 ? "s" : ""})
           </span>
         </span>
-        <div className="relative">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 gap-2 text-xs"
-            onClick={() => setShowColumnMenu((prev) => !prev)}
-          >
-            <Settings2 className="h-4 w-4" />
-            Colonnes
-          </Button>
-          {showColumnMenu && (
-            <div className="absolute right-0 z-20 mt-1 w-64 rounded-md border border-border bg-card p-2 shadow-md">
-              {columns.filter((c) => c.key !== "actions").map((col) => (
-                <label
-                  key={col.key}
-                  className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"
-                >
-                  <input
-                    type="checkbox"
-                    checked={visibleColumns.has(col.key)}
-                    onChange={() => toggleColumn(col.key)}
-                  />
-                  {col.label}
-                </label>
-              ))}
-              {hasUserOverride && (
-                <>
-                  <div className="my-1 border-t border-border" />
-                  <button
-                    className="w-full rounded px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-                    onClick={() => {
-                      resetColumns()
-                      setShowColumnMenu(false)
-                    }}
-                  >
-                    Réinitialiser l'affichage auto
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-        </div>
+        <ColumnMenu
+          columns={columns}
+          visibleColumns={visibleColumns}
+          toggleColumn={toggleColumn}
+          hasUserOverride={hasUserOverride}
+          resetColumns={resetColumns}
+        />
       </div>
       <CardContent className="p-0">
         <Table>
-          <TableHeader className="bg-muted/50">
-            <TableRow>
-              {visible.map((col) => (
-                <TableHead
-                  key={col.key}
-                  className={`py-2 ${col.numeric ? "text-right" : ""}`}
-                  onClick={() => col.sortable && onSort(col.key)}
-                >
-                  {col.sortable ? (
-                    <button className="flex items-center gap-1 font-semibold">
-                      {col.label}
-                      {sortField === col.key &&
-                        (sortOrder === "asc" ? (
-                          <ChevronUp className="h-3.5 w-3.5" />
-                        ) : (
-                          <ChevronDown className="h-3.5 w-3.5" />
-                        ))}
-                    </button>
-                  ) : (
-                    <span className="font-semibold">{col.label}</span>
-                  )}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.transactions.map((t) => (
-              <TableRow key={t.id} className="cursor-pointer hover:bg-muted/30">
-                {visible.map((col) => renderCell(t, col))}
-              </TableRow>
-            ))}
-          </TableBody>
+          <TransactionTableHeader
+            visible={visible}
+            sortField={sortField}
+            sortOrder={sortOrder}
+            onSort={onSort}
+          />
+          <TransactionTableBody transactions={data.transactions} visible={visible} />
         </Table>
         {loading && (
           <div className="flex items-center justify-center gap-2 border-t border-border py-3 text-sm text-muted-foreground">

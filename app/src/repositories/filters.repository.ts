@@ -1,15 +1,24 @@
 import { prisma } from "@/lib/prisma"
 import type { Prisma } from "@prisma/client"
+import type { FilterConfig } from "@/types/filter"
 
 export async function findFiltersByOrganisation(
   organisationId: string,
   options: { includeChamp?: boolean } = {}
-) {
-  return prisma.filtreRecherche.findMany({
+): Promise<FilterConfig[]> {
+  const filters = await prisma.filtreRecherche.findMany({
     where: { organisationId },
     orderBy: { ordreAffichage: "asc" },
     include: options.includeChamp ? { champEnrichissable: true } : undefined,
   })
+
+  return filters.map((f) => ({
+    ...f,
+    typeFiltre: f.typeFiltre,
+    operateursDisponibles: Array.isArray(f.operateursDisponibles)
+      ? (f.operateursDisponibles as string[])
+      : null,
+  })) as FilterConfig[]
 }
 
 export async function findChampsByOrganisation(organisationId: string) {

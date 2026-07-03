@@ -1,53 +1,33 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { useSearchParams, useRouter, usePathname } from "next/navigation"
-import {
-  PanelLeftClose,
-  PanelLeft,
-  ShoppingCart,
-} from "lucide-react"
+import { PanelLeftClose, PanelLeft, ShoppingCart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { searchTransactions } from "@/server/actions/transaction"
 import { TransactionTable } from "@/components/transaction-table"
 import { TransactionFilters } from "@/components/transaction-filters"
 import { TransactionViewToggle } from "@/components/transaction-view-toggle"
+import { useTransactionFilters } from "@/hooks/use-transaction-filters"
+import type { FilterConfig, FilterInput } from "@/types/filter"
 
 type TableData = Awaited<ReturnType<typeof searchTransactions>>
 type TransactionRow = TableData["transactions"][number]
 
 const PAGE_SIZE = 25
-const FILTERS_PARAM = "filters"
 
-function parseFiltersParam(raw: string | null): any[] {
-  if (!raw) return []
-  try {
-    return JSON.parse(decodeURIComponent(raw))
-  } catch {
-    return []
-  }
-}
-
-function stringifyFilters(filters: any[]): string {
-  return encodeURIComponent(JSON.stringify(filters))
+interface TransactionsPageClientProps {
+  initialData: TableData
+  filtersConfig: FilterConfig[]
 }
 
 export function TransactionsPageClient({
   initialData,
   filtersConfig,
-}: {
-  initialData: TableData
-  filtersConfig: any[]
-}) {
-  const router = useRouter()
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
-
-  const initialFilters = parseFiltersParam(searchParams.get(FILTERS_PARAM))
+}: TransactionsPageClientProps) {
+  const { filters, setFilters } = useTransactionFilters()
 
   const [transactions, setTransactions] = useState<TransactionRow[]>(initialData.transactions)
   const [total, setTotal] = useState(initialData.total)
-  const [filters, setFilters] = useState<any[]>(initialFilters)
   const [sortField, setSortField] = useState("dateVente")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [page, setPage] = useState(1)
@@ -56,43 +36,36 @@ export function TransactionsPageClient({
   const [showFilters, setShowFilters] = useState(true)
   const sentinelRef = useRef<HTMLDivElement>(null)
 
-  const updateUrl = useCallback((filters: any[]) => {
-    const params = new URLSearchParams(searchParams.toString())
-    if (filters.length) {
-      params.set(FILTERS_PARAM, stringifyFilters(filters))
-    } else {
-      params.delete(FILTERS_PARAM)
-    }
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
-  }, [router, pathname, searchParams])
-
-  const loadPage = useCallback(async (pageNum: number, activeFilters = filters, reset = false) => {
-    setLoading(true)
-    const res = await searchTransactions({
-      page: pageNum,
-      pageSize: PAGE_SIZE,
-      filters: activeFilters,
-      sortField,
-      sortOrder,
-    })
-    setTotal(res.total)
-    if (reset) {
-      setTransactions(res.transactions)
-      setPage(1)
-    } else {
-      setTransactions((prev) => [...prev, ...res.transactions])
-      setPage(pageNum)
-    }
-    setHasMore(res.transactions.length === PAGE_SIZE && (pageNum * PAGE_SIZE) < res.total)
-    setLoading(false)
-    return res
-  }, [filters, sortField, sortOrder])
+  const loadPage = useCallback(
+    async (pageNum: number, activeFilters: FilterInput[], reset = false) => {
+      setLoading(true)
+      const res = await searchTransactions({
+        page: pageNum,
+        pageSize: PAGE_SIZE,
+        filters: activeFilters,
+        sortField,
+        sortOrder,
+      })
+      setTotal(res.total)
+      if (reset) {
+        setTransactions(res.transactions)
+        setPage(1)
+      } else {
+        setTransactions((prev) => [...prev, ...res.transactions])
+        setPage(pageNum)
+      }
+      setHasMore(res.transactions.length === PAGE_SIZE && (pageNum * PAGE_SIZE) < res.total)
+      setLoading(false)
+      return res
+    },
+    [sortField, sortOrder]
+  )
 
   useEffect(() => {
-    if (initialFilters.length) {
-      loadPage(1, initialFilters, true)
+    if (filters.length) {
+      loadPage(1, filters, true)
     }
-  }, [])
+  }, [filters])
 
   useEffect(() => {
     const el = sentinelRef.current
@@ -102,7 +75,7 @@ export function TransactionsPageClient({
       (entries) => {
         const target = entries[0]
         if (target.isIntersecting && hasMore && !loading) {
-          loadPage(page + 1)
+          loadPage(page + 1, filters)
         }
       },
       { rootMargin: "200px" }
@@ -110,11 +83,10 @@ export function TransactionsPageClient({
 
     observer.observe(el)
     return () => observer.disconnect()
-  }, [sentinelRef, hasMore, loading, page, loadPage])
+  }, [sentinelRef, hasMore, loading, page, loadPage, filters])
 
-  async function handleSearch(newFilters: any[]) {
+  async function handleSearch(newFilters: FilterInput[]) {
     setFilters(newFilters)
-    updateUrl(newFilters)
     await loadPage(1, newFilters, true)
   }
 
@@ -179,7 +151,11 @@ export function TransactionsPageClient({
       >
         {showFilters && (
           <div className="self-start">
-            <TransactionFilters filtersConfig={filtersConfig} onSearch={handleSearch} initialFilters={initialFilters} />
+            <TransactionFilters
+              filtersConfig={filtersConfig}
+              onSearch={handleSearch}
+              initialFilters={filters}
+            />
           </div>
         )}
         <TransactionTable
