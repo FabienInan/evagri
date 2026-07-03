@@ -124,6 +124,8 @@ function useTableColumns(
   enrichmentFields: EnrichmentField[]
 ) {
   return useMemo<ColumnDef[]>(() => {
+    const sourceKeys = new Set(sourceFields.map((field) => field.key))
+
     const sourceCols: ColumnDef[] = sourceFields.map((field) => ({
       key: field.key,
       label: field.label,
@@ -134,16 +136,18 @@ function useTableColumns(
       priority: field.priority,
     }))
 
-    const enrichmentCols: ColumnDef[] = enrichmentFields.map((field) => ({
-      key: field.codeMachine,
-      label: field.nomAffichage,
-      numeric: isNumericEnrichment(field.typeDonnees),
-      sortable: false,
-      defaultVisible: false,
-      minWidth: 130,
-      priority: 1,
-      enrichment: true,
-    }))
+    const enrichmentCols: ColumnDef[] = enrichmentFields
+      .filter((field) => !sourceKeys.has(field.codeMachine))
+      .map((field) => ({
+        key: field.codeMachine,
+        label: field.nomAffichage,
+        numeric: isNumericEnrichment(field.typeDonnees),
+        sortable: false,
+        defaultVisible: false,
+        minWidth: 130,
+        priority: 1,
+        enrichment: true,
+      }))
 
     return [...sourceCols, ...enrichmentCols, ...COMPUTED_COLUMNS]
   }, [sourceFields, enrichmentFields])
