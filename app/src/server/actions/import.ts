@@ -12,7 +12,7 @@ import {
   updateImportationResults,
 } from "@/repositories/import.repository"
 import { importSheet } from "@/services/import.service"
-import { logAudit } from "@/lib/audit"
+import { createAuditLog } from "@/repositories/audit.repository"
 import { findTypologieByCode } from "@/repositories/import.repository"
 import type { ParsedRow } from "@/types/import"
 
@@ -76,7 +76,7 @@ export async function importExcel(formData: FormData) {
     throw e
   }
 
-  await logAudit({
+  await createAuditLog({
     organisationId,
     tableCible: "importation",
     enregistrementId: importation.id,

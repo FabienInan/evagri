@@ -8,7 +8,7 @@ import {
   updateDocumentActePath,
 } from "@/repositories/actes.repository"
 import { saveActePDF } from "@/lib/file-storage"
-import { logAudit } from "@/lib/audit"
+import { createAuditLog } from "@/repositories/audit.repository"
 
 function extractNumeroInscription(filename: string): string | null {
   const base = filename.replace(/\.pdf$/i, "")
@@ -65,7 +65,7 @@ export async function importActesPDF(formData: FormData) {
     })
   }
 
-  await logAudit({
+  await createAuditLog({
     organisationId,
     tableCible: "document_acte",
     action: "INSERT",
