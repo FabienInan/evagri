@@ -43,15 +43,18 @@ export async function findFilterByCodeMachine(
   })
 }
 
+export type CreateFilterRepositoryInput = Prisma.FiltreRechercheCreateInput
+export type UpdateFilterRepositoryInput = Prisma.FiltreRechercheUpdateInput
+
 export async function createFilter(
-  data: Prisma.FiltreRechercheCreateInput
+  data: CreateFilterRepositoryInput
 ) {
   return prisma.filtreRecherche.create({ data })
 }
 
 export async function updateFilter(
   id: string,
-  data: Prisma.FiltreRechercheUpdateInput
+  data: UpdateFilterRepositoryInput
 ) {
   return prisma.filtreRecherche.update({ where: { id }, data })
 }

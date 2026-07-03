@@ -16,9 +16,12 @@ export const TRANSACTION_INCLUDE = {
   },
 } as const
 
+export type TransactionSourceOrderByInput =
+  Prisma.TransactionSourceOrderByWithRelationInput
+
 type FindManyArgs = {
   where?: Prisma.TransactionSourceWhereInput
-  orderBy?: Prisma.TransactionSourceOrderByWithRelationInput
+  orderBy?: TransactionSourceOrderByInput
   skip?: number
   take?: number
 }

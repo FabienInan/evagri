@@ -11,9 +11,10 @@ import {
   findFiltersByOrganisation,
   updateFilter as updateFilterRepo,
   updateFiltersOrder,
+  type CreateFilterRepositoryInput,
+  type UpdateFilterRepositoryInput,
 } from "@/repositories/filters.repository"
 import { FILTER_OPERATORS, FILTER_TYPES } from "@/types/filter"
-import type { Prisma } from "@prisma/client"
 import { z } from "zod"
 
 export async function listFilters() {
@@ -58,7 +59,7 @@ export async function createFilter(input: CreateFilterInput) {
     }
   }
 
-  const data: Prisma.FiltreRechercheCreateInput = {
+  const data: CreateFilterRepositoryInput = {
     organisation: { connect: { id: organisationId } },
     nomFiltre: parsed.nomFiltre,
     typeFiltre: parsed.typeFiltre,
@@ -66,7 +67,7 @@ export async function createFilter(input: CreateFilterInput) {
       ? { connect: { id: parsed.champEnrichissableId } }
       : undefined,
     codeMachine: parsed.codeMachine,
-    operateursDisponibles: parsed.operateurs as Prisma.InputJsonValue,
+    operateursDisponibles: parsed.operateurs as CreateFilterRepositoryInput["operateursDisponibles"],
     ordreAffichage: parsed.ordreAffichage,
   }
 
@@ -86,9 +87,9 @@ export type UpdateFilterInput = z.infer<typeof updateFilterSchema>
 
 export async function updateFilter(id: string, input: UpdateFilterInput) {
   updateFilterSchema.parse(input)
-  const data: Prisma.FiltreRechercheUpdateInput = {
+  const data: UpdateFilterRepositoryInput = {
     ...input,
-    operateursDisponibles: input.operateursDisponibles as Prisma.InputJsonValue,
+    operateursDisponibles: input.operateursDisponibles as UpdateFilterRepositoryInput["operateursDisponibles"],
   }
   await updateFilterRepo(id, data)
   revalidatePath("/admin/filters")

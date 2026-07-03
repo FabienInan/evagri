@@ -6,10 +6,10 @@ import {
   buildTransactionWhere,
   countTransactions,
   findTransactions,
+  type TransactionSourceOrderByInput,
 } from "@/repositories/transaction.repository"
 import { serializeTransaction } from "@/serializers/transaction.serializer"
 import type { FilterInput } from "@/types/filter"
-import type { Prisma } from "@prisma/client"
 import type { TransactionSearchInput } from "@/types/transaction"
 
 export { type EnrichmentValues } from "@/serializers/transaction.serializer"
@@ -23,7 +23,7 @@ export async function searchTransactions(input: TransactionSearchInput) {
 
   const where = buildTransactionWhere(filters, orgId)
 
-  const orderBy: Prisma.TransactionSourceOrderByWithRelationInput = input.sortField
+  const orderBy: TransactionSourceOrderByInput = input.sortField
     ? { [input.sortField]: input.sortOrder ?? "asc" }
     : { dateVente: "desc" }
 
