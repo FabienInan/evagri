@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { searchTransactions } from "@/server/actions/transaction"
 import { TransactionTable } from "@/components/transaction-table"
 import { TransactionFilters } from "@/components/transaction-filters"
-import { TransactionViewToggle } from "@/components/transaction-view-toggle"
 import { useTransactionFilters } from "@/hooks/use-transaction-filters"
 import type { FilterConfig, FilterInput } from "@/types/filter"
 import type { TransactionSourceField } from "@/lib/transaction-source-fields"
@@ -120,13 +119,10 @@ export function TransactionsPageClient({
           <h2 className="text-lg font-semibold text-foreground">Liste des transactions</h2>
           <p className="text-sm text-muted-foreground">Consultez et filtrez les ventes agricoles</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
-            <ShoppingCart className="h-4 w-4" />
-            Paniers
-          </Button>
-          <TransactionViewToggle />
-        </div>
+        <Button size="sm" className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
+          <ShoppingCart className="h-4 w-4" />
+          Paniers
+        </Button>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

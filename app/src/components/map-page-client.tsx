@@ -6,7 +6,6 @@ import { PanelLeftClose, PanelLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { TransactionFilters } from "@/components/transaction-filters"
-import { TransactionViewToggle } from "@/components/transaction-view-toggle"
 import { useTransactionFilters } from "@/hooks/use-transaction-filters"
 import type { FilterConfig, FilterInput } from "@/types/filter"
 
@@ -39,9 +38,6 @@ export function MapPageClient({ filtersConfig }: MapPageClientProps) {
         <div>
           <h2 className="text-lg font-semibold text-foreground">Carte des transactions</h2>
           <p className="text-sm text-muted-foreground">Visualisation géographique des ventes agricoles</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <TransactionViewToggle />
         </div>
       </div>
 
