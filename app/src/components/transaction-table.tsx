@@ -188,22 +188,24 @@ function ColumnMenu({
         Colonnes
       </Button>
       {show && (
-        <div className="absolute right-0 z-20 mt-1 w-64 rounded-md border border-border bg-card p-2 shadow-md">
-          {columns
-            .filter((c) => c.key !== "actions")
-            .map((col) => (
-              <label
-                key={col.key}
-                className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"
-              >
-                <input
-                  type="checkbox"
-                  checked={visibleColumns.has(col.key)}
-                  onChange={() => toggleColumn(col.key)}
-                />
-                {col.label}
-              </label>
-            ))}
+        <div className="absolute right-0 z-20 mt-1 max-h-80 w-64 overflow-y-auto rounded-md border border-border bg-card p-2 shadow-md">
+          <div className="space-y-0.5">
+            {columns
+              .filter((c) => c.key !== "actions")
+              .map((col) => (
+                <label
+                  key={col.key}
+                  className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"
+                >
+                  <input
+                    type="checkbox"
+                    checked={visibleColumns.has(col.key)}
+                    onChange={() => toggleColumn(col.key)}
+                  />
+                  {col.label}
+                </label>
+              ))}
+          </div>
           {hasUserOverride && (
             <>
               <div className="my-1 border-t border-border" />
