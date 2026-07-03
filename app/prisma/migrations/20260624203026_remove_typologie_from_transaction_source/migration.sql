@@ -1,0 +1,1 @@
+-- No-op: paired with the previous migration; the column was already removed.

@@ -30,7 +30,7 @@ export function ImportPdfForm({ onImported }: { onImported?: () => void }) {
 
   return (
     <Card>
-      <CardHeader className="pb-3">
+      <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <FileText className="h-4 w-4 text-primary" />
           Importer des actes PDF

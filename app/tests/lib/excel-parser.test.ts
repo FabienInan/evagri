@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest"
 import { readFileSync } from "fs"
 import { join } from "path"
-import { parseWorkbook, rowToSourceFields, extractNonEmptyEnrichmentHeaders, inferType } from "@/lib/excel-parser"
+import { parseWorkbook, rowToSourceFields, extractNonEmptyEnrichmentHeaders, inferType } from "@/parsers/excel.parser"
 
 const rawFixture = readFileSync(join(__dirname, "../fixtures/minimal.xlsx"))
 const fixture = rawFixture.buffer.slice(rawFixture.byteOffset, rawFixture.byteOffset + rawFixture.byteLength)

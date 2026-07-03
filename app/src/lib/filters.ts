@@ -1,12 +1,8 @@
 import { Prisma } from "@prisma/client"
+import { parsePolygon, pointInPolygon } from "./geo"
+import type { FilterInput, FilterType } from "@/types/filter"
 
-export interface FilterInput {
-  id: string
-  typeFiltre: string
-  field: string
-  operator: string
-  value: string
-}
+export type { FilterInput }
 
 export function buildWhereClause(filters: FilterInput[]): Prisma.TransactionSourceWhereInput {
   const andClauses: Prisma.TransactionSourceWhereInput[] = []
@@ -17,7 +13,7 @@ export function buildWhereClause(filters: FilterInput[]): Prisma.TransactionSour
     const field = f.field as keyof Prisma.TransactionSourceWhereInput
     let clause: Prisma.TransactionSourceWhereInput = {}
 
-    switch (f.typeFiltre) {
+    switch (f.typeFiltre as FilterType) {
       case "RECHERCHE_TEXTE":
         clause = {
           OR: [
@@ -62,10 +58,52 @@ export function buildWhereClause(filters: FilterInput[]): Prisma.TransactionSour
       case "NUMERO_LOT":
         clause = { lotsCadastraux: { has: f.value } }
         break
+      case "TYPE_TRANSACTION":
+        clause = {
+          enrichie: {
+            valeurs: {
+              some: {
+                champEnrichissable: { codeMachine: "typeTransaction" },
+                valeurTexte: { in: f.value.split(",") },
+              },
+            },
+          },
+        }
+        break
+      case "STATUT":
+        clause = {
+          enrichie: {
+            statut: f.operator === "=" ? f.value : { in: f.value.split(",") },
+          },
+        }
+        break
+      case "ZONE_GEO":
+        // Filtre géographique appliqué de manière applicative après la requête Prisma
+        break
     }
 
-    andClauses.push(clause)
+    if (Object.keys(clause).length > 0) {
+      andClauses.push(clause)
+    }
   }
 
   return andClauses.length > 0 ? { AND: andClauses } : {}
+}
+
+export function findGeoFilter(filters: FilterInput[]): FilterInput | undefined {
+  return filters.find((f) => f.typeFiltre === "ZONE_GEO")
+}
+
+export function filterByPolygon<T extends { latitude: unknown; longitude: unknown }>(
+  items: T[],
+  polygonValue: string
+): T[] {
+  const polygon = parsePolygon(polygonValue)
+  if (!polygon || polygon.length < 3) return items
+  return items.filter((item) => {
+    const lat = item.latitude === null || item.latitude === undefined ? null : Number(item.latitude)
+    const lng = item.longitude === null || item.longitude === undefined ? null : Number(item.longitude)
+    if (lat === null || lng === null || isNaN(lat) || isNaN(lng)) return false
+    return pointInPolygon({ lat, lng }, polygon)
+  })
 }

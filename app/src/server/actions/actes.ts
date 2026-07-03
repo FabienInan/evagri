@@ -22,7 +22,7 @@ export async function importActesPDF(formData: FormData) {
   const org = await prisma.organisation.findFirst({ where: { id: DEFAULT_ORG_ID } })
   if (!org) throw new Error("Organisation par défaut non initialisée")
 
-  const matched: { filename: string; numeroInscription: string; transactionSourceId: string }[] = []
+  const matched: { filename: string; numeroInscription: string | null; transactionSourceId: string }[] = []
   const unmatched: string[] = []
 
   for (const file of files) {
@@ -77,7 +77,7 @@ export async function importActesPDF(formData: FormData) {
 
     matched.push({
       filename: file.name,
-      numeroInscription: transaction.numeroInscription,
+      numeroInscription: transaction.numeroInscription ?? null,
       transactionSourceId: transaction.id,
     })
   }

@@ -74,7 +74,7 @@ export function ImportHistory({ initialImports }: { initialImports: Importation[
 
   return (
     <Card>
-      <CardHeader className="pb-3">
+      <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <History className="h-4 w-4 text-primary" />
           Historique des importations

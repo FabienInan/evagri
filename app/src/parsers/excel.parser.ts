@@ -8,7 +8,7 @@ export const SHEET_MAPPING: Record<string, { typologieCode: string }> = {
 }
 
 export const SOURCE_COLUMNS = [
-  { headerKeys: ["No d'enregistrement", "No d'enr.", "SIA"], field: "numeroInscription" },
+  { headerKeys: ["No d'enregistrement", "No d'enr."], field: "numeroInscription" },
   { headerKeys: ["Date de L'acte", "Date de l'acte ou de l'avant contrat"], field: "dateVente" },
   { headerKeys: ["Vendeur"], field: "vendeur" },
   { headerKeys: ["Acheteur"], field: "acheteur" },
@@ -22,13 +22,15 @@ export const SOURCE_COLUMNS = [
   { headerKeys: ["Longitude"], field: "longitude" },
 ]
 
-export function parseWorkbook(buffer: ArrayBuffer | Uint8Array) {
+export interface ParsedSheet {
+  sheet: string
+  typologieCode: string
+  rows: Record<string, unknown>[]
+}
+
+export function parseWorkbook(buffer: ArrayBuffer | Uint8Array): ParsedSheet[] {
   const workbook = XLSX.read(buffer, { type: "array" })
-  const results: {
-    sheet: string
-    rows: Record<string, unknown>[]
-    typologieCode: string
-  }[] = []
+  const results: ParsedSheet[] = []
 
   for (const sheetName of workbook.SheetNames) {
     const mapping = SHEET_MAPPING[sheetName]
@@ -78,10 +80,12 @@ export function rowToSourceFields(row: Record<string, unknown>): Record<string, 
   return result
 }
 
-const SOURCE_HEADER_SET = new Set(SOURCE_COLUMNS.flatMap((c) => c.headerKeys.map((h) => h.toLowerCase())))
+const SOURCE_HEADER_SET = new Set(
+  SOURCE_COLUMNS.flatMap((c) => c.headerKeys.map((h) => normalizeHeader(h)))
+)
 
 export function isSourceHeader(header: string): boolean {
-  return SOURCE_HEADER_SET.has(header.toLowerCase())
+  return SOURCE_HEADER_SET.has(normalizeHeader(header))
 }
 
 function isIgnoredHeader(header: string): boolean {
@@ -89,12 +93,17 @@ function isIgnoredHeader(header: string): boolean {
   return h === "" || h.startsWith("__empty") || h.startsWith("column")
 }
 
+export interface EnrichmentHeaderCandidate {
+  header: string
+  sample: unknown
+}
+
 export function extractNonEmptyEnrichmentHeaders(
   rows: Record<string, unknown>[]
-): { header: string; sample: unknown }[] {
+): EnrichmentHeaderCandidate[] {
   if (rows.length === 0) return []
   const allHeaders = Object.keys(rows[0]).filter(Boolean)
-  const candidates: { header: string; sample: unknown }[] = []
+  const candidates: EnrichmentHeaderCandidate[] = []
 
   for (const header of allHeaders) {
     if (isSourceHeader(header) || isIgnoredHeader(header)) continue
@@ -108,7 +117,9 @@ export function extractNonEmptyEnrichmentHeaders(
   return candidates
 }
 
-export function inferType(value: unknown): "TEXTE" | "DECIMAL" | "ENTIER" | "BOOLEAN" {
+export type InferredDataType = "TEXTE" | "DECIMAL" | "ENTIER" | "BOOLEAN"
+
+export function inferType(value: unknown): InferredDataType {
   if (typeof value === "boolean") return "BOOLEAN"
   if (typeof value === "number") return Number.isInteger(value) ? "ENTIER" : "DECIMAL"
   const str = String(value).trim().replace(",", ".")

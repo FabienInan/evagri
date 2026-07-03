@@ -1,47 +1,36 @@
-import { prisma } from "@/lib/prisma"
+import { filterByPolygon, findGeoFilter } from "@/lib/filters"
+import { getCurrentOrganisationId } from "@/repositories/organisation.repository"
+import { findTransactionsForMap, type MapTransaction } from "@/repositories/transaction.repository"
+import { filterMapParamsSchema } from "@/validators/filter.validator"
 import { NextResponse } from "next/server"
-import type { Prisma } from "@prisma/client"
 
-type MapTransaction = Prisma.TransactionSourceGetPayload<{
-  select: {
-    id: true
-    numeroInscription: true
-    dateVente: true
-    prixVente: true
-    superficieTotaleHectare: true
-    latitude: true
-    longitude: true
-    municipalite: true
+function serializeMapTransaction(t: MapTransaction) {
+  return {
+    id: t.id,
+    numeroInscription: t.numeroInscription ?? null,
+    dateVente: t.dateVente ? t.dateVente.toISOString() : null,
+    prixVente: t.prixVente ? Number(t.prixVente) : null,
+    superficieTotaleHectare: t.superficieTotaleHectare ? Number(t.superficieTotaleHectare) : null,
+    latitude: t.latitude ? Number(t.latitude) : null,
+    longitude: t.longitude ? Number(t.longitude) : null,
+    municipalite: t.municipalite ?? null,
   }
-}>
+}
 
-export async function GET() {
-  const transactions: MapTransaction[] = await prisma.transactionSource.findMany({
-    where: {
-      organisationId: process.env.DEFAULT_ORGANISATION_ID || "",
-      latitude: { not: null },
-      longitude: { not: null },
-    },
-    select: {
-      id: true,
-      numeroInscription: true,
-      dateVente: true,
-      prixVente: true,
-      superficieTotaleHectare: true,
-      latitude: true,
-      longitude: true,
-      municipalite: true,
-    },
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url)
+  const params = filterMapParamsSchema.parse({
+    filters: searchParams.get("filters") ?? "[]",
   })
+  const filters = params.filters
+  const geoFilter = findGeoFilter(filters)
+  const orgId = getCurrentOrganisationId()
 
-  return NextResponse.json(
-    transactions.map((t) => ({
-      ...t,
-      dateVente: t.dateVente.toISOString(),
-      prixVente: t.prixVente ? Number(t.prixVente) : null,
-      superficieTotaleHectare: t.superficieTotaleHectare ? Number(t.superficieTotaleHectare) : null,
-      latitude: t.latitude ? Number(t.latitude) : null,
-      longitude: t.longitude ? Number(t.longitude) : null,
-    }))
-  )
+  let transactions = await findTransactionsForMap(filters, orgId)
+
+  if (geoFilter) {
+    transactions = filterByPolygon(transactions, geoFilter.value) as MapTransaction[]
+  }
+
+  return NextResponse.json(transactions.map(serializeMapTransaction))
 }

@@ -1,48 +1,20 @@
 "use server"
 
-import { prisma } from "@/lib/prisma"
-import { parseWorkbook, rowToSourceFields, extractNonEmptyEnrichmentHeaders, inferType } from "@/lib/excel-parser"
-import { importTransactions } from "@/lib/transaction-import"
+import { parseWorkbook, rowToSourceFields } from "@/parsers/excel.parser"
+import { findDefaultOrganisation, getCurrentOrganisationId } from "@/repositories/organisation.repository"
+import { ensureEnrichmentChamps } from "@/repositories/enrichment.repository"
+import {
+  createImportation,
+  findImportationById,
+  listImports as listImportRecords,
+  markImportationFailed,
+  resetImportForRetry,
+  updateImportationResults,
+} from "@/repositories/import.repository"
+import { importSheet } from "@/services/import.service"
 import { logAudit } from "@/lib/audit"
-
-async function ensureEnrichmentChamps(
-  organisationId: string,
-  sheetRows: Record<string, unknown>[]
-) {
-  const candidates = extractNonEmptyEnrichmentHeaders(sheetRows)
-  const result: { id: string; header: string; codeMachine: string; typeDonnees: string }[] = []
-
-  for (const candidate of candidates) {
-    const codeMachine = candidate.header
-      .toLowerCase()
-      .replace(/\s+/g, "_")
-      .replace(/[^a-z0-9_]/g, "")
-      .replace(/_+/g, "_")
-
-    const existing = await prisma.champEnrichissable.findUnique({
-      where: { organisationId_codeMachine: { organisationId, codeMachine } },
-    })
-
-    if (existing) {
-      result.push({ id: existing.id, header: candidate.header, codeMachine, typeDonnees: existing.typeDonnees })
-    } else {
-      const created = await prisma.champEnrichissable.create({
-        data: {
-          organisationId,
-          codeMachine,
-          nomAffichage: candidate.header,
-          typeDonnees: inferType(candidate.sample),
-          nature: "SAISISSABLE",
-          unite: "N/A",
-          applicableATypes: [],
-        },
-      })
-      result.push({ id: created.id, header: candidate.header, codeMachine, typeDonnees: created.typeDonnees })
-    }
-  }
-
-  return result
-}
+import { prisma } from "@/lib/prisma"
+import type { ParsedRow } from "@/types/import"
 
 export async function importExcel(formData: FormData) {
   const file = formData.get("file") as File
@@ -53,20 +25,11 @@ export async function importExcel(formData: FormData) {
   const parsed = parseWorkbook(arrayBuffer)
   if (parsed.length === 0) throw new Error("Aucune feuille reconnue (Terre, Bois, Ventes erablière)")
 
-  const org = await prisma.organisation.findFirst({ where: { id: process.env.DEFAULT_ORGANISATION_ID || "" } })
+  const organisationId = getCurrentOrganisationId()
+  const org = await findDefaultOrganisation()
   if (!org) throw new Error("Organisation par défaut non initialisée")
 
-  const importation = await prisma.importation.create({
-    data: {
-      organisationId: org.id,
-      typeSource: "EXISTANT_EVAGRI",
-      statut: "EN_COURS",
-      lignesTotal: 0,
-      lignesInserees: 0,
-      lignesIgnorees: 0,
-      lignesErreurs: 0,
-    },
-  })
+  const importation = await createImportation(organisationId, "EXISTANT_EVAGRI")
 
   let totalRows = 0
   let totalInserted = 0
@@ -74,61 +37,49 @@ export async function importExcel(formData: FormData) {
   const allErrors: { sheet: string; row: number; message: string }[] = []
 
   try {
-    console.log("[importExcel] sheets:", parsed.map((s) => ({ sheet: s.sheet, rows: s.rows.length, headers: Object.keys(s.rows[0] || {}) })))
-
     for (const sheet of parsed) {
       const typologie = await prisma.typologie.findUnique({
-        where: { organisationId_code: { organisationId: org.id, code: sheet.typologieCode } },
+        where: { organisationId_code: { organisationId, code: sheet.typologieCode } },
       })
       if (!typologie) {
         allErrors.push({ sheet: sheet.sheet, row: 0, message: `Typologie ${sheet.typologieCode} inconnue` })
         continue
       }
 
-      const enrichmentChamps = await ensureEnrichmentChamps(org.id, sheet.rows)
-      const rows = sheet.rows.map((r) => rowToSourceFields(r) as any)
+      const enrichmentChamps = await ensureEnrichmentChamps(organisationId, sheet.rows)
+      const rows = sheet.rows.map((r) => rowToSourceFields(r) as ParsedRow)
       totalRows += rows.length
 
-      const { inserted, ignored, errors } = await importTransactions(
-        org.id,
+      const { inserted, ignored, errors } = await importSheet({
+        organisationId,
         rows,
+        rawRows: sheet.rows,
         enrichmentChamps,
-        sheet.rows,
-        typologie.id,
-        "EXISTANT_EVAGRI",
-        importation.id
-      )
+        systemeSource: "EXISTANT_EVAGRI",
+        importationId: importation.id,
+        typologieNom: typologie.nom,
+      })
 
       totalInserted += inserted
       totalIgnored += ignored
       allErrors.push(...errors.map((e) => ({ ...e, sheet: sheet.sheet })))
     }
 
-    await prisma.importation.update({
-      where: { id: importation.id },
-      data: {
-        statut: allErrors.length > 0 ? "TERMINE_AVEC_ERREURS" : "TERMINE",
-        lignesTotal: totalRows,
-        lignesInserees: totalInserted,
-        lignesIgnorees: totalIgnored,
-        lignesErreurs: allErrors.length,
-        details: { errors: allErrors },
-      },
+    await updateImportationResults(importation.id, {
+      statut: allErrors.length > 0 ? "TERMINE_AVEC_ERREURS" : "TERMINE",
+      lignesTotal: totalRows,
+      lignesInserees: totalInserted,
+      lignesIgnorees: totalIgnored,
+      lignesErreurs: allErrors.length,
+      details: { errors: allErrors },
     })
   } catch (e) {
-    await prisma.importation.update({
-      where: { id: importation.id },
-      data: {
-        statut: "EN_ECHEC",
-        lignesErreurs: 1,
-        details: { error: (e as Error).message },
-      },
-    })
+    await markImportationFailed(importation.id, e as Error)
     throw e
   }
 
   await logAudit({
-    organisationId: org.id,
+    organisationId,
     tableCible: "importation",
     enregistrementId: importation.id,
     action: "INSERT",
@@ -145,33 +96,18 @@ export async function importExcel(formData: FormData) {
 }
 
 export async function listImports() {
-  const org = await prisma.organisation.findFirst({ where: { id: process.env.DEFAULT_ORGANISATION_ID || "" } })
-  if (!org) throw new Error("Organisation par défaut non initialisée")
-
-  return prisma.importation.findMany({
-    where: { organisationId: org.id },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-  })
+  const organisationId = getCurrentOrganisationId()
+  return listImportRecords(organisationId)
 }
 
 export async function retryImport(importationId: string) {
-  const org = await prisma.organisation.findFirst({ where: { id: process.env.DEFAULT_ORGANISATION_ID || "" } })
-  if (!org) throw new Error("Organisation par défaut non initialisée")
-
-  const importation = await prisma.importation.findFirst({
-    where: { id: importationId, organisationId: org.id },
-  })
+  const organisationId = getCurrentOrganisationId()
+  const importation = await findImportationById(importationId, organisationId)
   if (!importation) throw new Error("Importation introuvable")
   if (importation.typeSource === "EXISTANT_EVAGRI") {
     throw new Error("Relance non disponible pour les imports Excel manuels. Veuillez ré-uploader le fichier.")
   }
 
-  await prisma.importation.update({
-    where: { id: importationId },
-    data: { statut: "EN_COURS", lignesErreurs: 0, details: {} },
-  })
-
-  // JLR retry hook for RC phase
+  await resetImportForRetry(importationId)
   return { success: true, message: "Importation marquée pour relance." }
 }

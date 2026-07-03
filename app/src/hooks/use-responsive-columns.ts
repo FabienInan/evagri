@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react"
 import {
   computeVisibleColumns,
   loadColumnPreference,
@@ -9,11 +9,20 @@ import {
   type ResponsiveColumn,
 } from "@/lib/responsive-columns"
 
+function useIsClient() {
+  return useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  )
+}
+
 export function useResponsiveColumns(
   columns: ResponsiveColumn[],
   initialVisible: Set<string>,
   requiredKeys: string[] = []
 ) {
+  const isClient = useIsClient()
   const [container, setContainer] = useState<HTMLDivElement | null>(null)
   const containerRef = useCallback((node: HTMLDivElement | null) => {
     setContainer(node)
@@ -39,7 +48,7 @@ export function useResponsiveColumns(
   }, [columns, container, requiredKeys])
 
   useEffect(() => {
-    if (hasUserOverride || !container) return
+    if (hasUserOverride || !container || !isClient) return
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         if (entry.contentRect.width > 0) {
@@ -49,7 +58,7 @@ export function useResponsiveColumns(
     })
     observer.observe(container)
     return () => observer.disconnect()
-  }, [calculate, hasUserOverride, container])
+  }, [calculate, hasUserOverride, container, isClient])
 
   const toggleColumn = useCallback((key: string) => {
     setVisibleColumnsState((prev) => {

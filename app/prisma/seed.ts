@@ -48,6 +48,7 @@ async function main() {
     { codeMachine: "dateVente", nomAffichage: "Date de vente", typeDonnees: "DATE", unite: "N/A" },
     { codeMachine: "vendeur", nomAffichage: "Vendeur", typeDonnees: "TEXTE", unite: "N/A" },
     { codeMachine: "acheteur", nomAffichage: "Acheteur", typeDonnees: "TEXTE", unite: "N/A" },
+    { codeMachine: "lotsCadastraux", nomAffichage: "Lots", typeDonnees: "TEXTE", unite: "N/A" },
     { codeMachine: "prixVente", nomAffichage: "Prix de vente", typeDonnees: "DECIMAL", unite: "$" },
     { codeMachine: "mrc", nomAffichage: "MRC", typeDonnees: "TEXTE", unite: "N/A" },
     { codeMachine: "municipalite", nomAffichage: "Municipalité", typeDonnees: "TEXTE", unite: "N/A" },
@@ -59,9 +60,82 @@ async function main() {
     await prisma.champEnrichissable.upsert({
       where: { organisationId_codeMachine: { organisationId: org.id, codeMachine: c.codeMachine } },
       update: {},
-      create: { organisationId: org.id, ...c, nature: "SAISISSABLE", applicableATypes: [] },
+      create: { organisationId: org.id, ...c, nature: "SOURCE", applicableATypes: [] },
     })
   }
+
+  const typeTransaction = await prisma.champEnrichissable.upsert({
+    where: { organisationId_codeMachine: { organisationId: org.id, codeMachine: "typeTransaction" } },
+    update: {
+      optionsListe: [
+        "Terres cultivées",
+        "Terres boisées",
+        "Érablières",
+        "Bâtiments agricoles",
+        "Ferme",
+      ],
+    },
+    create: {
+      organisationId: org.id,
+      codeMachine: "typeTransaction",
+      nomAffichage: "Type de transaction",
+      typeDonnees: "LISTE",
+      nature: "SAISISSABLE",
+      unite: "N/A",
+      applicableATypes: [],
+      optionsListe: [
+        "Terres cultivées",
+        "Terres boisées",
+        "Érablières",
+        "Bâtiments agricoles",
+        "Ferme",
+      ],
+    },
+  })
+
+  await prisma.filtreRecherche.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000001" },
+    update: {
+      nomFiltre: "Type de transaction",
+      typeFiltre: "LISTE",
+      operateursDisponibles: ["="],
+      ordreAffichage: 0,
+      estActif: true,
+    },
+    create: {
+      id: "00000000-0000-0000-0000-000000000001",
+      organisationId: org.id,
+      champEnrichissableId: typeTransaction.id,
+      nomFiltre: "Type de transaction",
+      typeFiltre: "LISTE",
+      operateursDisponibles: ["="],
+      ordreAffichage: 0,
+      estActif: true,
+      applicableATypes: [],
+    },
+  })
+
+  await prisma.filtreRecherche.upsert({
+    where: { organisationId_codeMachine: { organisationId: org.id, codeMachine: "statut" } },
+    update: {
+      nomFiltre: "Statut d'analyse",
+      typeFiltre: "LISTE",
+      operateursDisponibles: ["="],
+      ordreAffichage: 1,
+      estActif: true,
+    },
+    create: {
+      id: "00000000-0000-0000-0000-000000000002",
+      organisationId: org.id,
+      codeMachine: "statut",
+      nomFiltre: "Statut d'analyse",
+      typeFiltre: "LISTE",
+      operateursDisponibles: ["="],
+      ordreAffichage: 1,
+      estActif: true,
+      applicableATypes: [],
+    },
+  })
 
   console.log("Seed completed.")
 }

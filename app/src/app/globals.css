@@ -81,3 +81,20 @@
     @apply bg-background text-foreground;
   }
 }
+
+.scrollable-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollable-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollable-list::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border-radius: 9999px;
+}
+
+.scrollable-list:hover::-webkit-scrollbar-thumb {
+  background-color: var(--muted-foreground);
+}

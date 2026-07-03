@@ -1,0 +1,2 @@
+-- No-op: typologie column was added and removed in a previous branch.
+-- Kept as placeholder to align migration history with the database.

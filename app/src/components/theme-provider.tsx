@@ -3,6 +3,20 @@
 import * as React from "react"
 import { ThemeProvider as NextThemesProvider, useTheme } from "next-themes"
 
+if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+  const originalError = console.error
+  console.error = (...args: unknown[]) => {
+    const first = args[0]
+    if (
+      typeof first === "string" &&
+      first.includes("Encountered a script tag while rendering React component")
+    ) {
+      return
+    }
+    originalError.apply(console, args)
+  }
+}
+
 function ThemeProvider({
   children,
   ...props

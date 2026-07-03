@@ -15,15 +15,23 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
+type EnrichmentValues = Record<string, string | number | boolean | null>
+
 type TransactionRow = {
   id: string
-  numeroInscription: string
-  dateVente: string
+  numeroInscription: string | null
+  dateVente: string | null
+  vendeur: string | null
+  acheteur: string | null
+  lotsCadastraux: string[]
   mrc: string | null
   municipalite: string | null
+  adresse: string | null
   superficieTotaleHectare: number | null
   prixVente: number | null
-  typeTransaction: string | null
+  latitude: number | null
+  longitude: number | null
+  enrichment: EnrichmentValues
   enrichie?: { statut: string } | null
 }
 
@@ -32,15 +40,23 @@ type TableData = {
   total: number
 }
 
-const COLUMNS = [
-  { key: "numeroInscription", label: "Numéro d'acte", numeric: false, sortable: true, defaultVisible: true, minWidth: 140, priority: 9 },
-  { key: "typeTransaction", label: "Type", numeric: false, sortable: false, defaultVisible: true, minWidth: 100, priority: 2 },
-  { key: "dateVente", label: "Date", numeric: false, sortable: true, defaultVisible: true, minWidth: 110, priority: 8 },
+const SOURCE_COLUMNS = [
+  { key: "numeroInscription", label: "N° d'inscription", numeric: false, sortable: true, defaultVisible: true, minWidth: 140, priority: 9 },
+  { key: "dateVente", label: "Date de vente", numeric: false, sortable: true, defaultVisible: true, minWidth: 130, priority: 8 },
+  { key: "vendeur", label: "Vendeur", numeric: false, sortable: true, defaultVisible: false, minWidth: 160, priority: 1 },
+  { key: "acheteur", label: "Acheteur", numeric: false, sortable: true, defaultVisible: false, minWidth: 160, priority: 1 },
+  { key: "lotsCadastraux", label: "Lots cadastraux", numeric: false, sortable: false, defaultVisible: false, minWidth: 140, priority: 1 },
   { key: "mrc", label: "MRC", numeric: false, sortable: true, defaultVisible: true, minWidth: 120, priority: 4 },
   { key: "municipalite", label: "Municipalité", numeric: false, sortable: true, defaultVisible: false, minWidth: 150, priority: 1 },
+  { key: "adresse", label: "Adresse", numeric: false, sortable: true, defaultVisible: false, minWidth: 200, priority: 1 },
   { key: "superficieTotaleHectare", label: "Superficie (ha)", numeric: true, sortable: true, defaultVisible: true, minWidth: 130, priority: 5 },
   { key: "prixVente", label: "Prix à l'acte", numeric: true, sortable: true, defaultVisible: true, minWidth: 140, priority: 7 },
-  { key: "tauxGlobal", label: "Taux global ($/ha)", numeric: true, sortable: false, defaultVisible: true, minWidth: 140, priority: 6 },
+  { key: "latitude", label: "Latitude", numeric: true, sortable: false, defaultVisible: false, minWidth: 110, priority: 1 },
+  { key: "longitude", label: "Longitude", numeric: true, sortable: false, defaultVisible: false, minWidth: 110, priority: 1 },
+]
+
+const COMPUTED_COLUMNS = [
+  { key: "tauxGlobal", label: "Taux global ($/ha)", numeric: true, sortable: false, defaultVisible: true, minWidth: 150, priority: 6 },
   { key: "statut", label: "Statut", numeric: false, sortable: false, defaultVisible: true, minWidth: 110, priority: 3 },
   { key: "actions", label: "Actions", numeric: false, sortable: false, defaultVisible: true, minWidth: 80, priority: 10 },
 ]
@@ -54,12 +70,19 @@ function formatCurrency(value: number | null | undefined) {
   }).format(value)
 }
 
-function formatNumber(value: number | null | undefined, digits = 1) {
+function formatNumber(value: number | null | undefined, digits = 2) {
   if (value === null || value === undefined) return "—"
   return new Intl.NumberFormat("fr-CA", {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   }).format(value)
+}
+
+function formatValue(value: string | number | boolean | null | undefined): string {
+  if (value === null || value === undefined) return "—"
+  if (typeof value === "boolean") return value ? "Oui" : "Non"
+  if (typeof value === "number") return formatNumber(value)
+  return String(value)
 }
 
 function computeTauxGlobal(row: TransactionRow): number | null {
@@ -111,6 +134,39 @@ function Actions({ statut }: { statut: string | null | undefined }) {
   )
 }
 
+type ColumnDef = {
+  key: string
+  label: string
+  numeric: boolean
+  sortable: boolean
+  defaultVisible: boolean
+  minWidth: number
+  priority: number
+  enrichment?: boolean
+}
+
+function useTableColumns(transactions: TransactionRow[]) {
+  return useMemo<ColumnDef[]>(() => {
+    const enrichmentKeys = new Set<string>()
+    for (const t of transactions) {
+      for (const key of Object.keys(t.enrichment)) {
+        enrichmentKeys.add(key)
+      }
+    }
+    const enrichmentCols: ColumnDef[] = Array.from(enrichmentKeys).map((key) => ({
+      key,
+      label: key,
+      numeric: false,
+      sortable: false,
+      defaultVisible: false,
+      minWidth: 130,
+      priority: 1,
+      enrichment: true,
+    }))
+    return [...SOURCE_COLUMNS, ...enrichmentCols, ...COMPUTED_COLUMNS]
+  }, [transactions])
+}
+
 export function TransactionTable({
   data,
   onSort,
@@ -128,13 +184,14 @@ export function TransactionTable({
   loading: boolean
   sentinelRef: React.RefObject<HTMLDivElement | null>
 }) {
+  const columns = useTableColumns(data.transactions)
   const initialVisible = useMemo(
-    () => new Set(COLUMNS.filter((c) => c.defaultVisible).map((c) => c.key)),
-    []
+    () => new Set(columns.filter((c) => c.defaultVisible).map((c) => c.key)),
+    [columns]
   )
   const columnMeta = useMemo(
-    () => COLUMNS.map((c) => ({ key: c.key, minWidth: c.minWidth, priority: c.priority })),
-    []
+    () => columns.map((c) => ({ key: c.key, minWidth: c.minWidth, priority: c.priority })),
+    [columns]
   )
   const {
     containerRef,
@@ -145,7 +202,50 @@ export function TransactionTable({
   } = useResponsiveColumns(columnMeta, initialVisible, ["actions", "statut"])
 
   const [showColumnMenu, setShowColumnMenu] = useState(false)
-  const visible = useMemo(() => COLUMNS.filter((c) => visibleColumns.has(c.key)), [visibleColumns])
+  const visible = useMemo(() => columns.filter((c) => visibleColumns.has(c.key)), [columns, visibleColumns])
+
+  function renderCell(t: TransactionRow, col: ColumnDef) {
+    if (col.key === "tauxGlobal") {
+      return <TableCell className="py-2 text-right">{formatCurrency(computeTauxGlobal(t))}</TableCell>
+    }
+    if (col.key === "statut") {
+      return <TableCell className="py-2">{statusBadge(t.enrichie?.statut)}</TableCell>
+    }
+    if (col.key === "actions") {
+      return (
+        <TableCell className="py-2 text-right">
+          <Actions statut={t.enrichie?.statut} />
+        </TableCell>
+      )
+    }
+    if (col.enrichment) {
+      const value = t.enrichment[col.key]
+      return (
+        <TableCell className={`py-2 ${typeof value === "number" ? "text-right" : ""}`}>
+          {formatValue(value)}
+        </TableCell>
+      )
+    }
+    if (col.key === "numeroInscription") {
+      return <TableCell className="py-2 font-medium">{t.numeroInscription ?? t.enrichment["sia"] ?? "—"}</TableCell>
+    }
+    if (col.key === "dateVente") {
+      return <TableCell className="py-2">{t.dateVente ? new Date(t.dateVente).toLocaleDateString("fr-CA") : "—"}</TableCell>
+    }
+    if (col.key === "lotsCadastraux") {
+      return <TableCell className="py-2">{t.lotsCadastraux?.join(", ") ?? "—"}</TableCell>
+    }
+
+    const value = t[col.key as keyof TransactionRow]
+    if (col.numeric) {
+      return (
+        <TableCell className="py-2 text-right">
+          {formatValue(value as string | number | boolean | null)}
+        </TableCell>
+      )
+    }
+    return <TableCell className="py-2">{formatValue(value as string | number | boolean | null)}</TableCell>
+  }
 
   return (
     <Card className="flex flex-col min-w-0" ref={containerRef}>
@@ -167,8 +267,8 @@ export function TransactionTable({
             Colonnes
           </Button>
           {showColumnMenu && (
-            <div className="absolute right-0 z-20 mt-1 w-56 rounded-md border border-border bg-card p-2 shadow-md">
-              {COLUMNS.filter((c) => c.key !== "actions").map((col) => (
+            <div className="absolute right-0 z-20 mt-1 w-64 rounded-md border border-border bg-card p-2 shadow-md">
+              {columns.filter((c) => c.key !== "actions").map((col) => (
                 <label
                   key={col.key}
                   className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"
@@ -229,18 +329,7 @@ export function TransactionTable({
           <TableBody>
             {data.transactions.map((t) => (
               <TableRow key={t.id} className="cursor-pointer hover:bg-muted/30">
-                {visibleColumns.has("numeroInscription") && <TableCell className="py-2 font-medium">{t.numeroInscription}</TableCell>}
-                {visibleColumns.has("typeTransaction") && <TableCell className="py-2">{t.typeTransaction ?? "—"}</TableCell>}
-                {visibleColumns.has("dateVente") && <TableCell className="py-2">{new Date(t.dateVente).toLocaleDateString("fr-CA")}</TableCell>}
-                {visibleColumns.has("mrc") && <TableCell className="py-2">{t.mrc ?? "—"}</TableCell>}
-                {visibleColumns.has("municipalite") && <TableCell className="py-2">{t.municipalite ?? "—"}</TableCell>}
-                {visibleColumns.has("superficieTotaleHectare") && <TableCell className="py-2 text-right">{formatNumber(t.superficieTotaleHectare)}</TableCell>}
-                {visibleColumns.has("prixVente") && <TableCell className="py-2 text-right">{formatCurrency(t.prixVente)}</TableCell>}
-                {visibleColumns.has("tauxGlobal") && <TableCell className="py-2 text-right">{formatCurrency(computeTauxGlobal(t))}</TableCell>}
-                {visibleColumns.has("statut") && <TableCell className="py-2">{statusBadge(t.enrichie?.statut)}</TableCell>}
-                <TableCell className="py-2 text-right">
-                  <Actions statut={t.enrichie?.statut} />
-                </TableCell>
+                {visible.map((col) => renderCell(t, col))}
               </TableRow>
             ))}
           </TableBody>

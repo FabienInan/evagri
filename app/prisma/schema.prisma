@@ -4,347 +4,330 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = "postgresql://evagri:evagri@localhost:5432/evagri"
 }
 
 model Organisation {
-  id        String   @id @default(uuid())
-  nom       String
-  actif     Boolean  @default(true)
-  createdAt DateTime @default(now()) @map("date_creation")
-
-  utilisateurs Utilisateur[]
-  transactions TransactionSource[]
-  enrichies    TransactionEnrichie[]
-  champs       ChampEnrichissable[]
-  filtres      FiltreRecherche[]
-  vues         VueFicheEvaluation[]
-  dossiers     Dossier[]
-  paniers      Panier[]
+  id           String                @id @default(uuid())
+  nom          String
+  actif        Boolean               @default(true)
+  createdAt    DateTime              @default(now()) @map("date_creation")
   analyses     AnalyseDossier[]
-  typologies   Typologie[]
+  champs       ChampEnrichissable[]
+  dossiers     Dossier[]
+  filtres      FiltreRecherche[]
   importations Importation[]
   audits       JournalAudit[]
   referentiel  Municipalite[]
+  paniers      Panier[]
+  enrichies    TransactionEnrichie[]
+  transactions TransactionSource[]
+  typologies   Typologie[]
+  utilisateurs Utilisateur[]
+  vues         VueFicheEvaluation[]
 
   @@map("organisation")
 }
 
 model Utilisateur {
-  id                      String    @id @default(uuid())
-  organisationId          String    @map("id_organisation")
+  id                      String       @id @default(uuid())
+  organisationId          String       @map("id_organisation")
   email                   String
   nom                     String?
   role                    String
-  passwordHash            String    @map("mot_de_passe")
-  consentementPolitiqueAt DateTime? @map("consentement_politique_date")
-  actif                   Boolean   @default(true)
-  createdAt               DateTime  @default(now()) @map("date_creation")
-
-  organisation Organisation @relation(fields: [organisationId], references: [id])
+  passwordHash            String       @map("mot_de_passe")
+  consentementPolitiqueAt DateTime?    @map("consentement_politique_date")
+  actif                   Boolean      @default(true)
+  createdAt               DateTime     @default(now()) @map("date_creation")
+  organisation            Organisation @relation(fields: [organisationId], references: [id])
 
   @@unique([organisationId, email])
   @@map("utilisateur")
 }
 
 model Municipalite {
-  id                   String  @id @default(uuid())
-  organisationId       String  @map("id_organisation")
-  nomMunicipalite      String  @map("nom_municipalite")
+  id                   String       @id @default(uuid())
+  organisationId       String       @map("id_organisation")
+  nomMunicipalite      String       @map("nom_municipalite")
   mrc                  String
-  regionAdministrative String  @map("region_administrative")
-  codePostalPrefix     String? @map("code_postal_prefix")
-
-  organisation Organisation @relation(fields: [organisationId], references: [id])
+  regionAdministrative String       @map("region_administrative")
+  codePostalPrefix     String?      @map("code_postal_prefix")
+  organisation         Organisation @relation(fields: [organisationId], references: [id])
 
   @@unique([organisationId, nomMunicipalite])
   @@map("municipalite")
 }
 
 model TransactionSource {
-  id                      String    @id @default(uuid())
-  organisationId          String    @map("id_organisation")
-  importationId           String?   @map("id_importation")
-  systemeSource           String    @map("systeme_source")
-  numeroInscription       String    @map("numero_inscription")
-  dateVente               DateTime  @map("date_vente") @db.Date
-  prixVente               Decimal?  @map("prix_vente") @db.Decimal(15, 2)
+  id                      String                         @id @default(uuid())
+  organisationId          String                         @map("id_organisation")
+  importationId           String?                        @map("id_importation")
+  systemeSource           String                         @map("systeme_source")
+  numeroInscription       String?                        @map("numero_inscription")
+  dateVente               DateTime?                      @map("date_vente") @db.Date
+  prixVente               Decimal?                       @map("prix_vente") @db.Decimal(15, 2)
   vendeur                 String?
   acheteur                String?
-  lotsCadastraux          String[]  @map("lots_cadastraux")
+  lotsCadastraux          String[]                       @map("lots_cadastraux")
   adresse                 String?
   municipalite            String?
   mrc                     String?
-  superficieTotaleHectare Decimal?  @map("superficie_totale_hectare") @db.Decimal(12, 4)
-  latitude                Decimal?  @db.Decimal(10, 8)
-  longitude               Decimal?  @db.Decimal(11, 8)
-  createdAt               DateTime  @default(now()) @map("date_creation")
+  superficieTotaleHectare Decimal?                       @map("superficie_totale_hectare") @db.Decimal(12, 4)
+  latitude                Decimal?                       @db.Decimal(10, 8)
+  longitude               Decimal?                       @db.Decimal(11, 8)
+  createdAt               DateTime                       @default(now()) @map("date_creation")
+  documents               DocumentActe[]
+  resultats               IndicateursAjustes[]
+  analyses                ParametresAnalyseTransaction[]
+  enrichie                TransactionEnrichie?
+  importation             Importation?                   @relation(fields: [importationId], references: [id])
+  organisation            Organisation                   @relation(fields: [organisationId], references: [id])
 
-  organisation Organisation @relation(fields: [organisationId], references: [id])
-  importation  Importation? @relation(fields: [importationId], references: [id])
-  enrichie     TransactionEnrichie?
-  documents    DocumentActe[]
-  analyses     ParametresAnalyseTransaction[]
-  resultats    IndicateursAjustes[]
-
-  @@unique([organisationId, numeroInscription, dateVente])
+  @@index([organisationId, numeroInscription, dateVente])
   @@map("transaction_source")
 }
 
 model TransactionEnrichie {
-  id                  String    @id @default(uuid())
-  organisationId      String    @map("id_organisation")
-  transactionSourceId String    @unique @map("id_transaction_source")
-  statut              String    @default("NON_ANALYSEE")
-  contributeurId      String?   @map("id_contributeur")
-  dateStatut          DateTime? @map("date_statut")
-  createdAt           DateTime  @default(now()) @map("date_creation")
-  updatedAt           DateTime  @updatedAt @map("date_modification")
-
-  transactionSource TransactionSource @relation(fields: [transactionSourceId], references: [id])
-  organisation      Organisation      @relation(fields: [organisationId], references: [id])
-  valeurs           ValeurEnrichissement[]
-  paniers           PanierTransaction[]
+  id                  String                 @id @default(uuid())
+  organisationId      String                 @map("id_organisation")
+  transactionSourceId String                 @unique @map("id_transaction_source")
+  statut              String                 @default("NON_ANALYSEE")
+  contributeurId      String?                @map("id_contributeur")
+  dateStatut          DateTime?              @map("date_statut")
+  createdAt           DateTime               @default(now()) @map("date_creation")
+  updatedAt           DateTime               @updatedAt @map("date_modification")
+  paniers             PanierTransaction[]
+  organisation        Organisation           @relation(fields: [organisationId], references: [id])
+  transactionSource   TransactionSource      @relation(fields: [transactionSourceId], references: [id])
+  valeurs             ValeurEnrichissement[]
 
   @@map("transaction_enrichie")
 }
 
 model ChampEnrichissable {
-  id               String   @id @default(uuid())
-  organisationId   String   @map("id_organisation")
-  codeMachine      String   @map("code_machine")
-  nomAffichage     String   @map("nom_affichage")
-  typeDonnees      String   @map("type_donnees")
+  id               String                 @id @default(uuid())
+  organisationId   String                 @map("id_organisation")
+  codeMachine      String                 @map("code_machine")
+  nomAffichage     String                 @map("nom_affichage")
+  typeDonnees      String                 @map("type_donnees")
   nature           String
-  unite            String   @default("N/A") @map("unite")
-  plageMin         Decimal? @map("plage_min") @db.Decimal(18, 4)
-  plageMax         Decimal? @map("plage_max") @db.Decimal(18, 4)
-  optionsListe     Json?    @map("options_liste")
-  regleCalcul      String?  @map("regle_calcul")
-  applicableATypes Json     @default("[]") @map("applicable_a_types")
-  ordreAffichage   Int      @default(0) @map("ordre_affichage")
-  estAffiche       Boolean  @default(true) @map("est_affiche")
-  estObligatoire   Boolean  @default(false) @map("est_obligatoire")
-  estModifiable    Boolean  @default(true) @map("est_modifiable")
-  actif            Boolean  @default(true)
-
-  organisation Organisation @relation(fields: [organisationId], references: [id])
-  filtres      FiltreRecherche[]
-  valeurs      ValeurEnrichissement[]
+  unite            String                 @default("N/A") @map("unite")
+  plageMin         Decimal?               @map("plage_min") @db.Decimal(18, 4)
+  plageMax         Decimal?               @map("plage_max") @db.Decimal(18, 4)
+  optionsListe     Json?                  @map("options_liste")
+  regleCalcul      String?                @map("regle_calcul")
+  applicableATypes Json                   @default("[]") @map("applicable_a_types")
+  ordreAffichage   Int                    @default(0) @map("ordre_affichage")
+  estAffiche       Boolean                @default(true) @map("est_affiche")
+  estObligatoire   Boolean                @default(false) @map("est_obligatoire")
+  estModifiable    Boolean                @default(true) @map("est_modifiable")
+  actif            Boolean                @default(true)
+  organisation     Organisation           @relation(fields: [organisationId], references: [id])
+  filtres          FiltreRecherche[]
+  valeurs          ValeurEnrichissement[]
 
   @@unique([organisationId, codeMachine])
   @@map("champ_enrichissable")
 }
 
 model FiltreRecherche {
-  id                   String   @id @default(uuid())
-  organisationId       String   @map("id_organisation")
-  champEnrichissableId String?  @map("id_champ_enrichissable")
-  nomFiltre            String   @map("nom_filtre")
-  typeFiltre           String   @map("type_filtre")
-  operateursDisponibles Json?   @map("operateurs_disponibles")
-  ordreAffichage       Int      @default(0) @map("ordre_affichage")
-  estActif             Boolean  @default(true) @map("est_actif")
-  applicableATypes     Json?    @map("applicable_a_types")
+  id                    String              @id @default(uuid())
+  organisationId        String              @map("id_organisation")
+  champEnrichissableId  String?             @map("id_champ_enrichissable")
+  nomFiltre             String              @map("nom_filtre")
+  typeFiltre            String              @map("type_filtre")
+  operateursDisponibles Json?               @map("operateurs_disponibles")
+  ordreAffichage        Int                 @default(0) @map("ordre_affichage")
+  estActif              Boolean             @default(true) @map("est_actif")
+  applicableATypes      Json?               @map("applicable_a_types")
+  codeMachine           String?             @map("code_machine")
+  champEnrichissable    ChampEnrichissable? @relation(fields: [champEnrichissableId], references: [id])
+  organisation          Organisation        @relation(fields: [organisationId], references: [id])
 
-  organisation       Organisation @relation(fields: [organisationId], references: [id])
-  champEnrichissable ChampEnrichissable? @relation(fields: [champEnrichissableId], references: [id])
-
+  @@unique([organisationId, codeMachine])
   @@map("filtre_recherche")
 }
 
 model ValeurEnrichissement {
-  id                    String    @id @default(uuid())
-  transactionEnrichieId String    @map("id_transaction_enrichie")
-  champEnrichissableId  String    @map("id_champ_enrichissable")
-  valeurNombre          Decimal?  @map("valeur_nombre") @db.Decimal(18, 4)
-  valeurTexte           String?   @map("valeur_texte")
-  valeurBooleen         Boolean?  @map("valeur_booleen")
-  dateModification      DateTime  @default(now()) @map("date_modification")
-  modifieParId          String?   @map("id_modifie_par")
-
-  transactionEnrichie TransactionEnrichie @relation(fields: [transactionEnrichieId], references: [id])
-  champEnrichissable  ChampEnrichissable  @relation(fields: [champEnrichissableId], references: [id])
+  id                    String              @id @default(uuid())
+  transactionEnrichieId String              @map("id_transaction_enrichie")
+  champEnrichissableId  String              @map("id_champ_enrichissable")
+  valeurNombre          Decimal?            @map("valeur_nombre") @db.Decimal(18, 4)
+  valeurTexte           String?             @map("valeur_texte")
+  valeurBooleen         Boolean?            @map("valeur_booleen")
+  dateModification      DateTime            @default(now()) @map("date_modification")
+  modifieParId          String?             @map("id_modifie_par")
+  champEnrichissable    ChampEnrichissable  @relation(fields: [champEnrichissableId], references: [id])
+  transactionEnrichie   TransactionEnrichie @relation(fields: [transactionEnrichieId], references: [id])
 
   @@unique([transactionEnrichieId, champEnrichissableId])
   @@map("valeur_enrichissement")
 }
 
 model VueFicheEvaluation {
-  id             String   @id @default(uuid())
-  organisationId String   @map("id_organisation")
-  typeVue        String   @map("type_vue")
-  contenu        Json     @default("{}")
-
-  organisation Organisation @relation(fields: [organisationId], references: [id])
+  id             String       @id @default(uuid())
+  organisationId String       @map("id_organisation")
+  typeVue        String       @map("type_vue")
+  contenu        Json         @default("{}")
+  organisation   Organisation @relation(fields: [organisationId], references: [id])
 
   @@map("vue_fiche_evaluation")
 }
 
 model Typologie {
-  id              String    @id @default(uuid())
-  organisationId  String    @map("id_organisation")
-  code            String
-  nom             String
-  parentId        String?   @map("id_type_parent")
-  estTypeMere     Boolean   @default(false) @map("est_type_mere")
-  estFeuille      Boolean   @default(true) @map("est_feuille")
-  ordre           Int       @default(0)
-  actif           Boolean   @default(true)
-
-  organisation Organisation @relation(fields: [organisationId], references: [id])
-  parent       Typologie?   @relation("TypologieParent", fields: [parentId], references: [id])
-  enfants      Typologie[]  @relation("TypologieParent")
-  paniers      Panier[]
+  id             String       @id @default(uuid())
+  organisationId String       @map("id_organisation")
+  code           String
+  nom            String
+  parentId       String?      @map("id_type_parent")
+  estTypeMere    Boolean      @default(false) @map("est_type_mere")
+  estFeuille     Boolean      @default(true) @map("est_feuille")
+  ordre          Int          @default(0)
+  actif          Boolean      @default(true)
+  paniers        Panier[]
+  organisation   Organisation @relation(fields: [organisationId], references: [id])
+  parent         Typologie?   @relation("TypologieParent", fields: [parentId], references: [id])
+  enfants        Typologie[]  @relation("TypologieParent")
 
   @@unique([organisationId, code])
   @@map("typologie")
 }
 
 model Dossier {
-  id             String   @id @default(uuid())
-  organisationId String   @map("id_organisation")
-  numeroDossier  String   @map("numero_dossier")
+  id             String           @id @default(uuid())
+  organisationId String           @map("id_organisation")
+  numeroDossier  String           @map("numero_dossier")
   nom            String?
-  createurId     String?  @map("id_createur")
-  createdAt      DateTime @default(now()) @map("date_creation")
-  actif          Boolean  @default(true)
-
-  organisation Organisation @relation(fields: [organisationId], references: [id])
-  paniers      Panier[]
-  analyses     AnalyseDossier[]
+  createurId     String?          @map("id_createur")
+  createdAt      DateTime         @default(now()) @map("date_creation")
+  actif          Boolean          @default(true)
+  analyses       AnalyseDossier[]
+  organisation   Organisation     @relation(fields: [organisationId], references: [id])
+  paniers        Panier[]
 
   @@unique([organisationId, numeroDossier])
   @@map("dossier")
 }
 
 model Panier {
-  id                String    @id @default(uuid())
-  organisationId    String    @map("id_organisation")
-  dossierId         String    @map("id_dossier")
+  id                String              @id @default(uuid())
+  organisationId    String              @map("id_organisation")
+  dossierId         String              @map("id_dossier")
   nom               String
-  typeTransactionId String?   @map("id_type_transaction")
-  createurId        String?   @map("id_createur")
-  createdAt         DateTime  @default(now()) @map("date_creation")
-
-  organisation    Organisation @relation(fields: [organisationId], references: [id])
-  dossier         Dossier      @relation(fields: [dossierId], references: [id])
-  typeTransaction Typologie?   @relation(fields: [typeTransactionId], references: [id])
-  transactions    PanierTransaction[]
-  analyses        AnalyseDossier[]
+  typeTransactionId String?             @map("id_type_transaction")
+  createurId        String?             @map("id_createur")
+  createdAt         DateTime            @default(now()) @map("date_creation")
+  analyses          AnalyseDossier[]
+  dossier           Dossier             @relation(fields: [dossierId], references: [id])
+  organisation      Organisation        @relation(fields: [organisationId], references: [id])
+  typeTransaction   Typologie?          @relation(fields: [typeTransactionId], references: [id])
+  transactions      PanierTransaction[]
 
   @@map("panier")
 }
 
 model PanierTransaction {
-  panierId              String @map("id_panier")
-  transactionEnrichieId String @map("id_transaction_enrichie")
-  dateAjout             DateTime @default(now()) @map("date_ajout")
-
-  panier              Panier              @relation(fields: [panierId], references: [id])
-  transactionEnrichie TransactionEnrichie @relation(fields: [transactionEnrichieId], references: [id])
+  panierId              String              @map("id_panier")
+  transactionEnrichieId String              @map("id_transaction_enrichie")
+  dateAjout             DateTime            @default(now()) @map("date_ajout")
+  panier                Panier              @relation(fields: [panierId], references: [id])
+  transactionEnrichie   TransactionEnrichie @relation(fields: [transactionEnrichieId], references: [id])
 
   @@id([panierId, transactionEnrichieId])
   @@map("panier_transaction")
 }
 
 model AnalyseDossier {
-  id              String   @id @default(uuid())
-  organisationId  String   @map("id_organisation")
-  dossierId       String   @map("id_dossier")
-  panierId        String?  @map("id_panier")
-  dateEvaluation  DateTime @map("date_evaluation") @db.Date
-  tauxCroissance  Decimal  @map("taux_croissance") @db.Decimal(5, 4)
-  createurId      String?  @map("id_createur")
-  createdAt       DateTime @default(now()) @map("date_creation")
-
-  organisation Organisation @relation(fields: [organisationId], references: [id])
-  dossier      Dossier      @relation(fields: [dossierId], references: [id])
-  panier       Panier?      @relation(fields: [panierId], references: [id])
-  parametres   ParametresAnalyseTransaction[]
-  resultats    IndicateursAjustes[]
+  id             String                         @id @default(uuid())
+  organisationId String                         @map("id_organisation")
+  dossierId      String                         @map("id_dossier")
+  panierId       String?                        @map("id_panier")
+  dateEvaluation DateTime                       @map("date_evaluation") @db.Date
+  tauxCroissance Decimal                        @map("taux_croissance") @db.Decimal(5, 4)
+  createurId     String?                        @map("id_createur")
+  createdAt      DateTime                       @default(now()) @map("date_creation")
+  dossier        Dossier                        @relation(fields: [dossierId], references: [id])
+  organisation   Organisation                   @relation(fields: [organisationId], references: [id])
+  panier         Panier?                        @relation(fields: [panierId], references: [id])
+  resultats      IndicateursAjustes[]
+  parametres     ParametresAnalyseTransaction[]
 
   @@map("analyse_dossier")
 }
 
 model ParametresAnalyseTransaction {
-  id                    String   @id @default(uuid())
-  analyseDossierId      String   @map("id_analyse_dossier")
-  transactionSourceId   String   @map("id_transaction_source")
-  tauxBoiseRef          Decimal? @map("taux_boise_ref") @db.Decimal(15, 2)
-  tauxCultiveRef        Decimal? @map("taux_cultive_ref") @db.Decimal(15, 2)
-  valeurBatimentRef     Decimal? @map("valeur_batiment_ref") @db.Decimal(15, 2)
-  valeurMaisonRef       Decimal? @map("valeur_maison_ref") @db.Decimal(15, 2)
-  valeurTerrainResidentielRef Decimal? @map("valeur_terrain_residentiel_ref") @db.Decimal(15, 2)
-
-  analyseDossier    AnalyseDossier    @relation(fields: [analyseDossierId], references: [id])
-  transactionSource TransactionSource @relation(fields: [transactionSourceId], references: [id])
+  id                          String            @id @default(uuid())
+  analyseDossierId            String            @map("id_analyse_dossier")
+  transactionSourceId         String            @map("id_transaction_source")
+  tauxBoiseRef                Decimal?          @map("taux_boise_ref") @db.Decimal(15, 2)
+  tauxCultiveRef              Decimal?          @map("taux_cultive_ref") @db.Decimal(15, 2)
+  valeurBatimentRef           Decimal?          @map("valeur_batiment_ref") @db.Decimal(15, 2)
+  valeurMaisonRef             Decimal?          @map("valeur_maison_ref") @db.Decimal(15, 2)
+  valeurTerrainResidentielRef Decimal?          @map("valeur_terrain_residentiel_ref") @db.Decimal(15, 2)
+  analyseDossier              AnalyseDossier    @relation(fields: [analyseDossierId], references: [id])
+  transactionSource           TransactionSource @relation(fields: [transactionSourceId], references: [id])
 
   @@unique([analyseDossierId, transactionSourceId])
   @@map("parametres_analyse_transaction")
 }
 
 model IndicateursAjustes {
-  id                         String   @id @default(uuid())
-  analyseDossierId           String   @map("id_analyse_dossier")
-  transactionSourceId        String   @map("id_transaction_source")
-  prixVenteAjuste            Decimal? @map("prix_vente_ajuste") @db.Decimal(15, 2)
-  tauxGlobalAjuste           Decimal? @map("taux_global_ajuste") @db.Decimal(15, 2)
-  tauxResiduelCultiveAjuste  Decimal? @map("taux_residuel_cultive_ajuste") @db.Decimal(15, 2)
-  tauxResiduelBoiseAjuste    Decimal? @map("taux_residuel_boise_ajuste") @db.Decimal(15, 2)
-  tauxResiduelBatimentAjuste Decimal? @map("taux_residuel_batiment_ajuste") @db.Decimal(15, 2)
-  tauxParEntailleAjuste      Decimal? @map("taux_par_entaille_ajuste") @db.Decimal(15, 2)
-
-  analyseDossier    AnalyseDossier    @relation(fields: [analyseDossierId], references: [id])
-  transactionSource TransactionSource @relation(fields: [transactionSourceId], references: [id])
+  id                         String            @id @default(uuid())
+  analyseDossierId           String            @map("id_analyse_dossier")
+  transactionSourceId        String            @map("id_transaction_source")
+  prixVenteAjuste            Decimal?          @map("prix_vente_ajuste") @db.Decimal(15, 2)
+  tauxGlobalAjuste           Decimal?          @map("taux_global_ajuste") @db.Decimal(15, 2)
+  tauxResiduelCultiveAjuste  Decimal?          @map("taux_residuel_cultive_ajuste") @db.Decimal(15, 2)
+  tauxResiduelBoiseAjuste    Decimal?          @map("taux_residuel_boise_ajuste") @db.Decimal(15, 2)
+  tauxResiduelBatimentAjuste Decimal?          @map("taux_residuel_batiment_ajuste") @db.Decimal(15, 2)
+  tauxParEntailleAjuste      Decimal?          @map("taux_par_entaille_ajuste") @db.Decimal(15, 2)
+  analyseDossier             AnalyseDossier    @relation(fields: [analyseDossierId], references: [id])
+  transactionSource          TransactionSource @relation(fields: [transactionSourceId], references: [id])
 
   @@unique([analyseDossierId, transactionSourceId])
   @@map("indicateurs_ajustes")
 }
 
 model DocumentActe {
-  id                  String   @id @default(uuid())
-  transactionSourceId String   @map("id_transaction_source")
-  nomFichier          String   @map("nom_fichier")
-  cheminStockage      String   @map("chemin_stockage")
-  dateUpload          DateTime @default(now()) @map("date_upload")
-  uploadeurId         String?  @map("id_uploadeur")
-
-  transactionSource TransactionSource @relation(fields: [transactionSourceId], references: [id])
+  id                  String            @id @default(uuid())
+  transactionSourceId String            @map("id_transaction_source")
+  nomFichier          String            @map("nom_fichier")
+  cheminStockage      String            @map("chemin_stockage")
+  dateUpload          DateTime          @default(now()) @map("date_upload")
+  uploadeurId         String?           @map("id_uploadeur")
+  transactionSource   TransactionSource @relation(fields: [transactionSourceId], references: [id])
 
   @@map("document_acte")
 }
 
 model Importation {
-  id              String    @id @default(uuid())
-  organisationId  String    @map("id_organisation")
-  typeSource      String    @map("type_source")
-  statut          String
-  lignesTotal     Int       @map("lignes_total")
-  lignesInserees  Int       @map("lignes_inserees")
-  lignesIgnorees  Int       @map("lignes_ignorees")
-  lignesErreurs   Int       @map("lignes_erreurs")
-  details         Json?
-  createdAt       DateTime  @default(now()) @map("date_creation")
-
-  organisation Organisation @relation(fields: [organisationId], references: [id])
-  transactions TransactionSource[]
+  id             String              @id @default(uuid())
+  organisationId String              @map("id_organisation")
+  typeSource     String              @map("type_source")
+  statut         String
+  lignesTotal    Int                 @map("lignes_total")
+  lignesInserees Int                 @map("lignes_inserees")
+  lignesIgnorees Int                 @map("lignes_ignorees")
+  lignesErreurs  Int                 @map("lignes_erreurs")
+  details        Json?
+  createdAt      DateTime            @default(now()) @map("date_creation")
+  organisation   Organisation        @relation(fields: [organisationId], references: [id])
+  transactions   TransactionSource[]
 
   @@map("importation")
 }
 
 model JournalAudit {
-  id               String    @id @default(uuid())
-  organisationId   String    @map("id_organisation")
-  tableCible       String    @map("table_cible")
-  enregistrementId String?   @map("id_enregistrement")
-  utilisateurId    String?   @map("id_utilisateur")
+  id               String       @id @default(uuid())
+  organisationId   String       @map("id_organisation")
+  tableCible       String       @map("table_cible")
+  enregistrementId String?      @map("id_enregistrement")
+  utilisateurId    String?      @map("id_utilisateur")
   action           String
   diff             Json?
-  adresseIp        String?   @map("adresse_ip")
-  createdAt        DateTime  @default(now()) @map("date_action")
-
-  organisation Organisation @relation(fields: [organisationId], references: [id])
+  adresseIp        String?      @map("adresse_ip")
+  createdAt        DateTime     @default(now()) @map("date_action")
+  organisation     Organisation @relation(fields: [organisationId], references: [id])
 
   @@map("journal_audit")
 }

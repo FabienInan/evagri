@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { FileSpreadsheet, Upload } from "lucide-react"
+import { FileSpreadsheet, Upload, Loader2 } from "lucide-react"
 import { importExcel } from "@/server/actions/import"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -17,6 +17,7 @@ import {
 
 export function ImportExcelForm({ onImported }: { onImported?: () => void }) {
   const router = useRouter()
+  const [isPending, startTransition] = useTransition()
   const [report, setReport] = useState<{
     totalRows: number
     inserted: number
@@ -25,15 +26,17 @@ export function ImportExcelForm({ onImported }: { onImported?: () => void }) {
   } | null>(null)
 
   async function handleSubmit(formData: FormData) {
-    const res = await importExcel(formData)
-    setReport(res)
-    onImported?.()
-    router.refresh()
+    startTransition(async () => {
+      const res = await importExcel(formData)
+      setReport(res)
+      onImported?.()
+      router.refresh()
+    })
   }
 
   return (
     <Card>
-      <CardHeader className="pb-3">
+      <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <FileSpreadsheet className="h-4 w-4 text-primary" />
           Importer un fichier Excel EVAGRI
@@ -57,9 +60,18 @@ export function ImportExcelForm({ onImported }: { onImported?: () => void }) {
               />
             </div>
           </div>
-          <Button type="submit" className="gap-2">
-            <Upload className="h-4 w-4" />
-            Importer
+          <Button type="submit" disabled={isPending} className="gap-2">
+            {isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Import en cours…
+              </>
+            ) : (
+              <>
+                <Upload className="h-4 w-4" />
+                Importer
+              </>
+            )}
           </Button>
         </form>
 
