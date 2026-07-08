@@ -59,6 +59,13 @@ function normalizeNumeroInscription(value: unknown): string | null {
   return normalized || null
 }
 
+function normalizeText(value: unknown): string | null {
+  if (value === null || value === undefined || value === "") return null
+  if (typeof value === "number" && value === 0) return null
+  const normalized = String(value).trim()
+  return normalized || null
+}
+
 function parseEnrichmentValue(
   champ: EnrichmentChamp,
   rawValue: unknown
@@ -231,12 +238,12 @@ export async function importSheet(
         numeroInscription,
         dateVente,
         prixVente,
-        vendeur: raw.vendeur ?? null,
-        acheteur: raw.acheteur ?? null,
+        vendeur: normalizeText(raw.vendeur),
+        acheteur: normalizeText(raw.acheteur),
         lotsCadastraux: lots,
-        adresse: raw.adresse ?? null,
-        municipalite: raw.municipalite ?? null,
-        mrc: raw.mrc ?? null,
+        adresse: normalizeText(raw.adresse),
+        municipalite: normalizeText(raw.municipalite),
+        mrc: normalizeText(raw.mrc),
         superficieTotaleHectare,
         latitude: coords?.latitude ?? null,
         longitude: coords?.longitude ?? null,
