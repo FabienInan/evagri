@@ -95,37 +95,18 @@ function hasAnySourceValue(raw: ParsedRow): boolean {
   return SOURCE_FIELDS.some((field) => hasSourceValue(raw, field))
 }
 
-function isVenteNonAnalysee(
-  raw: ParsedRow,
-  rawRow: Record<string, unknown>,
-  enrichmentChamps: EnrichmentChamp[]
-): boolean {
-  if (!raw.mrc) return false
+const REQUIRED_ANALYSIS_FIELDS: (keyof ParsedRow)[] = [
+  "mrc",
+  "municipalite",
+  "adresse",
+  "prixVente",
+  "superficieTotaleHectare",
+  "vendeur",
+  "acheteur",
+]
 
-  const lots = parseLots(raw.lotsCadastraux)
-  if (lots.length === 0) return false
-
-  const otherSourceFields: (keyof ParsedRow)[] = [
-    "vendeur",
-    "acheteur",
-    "prixVente",
-    "adresse",
-    "superficieTotaleHectare",
-    "municipalite",
-  ]
-  for (const field of otherSourceFields) {
-    if (hasSourceValue(raw, field)) return false
-  }
-
-  for (const champ of enrichmentChamps) {
-    if (champ.codeMachine === "typeTransaction") continue
-    const rawValue = rawRow?.[champ.header]
-    if (rawValue !== undefined && rawValue !== null && rawValue !== "") {
-      return false
-    }
-  }
-
-  return true
+function isTransactionComplete(raw: ParsedRow): boolean {
+  return REQUIRED_ANALYSIS_FIELDS.every((field) => hasSourceValue(raw, field))
 }
 
 async function resolveCoordinates(
@@ -213,7 +194,7 @@ export async function importSheet(
       const coords = await resolveCoordinates(raw)
 
       const statut =
-        systemeSource === "EXISTANT_EVAGRI" && !isVenteNonAnalysee(raw, rawRow, enrichmentChamps)
+        systemeSource === "EXISTANT_EVAGRI" && isTransactionComplete(raw)
           ? "ANALYSEE"
           : "NON_ANALYSEE"
 
