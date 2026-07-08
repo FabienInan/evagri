@@ -111,6 +111,7 @@ function isVenteNonAnalysee(
   }
 
   for (const champ of enrichmentChamps) {
+    if (champ.codeMachine === "typeTransaction") continue
     const rawValue = rawRow?.[champ.header]
     if (rawValue !== undefined && rawValue !== null && rawValue !== "") {
       return false
