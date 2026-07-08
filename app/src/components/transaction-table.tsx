@@ -267,7 +267,7 @@ function TransactionTableHeader({
             onClick={() => col.sortable && onSort(col.key)}
           >
             {col.sortable ? (
-              <button className="flex items-center gap-1 font-semibold">
+              <span className="flex items-center gap-1 font-semibold cursor-pointer">
                 {col.label}
                 {sortField === col.key &&
                   (sortOrder === "asc" ? (
@@ -275,7 +275,7 @@ function TransactionTableHeader({
                   ) : (
                     <ChevronDown className="h-3.5 w-3.5" />
                   ))}
-              </button>
+              </span>
             ) : (
               <span className="font-semibold">{col.label}</span>
             )}

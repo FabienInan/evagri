@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react"
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react"
 import {
   computeVisibleColumns,
   loadColumnPreference,
@@ -28,31 +28,39 @@ export function useResponsiveColumns(
     setContainer(node)
   }, [])
 
-  const [visibleColumns, setVisibleColumnsState] = useState<Set<string>>(() => {
-    if (typeof window === "undefined") return initialVisible
+  const [visibleColumns, setVisibleColumnsState] = useState<Set<string>>(() => initialVisible)
+
+  const [hasUserOverride, setHasUserOverride] = useState(false)
+  const initializedRef = useRef(false)
+
+  const calculate = useCallback(
+    (el: HTMLDivElement) => {
+      const width = el.clientWidth
+      if (width <= 0) return
+      setVisibleColumnsState(computeVisibleColumns(columns, width, requiredKeys))
+    },
+    [columns, requiredKeys]
+  )
+
+  // Initialize saved preference and calculate only on client to avoid SSR mismatch
+  useEffect(() => {
+    if (!isClient || initializedRef.current) return
+    initializedRef.current = true
     const saved = loadColumnPreference()
-    return saved ? new Set(saved) : initialVisible
-  })
-
-  const [hasUserOverride, setHasUserOverride] = useState(() => {
-    if (typeof window === "undefined") return false
-    return loadColumnPreference() !== null
-  })
-
-  const calculate = useCallback(() => {
-    const el = container
-    if (!el) return
-    const width = el.clientWidth
-    if (width <= 0) return
-    setVisibleColumnsState(computeVisibleColumns(columns, width, requiredKeys))
-  }, [columns, container, requiredKeys])
+    if (saved) {
+      setVisibleColumnsState(new Set(saved))
+      setHasUserOverride(true)
+    } else if (container) {
+      calculate(container)
+    }
+  }, [isClient, container, calculate])
 
   useEffect(() => {
     if (hasUserOverride || !container || !isClient) return
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         if (entry.contentRect.width > 0) {
-          calculate()
+          calculate(entry.target as HTMLDivElement)
         }
       }
     })
@@ -74,8 +82,8 @@ export function useResponsiveColumns(
   const resetColumns = useCallback(() => {
     clearColumnPreference()
     setHasUserOverride(false)
-    calculate()
-  }, [calculate])
+    if (container) calculate(container)
+  }, [calculate, container])
 
   return {
     containerRef,
