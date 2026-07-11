@@ -18,8 +18,6 @@ export const SOURCE_COLUMNS = [
   { headerKeys: ["Ville/Municipalité"], field: "municipalite" },
   { headerKeys: ["Adresse complete", "Adresse complète"], field: "adresse" },
   { headerKeys: ["Superficie Totale (ha)", "Superficie totale (ha)"], field: "superficieTotaleHectare" },
-  { headerKeys: ["Latitude"], field: "latitude" },
-  { headerKeys: ["Longitude"], field: "longitude" },
 ]
 
 export interface ParsedSheet {
