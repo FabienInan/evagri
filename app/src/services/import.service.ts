@@ -1,6 +1,5 @@
 import Decimal from "decimal.js"
-import { geocodeAddress } from "@/lib/geocode"
-import { ensureChampByCodeMachine, findChampByCodeMachine } from "@/repositories/enrichment.repository"
+import { findChampByCodeMachine } from "@/repositories/enrichment.repository"
 import {
   createImportedTransaction,
   findExistingTransaction,
@@ -116,29 +115,6 @@ function isVenteAAnalyser(raw: ParsedRow): boolean {
   return supplementaryFields.every((field) => !hasSourceValue(raw, field))
 }
 
-function findCoordinateHeader(enrichmentChamps: EnrichmentChamp[], codes: string[]): string | undefined {
-  for (const code of codes) {
-    const champ = enrichmentChamps.find((c) => c.codeMachine.toLowerCase() === code)
-    if (champ) return champ.header
-  }
-  return undefined
-}
-
-function extractFileCoordinates(
-  rawRow: Record<string, unknown>,
-  enrichmentChamps: EnrichmentChamp[]
-): { latitude: number; longitude: number } | null {
-  const latHeader = findCoordinateHeader(enrichmentChamps, ["latitude", "lat"])
-  const lngHeader = findCoordinateHeader(enrichmentChamps, ["longitude", "long", "lng"])
-  if (!latHeader || !lngHeader) return null
-
-  const lat = parseNumber(rawRow[latHeader])
-  const lng = parseNumber(rawRow[lngHeader])
-  if (lat === null || lng === null) return null
-  return { latitude: lat, longitude: lng }
-}
-
-
 export interface ImportSheetInput {
   organisationId: string
   rows: ParsedRow[]
@@ -147,46 +123,6 @@ export interface ImportSheetInput {
   systemeSource: string
   importationId: string
   typologieNom?: string
-}
-
-type ResolvedCoordinates = { latitude: number; longitude: number; fromFile: boolean } | null
-
-async function resolveCoordinates(
-  raw: ParsedRow,
-  rawRow: Record<string, unknown>,
-  enrichmentChamps: EnrichmentChamp[]
-): Promise<ResolvedCoordinates> {
-  const fileCoords = extractFileCoordinates(rawRow, enrichmentChamps)
-  if (fileCoords) {
-    return { ...fileCoords, fromFile: true }
-  }
-
-  const geoQuery = [raw.adresse, raw.municipalite].filter(Boolean).join(", ")
-  if (!geoQuery) return null
-  const coords = await geocodeAddress(geoQuery)
-  if (!coords) return null
-  return { ...coords, fromFile: false }
-}
-
-async function resolveCoordinatesBatch(
-  rows: ParsedRow[],
-  rawRows: Record<string, unknown>[],
-  enrichmentChamps: EnrichmentChamp[],
-  concurrency = 3
-): Promise<ResolvedCoordinates[]> {
-  const results: ResolvedCoordinates[] = new Array(rows.length).fill(null)
-  let index = 0
-
-  async function worker() {
-    while (index < rows.length) {
-      const current = index++
-      results[current] = await resolveCoordinates(rows[current], rawRows[current], enrichmentChamps)
-    }
-  }
-
-  const workers = Array.from({ length: concurrency }, () => worker())
-  await Promise.all(workers)
-  return results
 }
 
 export async function importSheet(
@@ -199,24 +135,17 @@ export async function importSheet(
   const errors: { row: number; message: string }[] = []
 
   const typeChamp = await findChampByCodeMachine(organisationId, "typeTransaction")
-  const [latitudeChamp, longitudeChamp] = await Promise.all([
-    ensureChampByCodeMachine(organisationId, "latitude", "Latitude", "DECIMAL", "°"),
-    ensureChampByCodeMachine(organisationId, "longitude", "Longitude", "DECIMAL", "°"),
-  ])
-
-  const resolvedCoordinates = await resolveCoordinatesBatch(rows, rawRows, enrichmentChamps, 3)
 
   for (let i = 0; i < rows.length; i++) {
     const raw = rows[i]
     const rawRow = rawRows[i]
-    const coords = resolvedCoordinates[i]
 
     try {
       const numeroInscription = normalizeNumeroInscription(raw.numeroInscription)
       const hasNumero = numeroInscription !== null
       const hasAnySource = hasAnySourceValue(raw)
 
-      const siaChamp = enrichmentChamps.find((c) => c.codeMachine === "sia")
+      const siaChamp = enrichmentChamps.find((c: EnrichmentChamp) => c.codeMachine === "sia")
       const siaValue = siaChamp ? rawRow?.[siaChamp.header] : undefined
       const hasSia = siaValue !== undefined && siaValue !== null && siaValue !== ""
 
@@ -261,7 +190,7 @@ export async function importSheet(
           : "ANALYSEE"
 
       const enrichmentValues: EnrichmentValueInput[] = enrichmentChamps
-        .map((champ) => {
+        .map((champ: EnrichmentChamp) => {
           const parsed = parseEnrichmentValue(champ, rawRow?.[champ.header])
           if (
             parsed.valeurNombre !== null ||
@@ -273,13 +202,6 @@ export async function importSheet(
           return null
         })
         .filter(Boolean) as EnrichmentValueInput[]
-
-      if (coords && !coords.fromFile) {
-        enrichmentValues.push(
-          { champEnrichissableId: latitudeChamp.id, valeurNombre: new Decimal(coords.latitude), valeurTexte: null, valeurBooleen: null },
-          { champEnrichissableId: longitudeChamp.id, valeurNombre: new Decimal(coords.longitude), valeurTexte: null, valeurBooleen: null }
-        )
-      }
 
       await createImportedTransaction({
         organisationId,
