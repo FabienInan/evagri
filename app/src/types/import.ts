@@ -11,8 +11,6 @@ export interface ParsedRow {
   municipalite?: string
   adresse?: string
   superficieTotaleHectare?: number
-  latitude?: number
-  longitude?: number
 }
 
 export interface EnrichmentChamp {
@@ -43,8 +41,6 @@ export interface CreateImportedTransactionInput {
   municipalite?: string | null
   mrc?: string | null
   superficieTotaleHectare?: number | null
-  latitude?: number | null
-  longitude?: number | null
   statut: string
   enrichmentValues: EnrichmentValueInput[]
   typologieValue?: { champEnrichissableId: string; valeurTexte: string } | null

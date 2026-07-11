@@ -1,6 +1,6 @@
 import Decimal from "decimal.js"
 import { geocodeAddress } from "@/lib/geocode"
-import { findChampByCodeMachine } from "@/repositories/enrichment.repository"
+import { ensureChampByCodeMachine, findChampByCodeMachine } from "@/repositories/enrichment.repository"
 import {
   createImportedTransaction,
   findExistingTransaction,
@@ -23,8 +23,6 @@ const SOURCE_FIELDS: (keyof ParsedRow)[] = [
   "municipalite",
   "adresse",
   "superficieTotaleHectare",
-  "latitude",
-  "longitude",
 ]
 
 function parseDate(value: unknown): Date | null {
@@ -114,8 +112,6 @@ function isVenteAAnalyser(raw: ParsedRow): boolean {
     "adresse",
     "superficieTotaleHectare",
     "municipalite",
-    "latitude",
-    "longitude",
   ]
   return supplementaryFields.every((field) => !hasSourceValue(raw, field))
 }
@@ -123,11 +119,6 @@ function isVenteAAnalyser(raw: ParsedRow): boolean {
 async function resolveCoordinates(
   raw: ParsedRow
 ): Promise<{ latitude: number; longitude: number } | null> {
-  const latitude = parseNumber(raw.latitude)
-  const longitude = parseNumber(raw.longitude)
-  if (latitude !== null && longitude !== null) {
-    return { latitude, longitude }
-  }
   const geoQuery = [raw.adresse, raw.municipalite].filter(Boolean).join(", ")
   if (!geoQuery) return null
   return geocodeAddress(geoQuery)
@@ -153,6 +144,10 @@ export async function importSheet(
   const errors: { row: number; message: string }[] = []
 
   const typeChamp = await findChampByCodeMachine(organisationId, "typeTransaction")
+  const [latitudeChamp, longitudeChamp] = await Promise.all([
+    ensureChampByCodeMachine(organisationId, "latitude", "Latitude", "DECIMAL", "°"),
+    ensureChampByCodeMachine(organisationId, "longitude", "Longitude", "DECIMAL", "°"),
+  ])
 
   for (let i = 0; i < rows.length; i++) {
     const raw = rows[i]
@@ -223,6 +218,13 @@ export async function importSheet(
         })
         .filter(Boolean) as EnrichmentValueInput[]
 
+      if (coords) {
+        enrichmentValues.push(
+          { champEnrichissableId: latitudeChamp.id, valeurNombre: new Decimal(coords.latitude), valeurTexte: null, valeurBooleen: null },
+          { champEnrichissableId: longitudeChamp.id, valeurNombre: new Decimal(coords.longitude), valeurTexte: null, valeurBooleen: null }
+        )
+      }
+
       await createImportedTransaction({
         organisationId,
         importationId,
@@ -237,8 +239,6 @@ export async function importSheet(
         municipalite: normalizeText(raw.municipalite),
         mrc: normalizeText(raw.mrc),
         superficieTotaleHectare,
-        latitude: coords?.latitude ?? null,
-        longitude: coords?.longitude ?? null,
         statut,
         enrichmentValues,
         typologieValue:

@@ -67,6 +67,32 @@ export async function findChampByCodeMachine(
   })
 }
 
+export async function ensureChampByCodeMachine(
+  organisationId: string,
+  codeMachine: string,
+  nomAffichage: string,
+  typeDonnees: string,
+  unite: string
+): Promise<Pick<import("@prisma/client").ChampEnrichissable, "id" | "typeDonnees">> {
+  const existing = await prisma.champEnrichissable.findUnique({
+    where: { organisationId_codeMachine: { organisationId, codeMachine } },
+    select: { id: true, typeDonnees: true },
+  })
+  if (existing) return existing
+  const created = await prisma.champEnrichissable.create({
+    data: {
+      organisationId,
+      codeMachine,
+      nomAffichage,
+      typeDonnees,
+      nature: "SAISISSABLE",
+      unite,
+      applicableATypes: [],
+    },
+  })
+  return { id: created.id, typeDonnees: created.typeDonnees }
+}
+
 export interface EnrichmentField {
   id: string
   codeMachine: string

@@ -66,14 +66,15 @@ function extractEnrichmentValues(
 export function serializeTransaction(
   transaction: TransactionWithEnrichie
 ): SerializedTransaction {
+  const enrichment = extractEnrichmentValues(transaction)
   return {
     id: transaction.id,
     numeroInscription: transaction.numeroInscription ?? null,
     dateVente: transaction.dateVente ? transaction.dateVente.toISOString() : null,
     prixVente: decimalToNumber(transaction.prixVente),
     superficieTotaleHectare: decimalToNumber(transaction.superficieTotaleHectare),
-    latitude: decimalToNumber(transaction.latitude),
-    longitude: decimalToNumber(transaction.longitude),
+    latitude: (enrichment.latitude as number | undefined) ?? null,
+    longitude: (enrichment.longitude as number | undefined) ?? null,
     vendeur: transaction.vendeur ?? null,
     acheteur: transaction.acheteur ?? null,
     lotsCadastraux: transaction.lotsCadastraux ?? [],
@@ -82,7 +83,7 @@ export function serializeTransaction(
     adresse: transaction.adresse ?? null,
     importationId: transaction.importationId ?? null,
     createdAt: transaction.createdAt.toISOString(),
-    enrichment: extractEnrichmentValues(transaction),
+    enrichment,
     enrichie: transaction.enrichie
       ? {
           statut: transaction.enrichie.statut,

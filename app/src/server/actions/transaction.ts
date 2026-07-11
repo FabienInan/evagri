@@ -48,12 +48,13 @@ export async function searchTransactions(input: TransactionSearchInput) {
   }
 
   const allTransactions = await findTransactions({ where, orderBy })
-  const filtered = filterByPolygon(allTransactions, geoFilter.value)
+  const serialized = allTransactions.map(serializeTransaction)
+  const filtered = filterByPolygon(serialized, geoFilter.value)
   const total = filtered.length
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
 
   return {
-    transactions: paginated.map(serializeTransaction),
+    transactions: paginated,
     total,
     page,
     pageSize,

@@ -48,31 +48,41 @@ export function buildTransactionWhere(
   }
 }
 
-export type MapTransaction = Prisma.TransactionSourceGetPayload<{
-  select: {
-    id: true
-    numeroInscription: true
-    dateVente: true
-    prixVente: true
-    superficieTotaleHectare: true
-    latitude: true
-    longitude: true
-    municipalite: true
+export type MapTransaction = {
+  id: string
+  numeroInscription: string | null
+  dateVente: Date | null
+  prixVente: Prisma.Decimal | null
+  superficieTotaleHectare: Prisma.Decimal | null
+  latitude: number | null
+  longitude: number | null
+  municipalite: string | null
+}
+
+function extractCoordinate(
+  values: { valeurNombre: Prisma.Decimal | null; champEnrichissable: { codeMachine: string } | null }[]
+): { latitude: number | null; longitude: number | null } {
+  let latitude: number | null = null
+  let longitude: number | null = null
+  for (const v of values) {
+    const code = v.champEnrichissable?.codeMachine
+    if (!code || v.valeurNombre === null || v.valeurNombre === undefined) continue
+    const n = new Decimal(v.valeurNombre.toString()).toNumber()
+    if (code === "latitude") latitude = n
+    if (code === "longitude") longitude = n
   }
-}>
+  return { latitude, longitude }
+}
 
 export async function findTransactionsForMap(
   filters: FilterInput[],
   organisationId: string
 ): Promise<MapTransaction[]> {
   const filterWhere = buildWhereClause(filters)
-  const geoFilter = findGeoFilter(filters)
 
-  return prisma.transactionSource.findMany({
+  const rows = await prisma.transactionSource.findMany({
     where: {
       organisationId,
-      latitude: { not: null },
-      longitude: { not: null },
       ...filterWhere,
     },
     select: {
@@ -81,11 +91,32 @@ export async function findTransactionsForMap(
       dateVente: true,
       prixVente: true,
       superficieTotaleHectare: true,
-      latitude: true,
-      longitude: true,
       municipalite: true,
+      enrichie: {
+        select: {
+          valeurs: {
+            select: {
+              valeurNombre: true,
+              champEnrichissable: {
+                select: { codeMachine: true },
+              },
+            },
+          },
+        },
+      },
     },
   })
+
+  return rows
+    .map((row) => {
+      const { latitude, longitude } = extractCoordinate(row.enrichie?.valeurs ?? [])
+      return {
+        ...row,
+        latitude,
+        longitude,
+      }
+    })
+    .filter((row) => row.latitude !== null && row.longitude !== null) as MapTransaction[]
 }
 
 export async function findExistingTransaction(
@@ -129,14 +160,6 @@ export async function createImportedTransaction(
         superficieTotaleHectare:
           input.superficieTotaleHectare !== null && input.superficieTotaleHectare !== undefined
             ? new Decimal(input.superficieTotaleHectare)
-            : null,
-        latitude:
-          input.latitude !== null && input.latitude !== undefined
-            ? new Decimal(input.latitude)
-            : null,
-        longitude:
-          input.longitude !== null && input.longitude !== undefined
-            ? new Decimal(input.longitude)
             : null,
       },
     })

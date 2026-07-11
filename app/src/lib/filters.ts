@@ -94,7 +94,7 @@ export function findGeoFilter(filters: FilterInput[]): FilterInput | undefined {
   return filters.find((f) => f.typeFiltre === "ZONE_GEO")
 }
 
-export function filterByPolygon<T extends { latitude: unknown; longitude: unknown }>(
+export function filterByPolygon<T extends { latitude: number | null; longitude: number | null }>(
   items: T[],
   polygonValue: string
 ): T[] {

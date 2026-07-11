@@ -64,6 +64,19 @@ async function main() {
     })
   }
 
+  const geoChamps = [
+    { codeMachine: "latitude", nomAffichage: "Latitude", typeDonnees: "DECIMAL", unite: "°" },
+    { codeMachine: "longitude", nomAffichage: "Longitude", typeDonnees: "DECIMAL", unite: "°" },
+  ]
+
+  for (const c of geoChamps) {
+    await prisma.champEnrichissable.upsert({
+      where: { organisationId_codeMachine: { organisationId: org.id, codeMachine: c.codeMachine } },
+      update: {},
+      create: { organisationId: org.id, ...c, nature: "SAISISSABLE", applicableATypes: [] },
+    })
+  }
+
   const typeTransaction = await prisma.champEnrichissable.upsert({
     where: { organisationId_codeMachine: { organisationId: org.id, codeMachine: "typeTransaction" } },
     update: {

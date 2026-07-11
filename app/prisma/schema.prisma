@@ -73,8 +73,6 @@ model TransactionSource {
   municipalite            String?
   mrc                     String?
   superficieTotaleHectare Decimal?                       @map("superficie_totale_hectare") @db.Decimal(12, 4)
-  latitude                Decimal?                       @db.Decimal(10, 8)
-  longitude               Decimal?                       @db.Decimal(11, 8)
   createdAt               DateTime                       @default(now()) @map("date_creation")
   documents               DocumentActe[]
   resultats               IndicateursAjustes[]
