@@ -116,12 +116,43 @@ function isVenteAAnalyser(raw: ParsedRow): boolean {
   return supplementaryFields.every((field) => !hasSourceValue(raw, field))
 }
 
+function findCoordinateHeader(enrichmentChamps: EnrichmentChamp[], codes: string[]): string | undefined {
+  for (const code of codes) {
+    const champ = enrichmentChamps.find((c) => c.codeMachine.toLowerCase() === code)
+    if (champ) return champ.header
+  }
+  return undefined
+}
+
+function extractFileCoordinates(
+  rawRow: Record<string, unknown>,
+  enrichmentChamps: EnrichmentChamp[]
+): { latitude: number; longitude: number } | null {
+  const latHeader = findCoordinateHeader(enrichmentChamps, ["latitude", "lat"])
+  const lngHeader = findCoordinateHeader(enrichmentChamps, ["longitude", "long", "lng"])
+  if (!latHeader || !lngHeader) return null
+
+  const lat = parseNumber(rawRow[latHeader])
+  const lng = parseNumber(rawRow[lngHeader])
+  if (lat === null || lng === null) return null
+  return { latitude: lat, longitude: lng }
+}
+
 async function resolveCoordinates(
-  raw: ParsedRow
-): Promise<{ latitude: number; longitude: number } | null> {
+  raw: ParsedRow,
+  rawRow: Record<string, unknown>,
+  enrichmentChamps: EnrichmentChamp[]
+): Promise<{ latitude: number; longitude: number; fromFile: boolean } | null> {
+  const fileCoords = extractFileCoordinates(rawRow, enrichmentChamps)
+  if (fileCoords) {
+    return { ...fileCoords, fromFile: true }
+  }
+
   const geoQuery = [raw.adresse, raw.municipalite].filter(Boolean).join(", ")
   if (!geoQuery) return null
-  return geocodeAddress(geoQuery)
+  const coords = await geocodeAddress(geoQuery)
+  if (!coords) return null
+  return { ...coords, fromFile: false }
 }
 
 export interface ImportSheetInput {
@@ -197,7 +228,7 @@ export async function importSheet(
         }
       }
 
-      const coords = await resolveCoordinates(raw)
+      const coords = await resolveCoordinates(raw, rawRow, enrichmentChamps)
 
       const statut =
         systemeSource === "EXISTANT_EVAGRI" && isVenteAAnalyser(raw)
@@ -218,7 +249,7 @@ export async function importSheet(
         })
         .filter(Boolean) as EnrichmentValueInput[]
 
-      if (coords) {
+      if (coords && !coords.fromFile) {
         enrichmentValues.push(
           { champEnrichissableId: latitudeChamp.id, valeurNombre: new Decimal(coords.latitude), valeurTexte: null, valeurBooleen: null },
           { champEnrichissableId: longitudeChamp.id, valeurNombre: new Decimal(coords.longitude), valeurTexte: null, valeurBooleen: null }
