@@ -138,11 +138,24 @@ function extractFileCoordinates(
   return { latitude: lat, longitude: lng }
 }
 
+
+export interface ImportSheetInput {
+  organisationId: string
+  rows: ParsedRow[]
+  rawRows: Record<string, unknown>[]
+  enrichmentChamps: EnrichmentChamp[]
+  systemeSource: string
+  importationId: string
+  typologieNom?: string
+}
+
+type ResolvedCoordinates = { latitude: number; longitude: number; fromFile: boolean } | null
+
 async function resolveCoordinates(
   raw: ParsedRow,
   rawRow: Record<string, unknown>,
   enrichmentChamps: EnrichmentChamp[]
-): Promise<{ latitude: number; longitude: number; fromFile: boolean } | null> {
+): Promise<ResolvedCoordinates> {
   const fileCoords = extractFileCoordinates(rawRow, enrichmentChamps)
   if (fileCoords) {
     return { ...fileCoords, fromFile: true }
@@ -155,14 +168,25 @@ async function resolveCoordinates(
   return { ...coords, fromFile: false }
 }
 
-export interface ImportSheetInput {
-  organisationId: string
-  rows: ParsedRow[]
-  rawRows: Record<string, unknown>[]
-  enrichmentChamps: EnrichmentChamp[]
-  systemeSource: string
-  importationId: string
-  typologieNom?: string
+async function resolveCoordinatesBatch(
+  rows: ParsedRow[],
+  rawRows: Record<string, unknown>[],
+  enrichmentChamps: EnrichmentChamp[],
+  concurrency = 3
+): Promise<ResolvedCoordinates[]> {
+  const results: ResolvedCoordinates[] = new Array(rows.length).fill(null)
+  let index = 0
+
+  async function worker() {
+    while (index < rows.length) {
+      const current = index++
+      results[current] = await resolveCoordinates(rows[current], rawRows[current], enrichmentChamps)
+    }
+  }
+
+  const workers = Array.from({ length: concurrency }, () => worker())
+  await Promise.all(workers)
+  return results
 }
 
 export async function importSheet(
@@ -180,9 +204,12 @@ export async function importSheet(
     ensureChampByCodeMachine(organisationId, "longitude", "Longitude", "DECIMAL", "°"),
   ])
 
+  const resolvedCoordinates = await resolveCoordinatesBatch(rows, rawRows, enrichmentChamps, 3)
+
   for (let i = 0; i < rows.length; i++) {
     const raw = rows[i]
     const rawRow = rawRows[i]
+    const coords = resolvedCoordinates[i]
 
     try {
       const numeroInscription = normalizeNumeroInscription(raw.numeroInscription)
@@ -227,8 +254,6 @@ export async function importSheet(
           continue
         }
       }
-
-      const coords = await resolveCoordinates(raw, rawRow, enrichmentChamps)
 
       const statut =
         systemeSource === "EXISTANT_EVAGRI" && isVenteAAnalyser(raw)
