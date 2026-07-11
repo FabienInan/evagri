@@ -95,19 +95,19 @@ function hasAnySourceValue(raw: ParsedRow): boolean {
   return SOURCE_FIELDS.some((field) => hasSourceValue(raw, field))
 }
 
-function isVenteNonAnalysee(raw: ParsedRow): boolean {
-  const requiredFields: (keyof ParsedRow)[] = [
+function isVenteAAnalyser(raw: ParsedRow): boolean {
+  const minimalFields: (keyof ParsedRow)[] = [
     "numeroInscription",
     "dateVente",
     "mrc",
     "lotsCadastraux",
   ]
 
-  // All required fields must be present
-  if (!requiredFields.every((field) => hasSourceValue(raw, field))) return false
+  // At least one of the minimal fields must be present
+  if (!minimalFields.some((field) => hasSourceValue(raw, field))) return false
 
-  // No other source information should be filled
-  const otherSourceFields: (keyof ParsedRow)[] = [
+  // No supplementary source information should be filled
+  const supplementaryFields: (keyof ParsedRow)[] = [
     "vendeur",
     "acheteur",
     "prixVente",
@@ -117,7 +117,7 @@ function isVenteNonAnalysee(raw: ParsedRow): boolean {
     "latitude",
     "longitude",
   ]
-  return otherSourceFields.every((field) => !hasSourceValue(raw, field))
+  return supplementaryFields.every((field) => !hasSourceValue(raw, field))
 }
 
 async function resolveCoordinates(
@@ -205,8 +205,8 @@ export async function importSheet(
       const coords = await resolveCoordinates(raw)
 
       const statut =
-        systemeSource === "EXISTANT_EVAGRI" && isVenteNonAnalysee(raw)
-          ? "NON_ANALYSEE"
+        systemeSource === "EXISTANT_EVAGRI" && isVenteAAnalyser(raw)
+          ? "A_ANALYSER"
           : "ANALYSEE"
 
       const enrichmentValues: EnrichmentValueInput[] = enrichmentChamps

@@ -32,17 +32,24 @@ export function useResponsiveColumns(
 
   const [hasUserOverride, setHasUserOverride] = useState(false)
   const initializedRef = useRef(false)
+  const measuredContainerRef = useRef<HTMLDivElement | null>(null)
+  const columnsRef = useRef(columns)
+  const requiredKeysRef = useRef(requiredKeys)
 
-  const calculate = useCallback(
-    (el: HTMLDivElement) => {
-      const width = el.clientWidth
-      if (width <= 0) return
-      setVisibleColumnsState(computeVisibleColumns(columns, width, requiredKeys))
-    },
-    [columns, requiredKeys]
-  )
+  useEffect(() => {
+    columnsRef.current = columns
+    requiredKeysRef.current = requiredKeys
+  }, [columns, requiredKeys])
 
-  // Initialize saved preference and calculate only on client to avoid SSR mismatch
+  const calculate = useCallback((el: HTMLDivElement) => {
+    const width = el.clientWidth
+    if (width <= 0) return
+    setVisibleColumnsState(
+      computeVisibleColumns(columnsRef.current, width, requiredKeysRef.current)
+    )
+  }, [])
+
+  // Load saved preference once on client to avoid SSR mismatch
   useEffect(() => {
     if (!isClient || initializedRef.current) return
     initializedRef.current = true
@@ -50,10 +57,18 @@ export function useResponsiveColumns(
     if (saved) {
       setVisibleColumnsState(new Set(saved))
       setHasUserOverride(true)
-    } else if (container) {
-      calculate(container)
     }
-  }, [isClient, container, calculate])
+  }, [isClient])
+
+  // Calculate visible columns when the container is first measured, but only
+  // if no saved user preference exists. Guard prevents infinite loops if the
+  // container ref is re-attached during initial render.
+  useEffect(() => {
+    if (!isClient || !container || hasUserOverride) return
+    if (measuredContainerRef.current === container) return
+    measuredContainerRef.current = container
+    calculate(container)
+  }, [isClient, container, hasUserOverride, calculate])
 
   useEffect(() => {
     if (hasUserOverride || !container || !isClient) return
@@ -82,6 +97,8 @@ export function useResponsiveColumns(
   const resetColumns = useCallback(() => {
     clearColumnPreference()
     setHasUserOverride(false)
+    initializedRef.current = false
+    measuredContainerRef.current = null
     if (container) calculate(container)
   }, [calculate, container])
 

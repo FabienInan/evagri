@@ -405,7 +405,10 @@ Interface Admin + Dev : statut, lignes, erreurs, relance, template vierge.
 #### 7.2.1 Mapping des données et documents
 
 - **Colonnes sources** : importées dans **Transaction Source**.
-- **Colonnes enrichies** : initialisent **ChampEnrichissable** (saisissables et calculés) et importées comme **ValeurEnrichissement** initiales. Les colonnes qui ne sont pas dans l'entité des transactions sources, sont dans les champs enrichis.
+- **Colonnes enrichies** : initialisent **ChampEnrichissable** (saisissables et calculés) et importées comme **ValeurEnrichissement** initiales. Les colonnes qui ne sont pas dans l'entité des transactions sources, sont dans les champs enrichis. Un champ enrichie est Type : Terres cultivées, Terres boisées, Érablières, Bâtiments agricoles, Ferme. Pour l'import Evagri, on définit le type en fonction de l'onglet :
+Erablières -> type érablière
+Bois -> type terre boisée
+Terre  -> type terre cultivée
 - **Colonnes vides**: les colonnes vides sont ignorés et aucun champ source ou enrichie n'est ajouté dans le modèle si la colonne est vide. La latitude/longitude sera calculé à partir d'une API à partir de l'adresse seulement si elle n'est pas présente dans le fichier d'import.
 - **Documents d'acte (PDF)** : lors de la migration initiale, les fichiers PDF d'actes de vente associés aux transactions historiques d'EVAGRI sont importés en masse. Ils se trouvent dans le dossier Base de données\Actes. Le système tente l'association automatique par correspondance `numero_inscription` avec le nom de fichier (selon une convention à définir, ex. : `numero_inscription.pdf`). Les PDF non appariés sont listés dans un rapport pour association manuelle. 
 

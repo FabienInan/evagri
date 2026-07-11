@@ -344,8 +344,8 @@ function TransactionTableBody({
 }) {
   return (
     <TableBody>
-      {transactions.map((t) => (
-        <TableRow key={t.id} className="cursor-pointer hover:bg-muted/30">
+      {transactions.map((t, index) => (
+        <TableRow key={`${t.id}-${index}`} className="cursor-pointer hover:bg-muted/30">
           {visible.map((col) => (
             <TransactionTableCell key={col.key} row={t} col={col} />
           ))}

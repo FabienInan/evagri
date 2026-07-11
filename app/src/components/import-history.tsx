@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useSyncExternalStore } from "react"
 import { RefreshCw, Eye, X, History } from "lucide-react"
 import { retryImport } from "@/server/actions/import"
 import { Button } from "@/components/ui/button"
@@ -38,6 +38,22 @@ const STATUS_LABELS: Record<string, string> = {
   TERMINE: "Terminé",
   TERMINE_AVEC_ERREURS: "Terminé avec erreurs",
   EN_ECHEC: "En échec",
+}
+
+function useIsClient() {
+  return useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  )
+}
+
+function LocalDateCell({ date }: { date: Date }) {
+  const isClient = useIsClient()
+  if (!isClient) {
+    return <TableCell>{new Date(date).toISOString().slice(0, 19).replace("T", " ")}</TableCell>
+  }
+  return <TableCell>{new Date(date).toLocaleString("fr-CA")}</TableCell>
 }
 
 function statusBadge(statut: string) {
@@ -103,7 +119,7 @@ export function ImportHistory({ initialImports }: { initialImports: Importation[
             <TableBody>
               {imports.map((imp) => (
                 <TableRow key={imp.id}>
-                  <TableCell>{new Date(imp.createdAt).toLocaleString("fr-CA")}</TableCell>
+                  <LocalDateCell date={imp.createdAt} />
                   <TableCell>{imp.typeSource}</TableCell>
                   <TableCell>{statusBadge(imp.statut)}</TableCell>
                   <TableCell className="text-right">{imp.lignesTotal}</TableCell>
