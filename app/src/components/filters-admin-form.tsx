@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useMemo, useState, useTransition } from "react"
-import { Search, Save, Trash2, Plus, Globe } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { Search, Trash2, Plus, Globe } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { createFilter, deleteFilter, updateFilter } from "@/server/actions/filters"
+import { createFilter, deleteFilter, publishFilters } from "@/server/actions/filters"
 import { useHeaderActions } from "@/components/header-actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -107,7 +107,6 @@ export function FiltersAdminForm({
   const isNewChampUsed = isVirtualSelection
     ? items.some((f) => f.codeMachine === selectedVirtualCode)
     : items.some((f) => f.champEnrichissable?.id === newChampId)
-  const [, startTransition] = useTransition()
   const { setAction, clearAction } = useHeaderActions()
 
   useEffect(() => {
@@ -142,17 +141,8 @@ export function FiltersAdminForm({
 
   function saveFilter(id: string, patch: Partial<Filter>) {
     updateLocal(id, patch)
-    startTransition(async () => {
-      await updateFilter(id, {
-        nomFiltre: patch.nomFiltre,
-        typeFiltre: patch.typeFiltre as FilterType,
-        operateursDisponibles: (patch.operateursDisponibles as FilterOperator[]) ?? undefined,
-        ordreAffichage: patch.ordreAffichage,
-        estActif: patch.estActif,
-      })
-      setLastSaved(id)
-      setTimeout(() => setLastSaved((current) => (current === id ? null : current)), 1500)
-    })
+    setLastSaved(id)
+    setTimeout(() => setLastSaved((current) => (current === id ? null : current)), 1500)
   }
 
   function handleTypeChange(value: FilterType) {
@@ -234,14 +224,13 @@ export function FiltersAdminForm({
 
   async function handlePublish() {
     setPublishing(true)
-    for (const f of items) {
-      await updateFilter(f.id, {
-        typeFiltre: f.typeFiltre as FilterType,
-        operateursDisponibles: (f.operateursDisponibles as FilterOperator[]) ?? DEFAULT_OPERATEURS[f.typeFiltre as FilterType],
+    await publishFilters(
+      items.map((f) => ({
+        id: f.id,
         ordreAffichage: f.ordreAffichage,
         estActif: f.estActif,
-      })
-    }
+      }))
+    )
     setPublishing(false)
     setLastSaved("__all__")
     setTimeout(() => setLastSaved((current) => (current === "__all__" ? null : current)), 1500)
@@ -418,14 +407,9 @@ export function FiltersAdminForm({
                     <Trash2 className="mr-2 h-4 w-4" />
                     Supprimer
                   </Button>
-                  <Button
-                    onClick={handlePublish}
-                    disabled={publishing}
-                    className="h-9 gap-2 rounded-lg px-4 text-sm font-medium"
-                  >
-                    <Save className="h-4 w-4" />
-                    {lastSaved === selected.id || lastSaved === "__all__" ? "Enregistré" : "Enregistrer"}
-                  </Button>
+                  {lastSaved === selected.id || lastSaved === "__all__" ? (
+                    <p className="text-sm text-muted-foreground">Enregistré</p>
+                  ) : null}
                 </div>
               </>
             ) : null}

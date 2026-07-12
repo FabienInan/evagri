@@ -44,7 +44,6 @@ export async function findFilterByCodeMachine(
 }
 
 export type CreateFilterRepositoryInput = Prisma.FiltreRechercheCreateInput
-export type UpdateFilterRepositoryInput = Prisma.FiltreRechercheUpdateInput
 
 export async function createFilter(
   data: CreateFilterRepositoryInput
@@ -52,22 +51,17 @@ export async function createFilter(
   return prisma.filtreRecherche.create({ data })
 }
 
-export async function updateFilter(
-  id: string,
-  data: UpdateFilterRepositoryInput
-) {
-  return prisma.filtreRecherche.update({ where: { id }, data })
-}
-
 export async function updateFiltersOrder(
   filters: { id: string; ordreAffichage: number; estActif: boolean }[]
 ) {
-  for (const f of filters) {
-    await prisma.filtreRecherche.update({
-      where: { id: f.id },
-      data: { ordreAffichage: f.ordreAffichage, estActif: f.estActif },
-    })
-  }
+  await prisma.$transaction(
+    filters.map((f) =>
+      prisma.filtreRecherche.update({
+        where: { id: f.id },
+        data: { ordreAffichage: f.ordreAffichage, estActif: f.estActif },
+      })
+    )
+  )
 }
 
 export async function deleteFilter(id: string) {

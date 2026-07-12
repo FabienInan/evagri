@@ -1,7 +1,9 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { z } from "zod"
 import { getCurrentOrganisationId } from "@/repositories/organisation.repository"
+import { FILTER_OPERATORS, FILTER_TYPES } from "@/types/filter"
 import {
   createFilter as createFilterRepo,
   deleteFilter as deleteFilterRepo,
@@ -9,13 +11,9 @@ import {
   findFilterByChampEnrichissableId,
   findFilterByCodeMachine,
   findFiltersByOrganisation,
-  updateFilter as updateFilterRepo,
   updateFiltersOrder,
   type CreateFilterRepositoryInput,
-  type UpdateFilterRepositoryInput,
 } from "@/repositories/filters.repository"
-import { FILTER_OPERATORS, FILTER_TYPES } from "@/types/filter"
-import { z } from "zod"
 
 export async function listFilters() {
   const organisationId = getCurrentOrganisationId()
@@ -75,27 +73,7 @@ export async function createFilter(input: CreateFilterInput) {
   revalidatePath("/admin/filters")
 }
 
-const updateFilterSchema = z.object({
-  nomFiltre: z.string().min(1).optional(),
-  typeFiltre: z.enum(FILTER_TYPES).optional(),
-  operateursDisponibles: z.array(z.enum(FILTER_OPERATORS)).optional(),
-  ordreAffichage: z.number().int().optional(),
-  estActif: z.boolean().optional(),
-})
-
-export type UpdateFilterInput = z.infer<typeof updateFilterSchema>
-
-export async function updateFilter(id: string, input: UpdateFilterInput) {
-  updateFilterSchema.parse(input)
-  const data: UpdateFilterRepositoryInput = {
-    ...input,
-    operateursDisponibles: input.operateursDisponibles as UpdateFilterRepositoryInput["operateursDisponibles"],
-  }
-  await updateFilterRepo(id, data)
-  revalidatePath("/admin/filters")
-}
-
-export async function updateFilterOrder(
+export async function publishFilters(
   filters: { id: string; ordreAffichage: number; estActif: boolean }[]
 ) {
   await updateFiltersOrder(filters)
