@@ -72,6 +72,8 @@ function StatusBadge({ statut }: { statut: string | null | undefined }) {
     case "EN_COURS":
     case "EN COURS D'ANALYSE":
       return <Badge variant="warning">À analyser</Badge>
+    case "INCOMPLETE":
+      return <Badge variant="outline">Incomplète</Badge>
     case "ERREUR":
     case "REFUSEE":
       return <Badge variant="destructive">Refusée</Badge>

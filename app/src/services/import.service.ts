@@ -93,6 +93,12 @@ function hasAnySourceValue(raw: ParsedRow): boolean {
   return SOURCE_FIELDS.some((field) => hasSourceValue(raw, field))
 }
 
+function isVenteIncomplete(raw: ParsedRow): boolean {
+  const hasAdresse = hasSourceValue(raw, "adresse")
+  const hasMunicipalite = hasSourceValue(raw, "municipalite")
+  return !hasAdresse && !hasMunicipalite
+}
+
 function isVenteAAnalyser(raw: ParsedRow): boolean {
   const minimalFields: (keyof ParsedRow)[] = [
     "numeroInscription",
@@ -103,6 +109,9 @@ function isVenteAAnalyser(raw: ParsedRow): boolean {
 
   // At least one of the minimal fields must be present
   if (!minimalFields.some((field) => hasSourceValue(raw, field))) return false
+
+  // Incomplete transactions are handled before this check
+  if (isVenteIncomplete(raw)) return false
 
   // No supplementary source information should be filled
   const supplementaryFields: (keyof ParsedRow)[] = [
@@ -255,9 +264,11 @@ export async function importSheet(
       }
 
       const statut =
-        systemeSource === "EXISTANT_EVAGRI" && isVenteAAnalyser(raw)
-          ? "A_ANALYSER"
-          : "ANALYSEE"
+        systemeSource === "EXISTANT_EVAGRI" && isVenteIncomplete(raw)
+          ? "INCOMPLETE"
+          : systemeSource === "EXISTANT_EVAGRI" && isVenteAAnalyser(raw)
+            ? "A_ANALYSER"
+            : "ANALYSEE"
 
       const enrichmentValues: EnrichmentValueInput[] = enrichmentChamps
         .map((champ: EnrichmentChamp) => {

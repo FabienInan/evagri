@@ -19,6 +19,7 @@ const VIRTUAL_FILTER_OPTIONS: Record<string, VirtualOption[]> = {
   statut: [
     { label: "Analysée", value: "ANALYSEE" },
     { label: "À analyser", value: "NON_ANALYSEE" },
+    { label: "Incomplète", value: "INCOMPLETE" },
   ],
 }
 
