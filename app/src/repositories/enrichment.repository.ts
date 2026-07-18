@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { recommendFilterType } from "@/lib/filters"
 import { extractNonEmptyEnrichmentHeaders, inferType } from "@/parsers/excel.parser"
 import type { EnrichmentChamp } from "@/types/import"
 
@@ -34,12 +35,19 @@ export async function ensureEnrichmentChamps(
         typeDonnees: existing.typeDonnees,
       })
     } else {
+      const typeDonnees = inferType(candidate.sample)
       const created = await prisma.champEnrichissable.create({
         data: {
           organisationId,
           codeMachine,
           nomAffichage: candidate.header,
-          typeDonnees: inferType(candidate.sample),
+          typeDonnees,
+          typeFiltreRecommande: recommendFilterType({
+            codeMachine,
+            nomAffichage: candidate.header,
+            typeDonnees,
+            nature: "SAISISSABLE",
+          }),
           nature: "SAISISSABLE",
           unite: "N/A",
           applicableATypes: [],
@@ -85,6 +93,12 @@ export async function ensureChampByCodeMachine(
       codeMachine,
       nomAffichage,
       typeDonnees,
+      typeFiltreRecommande: recommendFilterType({
+        codeMachine,
+        nomAffichage,
+        typeDonnees,
+        nature: "SAISISSABLE",
+      }),
       nature: "SAISISSABLE",
       unite,
       applicableATypes: [],
