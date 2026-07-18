@@ -23,11 +23,37 @@ type ClusterLayerProps = {
   selectedIds: Set<string>
 }
 
+function createClusterIcon(cluster: L.MarkerCluster): L.DivIcon {
+  const count = cluster.getChildCount()
+  const size = count < 10 ? 28 : count < 100 ? 36 : 44
+  return L.divIcon({
+    html: `<div style="
+      width:${size}px;
+      height:${size}px;
+      background:#2563eb;
+      color:#fff;
+      border-radius:50%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:${count < 100 ? 12 : 10}px;
+      font-weight:600;
+      border:2px solid #fff;
+      box-shadow:0 2px 6px rgba(0,0,0,0.25);
+    ">${count}</div>`,
+    className: "marker-cluster-custom",
+    iconSize: L.point(size, size),
+    iconAnchor: L.point(size / 2, size / 2),
+  })
+}
+
 export function ClusterLayer({ transactions, selectedIds }: ClusterLayerProps) {
   const map = useMap()
 
   useEffect(() => {
-    const group = L.markerClusterGroup()
+    const group = L.markerClusterGroup({
+      iconCreateFunction: createClusterIcon,
+    })
     transactions.forEach((t) => {
       const isSelected = selectedIds.has(t.id)
       const marker = L.marker([t.latitude, t.longitude], {
