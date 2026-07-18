@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client"
 import { parsePolygon, pointInPolygon } from "./geo"
-import type { FilterInput, FilterType } from "@/types/filter"
+import type { FilterInput, FilterOperator, FilterType } from "@/types/filter"
 
 export type { FilterInput }
 
@@ -106,4 +106,139 @@ export function filterByPolygon<T extends { latitude: number | null; longitude: 
     if (lat === null || lng === null || isNaN(lat) || isNaN(lng)) return false
     return pointInPolygon({ lat, lng }, polygon)
   })
+}
+
+export const DEFAULT_OPERATEURS: Record<FilterType, FilterOperator[]> = {
+  PLAGE_NUMERIQUE: ["=", "+", "-", "entre"],
+  PLAGE_DATE: ["=", "+", "-", "entre"],
+  LISTE: ["in"],
+  MULTI_SELECT: ["in"],
+  RECHERCHE_TEXTE: ["contient"],
+  BOOLEEN: ["="],
+  NUMERO_LOT: ["has"],
+  TYPE_TRANSACTION: ["in"],
+  STATUT: ["="],
+  ZONE_GEO: ["in"],
+}
+
+export interface RecommendFilterTypeInput {
+  codeMachine: string
+  nomAffichage: string
+  typeDonnees: string
+  nature: string
+}
+
+const LISTE_FIELDS = new Set([
+  "topographie",
+  "feuillusrsineux",
+  "zone_agricole_cptaq",
+  "classe_de_sol_dominante",
+  "mrc",
+  "municipalite",
+  "maisons",
+])
+
+const MULTI_SELECT_FIELDS = new Set([
+  "type_de_culture",
+  "type_de_sol",
+])
+
+const PLAGE_NUMERIQUE_FIELDS = new Set([
+  "prixvente",
+  "prix_de_vente_redress_au_temps_",
+  "superficietotalehectare",
+  "superficie_boise_ha",
+  "superficie_cultive_ha",
+  "superficie_draine_ha",
+  "superficie_plantation",
+  "superficie_terrain_rsidentiel_m",
+  "superficie_acricole_ha",
+  "zones_humides_ha",
+  "densit_plantation",
+  "proportion_feuillus",
+  "proporition_rsineux",
+  "nombre_dentailles",
+  "contingent_acricole_livres",
+  "entaille",
+  "taux_unitaire_global_ha",
+  "valeur_contributive_maisons_terrain_",
+  "valeur_contributive_btiments_agricoles_",
+  "valeur_autres_inclusions_",
+])
+
+const RECHERCHE_TEXTE_FIELDS = new Set([
+  "numeroInscription",
+  "vendeur",
+  "acheteur",
+  "adresse",
+  "lotsCadastraux",
+  "sia",
+  "mls",
+  "autorisation_cptaq",
+  "dcisions_cptaq",
+  "observations",
+  "btiments_agricoles",
+  "quipements",
+  "autres_inclusions",
+  "droit_acquis",
+  "source_valeur_constributive_maisons_terrain_",
+  "source_valeur_constributive_btiments_agricoles",
+  "topographie_combin_brute",
+  "revue",
+  "sousclasse_dominante",
+  "zones_humides_types",
+])
+
+export function recommendFilterType(champ: RecommendFilterTypeInput): FilterType {
+  const code = champ.codeMachine.toLowerCase().trim()
+  const name = champ.nomAffichage.toLowerCase().trim()
+  const dataType = champ.typeDonnees.toUpperCase()
+
+  // Filtres virtuels / spéciaux
+  if (code === "typetransaction" || name.includes("type de transaction")) {
+    return "TYPE_TRANSACTION"
+  }
+  if (code === "statut") {
+    return "STATUT"
+  }
+  if (code === "latitude" || code === "longitude") {
+    return "ZONE_GEO"
+  }
+
+  if (LISTE_FIELDS.has(code)) {
+    return "LISTE"
+  }
+
+  if (MULTI_SELECT_FIELDS.has(code)) {
+    return "MULTI_SELECT"
+  }
+
+  if (PLAGE_NUMERIQUE_FIELDS.has(code)) {
+    return "PLAGE_NUMERIQUE"
+  }
+
+  if (RECHERCHE_TEXTE_FIELDS.has(code)) {
+    return "RECHERCHE_TEXTE"
+  }
+
+  if (champ.nature === "SOURCE") {
+    if (dataType === "DATE") return "PLAGE_DATE"
+    if (["DECIMAL", "ENTIER"].includes(dataType)) return "PLAGE_NUMERIQUE"
+    return "RECHERCHE_TEXTE"
+  }
+
+  switch (dataType) {
+    case "BOOLEAN":
+      return "BOOLEEN"
+    case "DATE":
+      return "PLAGE_DATE"
+    case "DECIMAL":
+    case "ENTIER":
+      return "PLAGE_NUMERIQUE"
+    case "LISTE":
+      return "LISTE"
+    case "TEXTE":
+    default:
+      return "RECHERCHE_TEXTE"
+  }
 }
