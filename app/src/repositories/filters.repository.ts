@@ -22,7 +22,18 @@ export async function findFiltersByOrganisation(
 }
 
 export async function findChampsByOrganisation(organisationId: string) {
-  return prisma.champEnrichissable.findMany({ where: { organisationId } })
+  return prisma.champEnrichissable.findMany({
+    where: { organisationId },
+    select: {
+      id: true,
+      codeMachine: true,
+      nomAffichage: true,
+      typeDonnees: true,
+      nature: true,
+      unite: true,
+      typeFiltreRecommande: true,
+    },
+  })
 }
 
 export async function findFilterByChampEnrichissableId(

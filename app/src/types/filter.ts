@@ -51,6 +51,7 @@ export interface FilterConfig {
         nature: string
         unite?: string | null
         optionsListe?: unknown
+        typeFiltreRecommande?: string | null
       }
     | null
   operateursDisponibles?: FilterOperator[] | null
