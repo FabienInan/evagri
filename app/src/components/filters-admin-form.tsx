@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
+import { Badge } from "@/components/ui/badge"
 import {
   Select,
   SelectContent,
@@ -18,7 +19,8 @@ import {
 } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { getFilterIcon, getFilterIconColor } from "@/lib/filter-icons"
-import type { FilterConfig, FilterOperator, FilterType } from "@/types/filter"
+import { recommendFilterType, DEFAULT_OPERATEURS } from "@/lib/filters"
+import type { FilterConfig, FilterType } from "@/types/filter"
 import type { CreateFilterInput } from "@/server/actions/filters"
 
 const FILTER_TYPES: { value: FilterType; label: string }[] = [
@@ -29,19 +31,6 @@ const FILTER_TYPES: { value: FilterType; label: string }[] = [
   { value: "RECHERCHE_TEXTE", label: "Recherche texte" },
   { value: "BOOLEEN", label: "Booléen" },
 ]
-
-const DEFAULT_OPERATEURS: Record<FilterType, FilterOperator[]> = {
-  PLAGE_NUMERIQUE: ["=", "+", "-", "entre"],
-  PLAGE_DATE: ["=", "+", "-", "entre"],
-  LISTE: ["in"],
-  MULTI_SELECT: ["in"],
-  RECHERCHE_TEXTE: ["contient"],
-  BOOLEEN: ["="],
-  NUMERO_LOT: ["has"],
-  TYPE_TRANSACTION: ["in"],
-  STATUT: ["="],
-  ZONE_GEO: ["in"],
-}
 
 const FILTER_TYPE_LABELS: Record<FilterType, string> = {
   PLAGE_NUMERIQUE: "Plage de valeurs",
@@ -76,6 +65,7 @@ type Champ = {
   typeDonnees: string
   nature: string
   unite: string
+  typeFiltreRecommande: string | null
 }
 
 type Filter = FilterConfig
@@ -107,6 +97,17 @@ export function FiltersAdminForm({
   const isNewChampUsed = isVirtualSelection
     ? items.some((f) => f.codeMachine === selectedVirtualCode)
     : items.some((f) => f.champEnrichissable?.id === newChampId)
+  const recommendedTypeForNew = useMemo<FilterType | null>(() => {
+    if (isVirtualSelection) return null
+    const champ = champs.find((c) => c.id === newChampId)
+    if (!champ) return null
+    return recommendFilterType({
+      codeMachine: champ.codeMachine,
+      nomAffichage: champ.nomAffichage,
+      typeDonnees: champ.typeDonnees,
+      nature: champ.nature,
+    })
+  }, [newChampId, isVirtualSelection, champs])
   const { setAction, clearAction } = useHeaderActions()
 
   useEffect(() => {
@@ -253,7 +254,7 @@ export function FiltersAdminForm({
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">Type de filtre</Label>
-              <TypeSelect />
+              <TypeSelect name="typeFiltre" recommendedType={recommendedTypeForNew} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="newOrdre" className="text-sm font-medium">
@@ -367,17 +368,51 @@ export function FiltersAdminForm({
                     <SelectContent>
                       {FILTER_TYPES.map((t) => (
                         <SelectItem key={t.value} value={t.value}>
-                          {t.label}
+                          <span className="flex items-center gap-2">
+                            {t.label}
+                            {t.value === selected.champEnrichissable?.typeFiltreRecommande && (
+                              <Badge variant="outline" className="text-xs">
+                                Recommandé
+                              </Badge>
+                            )}
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
 
+                {selected.champEnrichissable?.typeFiltreRecommande &&
+                  selected.champEnrichissable.typeFiltreRecommande !== selected.typeFiltre && (
+                    <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-medium">Type recommandé</p>
+                        <p className="text-xs text-muted-foreground">
+                          {
+                            FILTER_TYPE_LABELS[
+                              selected.champEnrichissable.typeFiltreRecommande as FilterType
+                            ]
+                          }
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          handleTypeChange(
+                            selected.champEnrichissable!.typeFiltreRecommande as FilterType
+                          )
+                        }
+                      >
+                        Appliquer
+                      </Button>
+                    </div>
+                  )}
+
                 <div className="flex items-center justify-between rounded-lg border border-border p-3">
                   <div className="space-y-0.5">
                     <Label htmlFor="estActif" className="text-sm font-medium">
-                      Affichée à l'utilisateur
+                      Affichée à l&apos;utilisateur
                     </Label>
                     <p className="text-xs text-muted-foreground">Le filtre apparaît dans le panneau de filtres</p>
                   </div>
@@ -386,7 +421,7 @@ export function FiltersAdminForm({
 
                 <div className="space-y-1.5">
                   <Label htmlFor="ordreAffichage" className="text-sm font-medium">
-                    Ordre d'affichage
+                    Ordre d&apos;affichage
                   </Label>
                   <Input
                     id="ordreAffichage"
@@ -467,16 +502,31 @@ function ChampSelect({
   )
 }
 
-function TypeSelect() {
+function TypeSelect({
+  recommendedType,
+  defaultValue,
+  name,
+}: {
+  recommendedType?: FilterType | null
+  defaultValue?: string
+  name?: string
+}) {
   return (
-    <Select name="typeFiltre" defaultValue="PLAGE_NUMERIQUE">
+    <Select name={name} defaultValue={defaultValue ?? recommendedType ?? "PLAGE_NUMERIQUE"}>
       <SelectTrigger className="h-10 w-full rounded-lg">
         <SelectValue placeholder="Type de filtre" />
       </SelectTrigger>
       <SelectContent>
         {FILTER_TYPES.map((t) => (
           <SelectItem key={t.value} value={t.value}>
-            {t.label}
+            <span className="flex items-center gap-2">
+              {t.label}
+              {t.value === recommendedType && (
+                <Badge variant="outline" className="text-xs">
+                  Recommandé
+                </Badge>
+              )}
+            </span>
           </SelectItem>
         ))}
       </SelectContent>
