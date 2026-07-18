@@ -4,59 +4,170 @@ import type { FilterInput, FilterOperator, FilterType } from "@/types/filter"
 
 export type { FilterInput }
 
+const SOURCE_FIELDS = new Set([
+  "numeroInscription",
+  "dateVente",
+  "prixVente",
+  "vendeur",
+  "acheteur",
+  "lotsCadastraux",
+  "adresse",
+  "municipalite",
+  "mrc",
+  "superficieTotaleHectare",
+  "systemeSource",
+  "organisationId",
+  "importationId",
+  "createdAt",
+])
+
+function isSourceField(field: string): boolean {
+  return SOURCE_FIELDS.has(field)
+}
+
+function buildEnrichmentWhereClause(
+  field: string,
+  typeFiltre: FilterType,
+  operator: FilterOperator,
+  value: string
+): Prisma.TransactionSourceWhereInput {
+  let valeurClause: Prisma.ValeurEnrichissementWhereInput = { champEnrichissable: { codeMachine: field } }
+
+  switch (typeFiltre) {
+    case "RECHERCHE_TEXTE":
+      valeurClause = {
+        ...valeurClause,
+        valeurTexte: { contains: value, mode: "insensitive" },
+      }
+      break
+    case "PLAGE_NUMERIQUE":
+      if (operator === "entre") {
+        const [min, max] = value.split("-").map(Number)
+        valeurClause = { ...valeurClause, valeurNombre: { gte: min, lte: max } }
+      } else if (operator === "+") {
+        valeurClause = { ...valeurClause, valeurNombre: { gte: Number(value) } }
+      } else if (operator === "-") {
+        valeurClause = { ...valeurClause, valeurNombre: { lte: Number(value) } }
+      } else {
+        valeurClause = { ...valeurClause, valeurNombre: { equals: Number(value) } }
+      }
+      break
+    case "PLAGE_DATE":
+      if (operator === "entre") {
+        const [start, end] = value.split(",").map((s) => new Date(s.trim()))
+        valeurClause = { ...valeurClause, valeurTexte: { gte: start.toISOString(), lte: end.toISOString() } }
+      } else if (operator === "+") {
+        valeurClause = { ...valeurClause, valeurTexte: { gte: new Date(value).toISOString() } }
+      } else if (operator === "-") {
+        valeurClause = { ...valeurClause, valeurTexte: { lte: new Date(value).toISOString() } }
+      } else {
+        valeurClause = { ...valeurClause, valeurTexte: { equals: new Date(value).toISOString() } }
+      }
+      break
+    case "LISTE":
+    case "MULTI_SELECT":
+      valeurClause = { ...valeurClause, valeurTexte: { in: value.split(",") } }
+      break
+    case "BOOLEEN":
+      valeurClause = { ...valeurClause, valeurBooleen: value === "true" }
+      break
+    case "NUMERO_LOT":
+      valeurClause = { ...valeurClause, valeurTexte: { contains: value, mode: "insensitive" } }
+      break
+    default:
+      valeurClause = { ...valeurClause, valeurTexte: { contains: value, mode: "insensitive" } }
+  }
+
+  return {
+    enrichie: {
+      valeurs: {
+        some: valeurClause,
+      },
+    },
+  }
+}
+
 export function buildWhereClause(filters: FilterInput[]): Prisma.TransactionSourceWhereInput {
   const andClauses: Prisma.TransactionSourceWhereInput[] = []
 
   for (const f of filters) {
     if (!f.value && f.value !== "0") continue
 
-    const field = f.field as keyof Prisma.TransactionSourceWhereInput
+    const field = f.field
+    const isSource = isSourceField(field)
     let clause: Prisma.TransactionSourceWhereInput = {}
 
     switch (f.typeFiltre as FilterType) {
       case "RECHERCHE_TEXTE":
-        clause = {
-          OR: [
-            { numeroInscription: { contains: f.value, mode: "insensitive" } },
-            { vendeur: { contains: f.value, mode: "insensitive" } },
-            { acheteur: { contains: f.value, mode: "insensitive" } },
-            { municipalite: { contains: f.value, mode: "insensitive" } },
-          ],
+        if (isSource) {
+          clause = {
+            OR: [
+              { numeroInscription: { contains: f.value, mode: "insensitive" } },
+              { vendeur: { contains: f.value, mode: "insensitive" } },
+              { acheteur: { contains: f.value, mode: "insensitive" } },
+              { municipalite: { contains: f.value, mode: "insensitive" } },
+              { adresse: { contains: f.value, mode: "insensitive" } },
+            ],
+          }
+        } else {
+          clause = buildEnrichmentWhereClause(field, "RECHERCHE_TEXTE", f.operator as FilterOperator, f.value)
         }
         break
       case "PLAGE_NUMERIQUE":
-        if (f.operator === "entre") {
-          const [min, max] = f.value.split("-").map(Number)
-          clause = { [field]: { gte: min, lte: max } }
-        } else if (f.operator === "+") {
-          clause = { [field]: { gte: Number(f.value) } }
-        } else if (f.operator === "-") {
-          clause = { [field]: { lte: Number(f.value) } }
+        if (isSource) {
+          const sourceField = field as keyof Prisma.TransactionSourceWhereInput
+          if (f.operator === "entre") {
+            const [min, max] = f.value.split("-").map(Number)
+            clause = { [sourceField]: { gte: min, lte: max } }
+          } else if (f.operator === "+") {
+            clause = { [sourceField]: { gte: Number(f.value) } }
+          } else if (f.operator === "-") {
+            clause = { [sourceField]: { lte: Number(f.value) } }
+          } else {
+            clause = { [sourceField]: { equals: Number(f.value) } }
+          }
         } else {
-          clause = { [field]: { equals: Number(f.value) } }
+          clause = buildEnrichmentWhereClause(field, "PLAGE_NUMERIQUE", f.operator as FilterOperator, f.value)
         }
         break
       case "PLAGE_DATE":
-        if (f.operator === "entre") {
-          const [start, end] = f.value.split(",").map((s) => new Date(s.trim()))
-          clause = { [field]: { gte: start, lte: end } }
-        } else if (f.operator === "+") {
-          clause = { [field]: { gte: new Date(f.value) } }
-        } else if (f.operator === "-") {
-          clause = { [field]: { lte: new Date(f.value) } }
+        if (isSource) {
+          const sourceField = field as keyof Prisma.TransactionSourceWhereInput
+          if (f.operator === "entre") {
+            const [start, end] = f.value.split(",").map((s) => new Date(s.trim()))
+            clause = { [sourceField]: { gte: start, lte: end } }
+          } else if (f.operator === "+") {
+            clause = { [sourceField]: { gte: new Date(f.value) } }
+          } else if (f.operator === "-") {
+            clause = { [sourceField]: { lte: new Date(f.value) } }
+          } else {
+            clause = { [sourceField]: { equals: new Date(f.value) } }
+          }
         } else {
-          clause = { [field]: { equals: new Date(f.value) } }
+          clause = buildEnrichmentWhereClause(field, "PLAGE_DATE", f.operator as FilterOperator, f.value)
         }
         break
       case "LISTE":
       case "MULTI_SELECT":
-        clause = { [field]: { in: f.value.split(",") } }
+        if (isSource) {
+          clause = { [field]: { in: f.value.split(",") } }
+        } else {
+          clause = buildEnrichmentWhereClause(field, f.typeFiltre as FilterType, "in", f.value)
+        }
         break
       case "BOOLEEN":
-        clause = { [field]: f.value === "true" }
+        if (isSource) {
+          clause = { [field]: f.value === "true" }
+        } else {
+          clause = buildEnrichmentWhereClause(field, "BOOLEEN", "=", f.value)
+        }
         break
       case "NUMERO_LOT":
-        clause = { lotsCadastraux: { has: f.value } }
+        if (field === "lotsCadastraux") {
+          clause = { lotsCadastraux: { has: f.value } }
+        } else {
+          clause = buildEnrichmentWhereClause(field, "NUMERO_LOT", "has", f.value)
+        }
         break
       case "TYPE_TRANSACTION":
         clause = {
