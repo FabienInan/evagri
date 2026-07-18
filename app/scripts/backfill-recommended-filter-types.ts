@@ -2,9 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { recommendFilterType } from "@/lib/filters"
 
 async function main() {
-  const champs = await prisma.champEnrichissable.findMany({
-    where: { typeFiltreRecommande: null },
-  })
+  const champs = await prisma.champEnrichissable.findMany()
   for (const champ of champs) {
     await prisma.champEnrichissable.update({
       where: { id: champ.id },

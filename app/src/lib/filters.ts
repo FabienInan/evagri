@@ -138,6 +138,8 @@ const LISTE_FIELDS = new Set([
   "maisons",
 ])
 
+const NUMERO_LOT_FIELDS = new Set(["lotscadastraux"])
+
 const MULTI_SELECT_FIELDS = new Set([
   "type_de_culture",
   "type_de_sol",
@@ -159,7 +161,6 @@ const PLAGE_NUMERIQUE_FIELDS = new Set([
   "proporition_rsineux",
   "nombre_dentailles",
   "contingent_acricole_livres",
-  "entaille",
   "taux_unitaire_global_ha",
   "valeur_contributive_maisons_terrain_",
   "valeur_contributive_btiments_agricoles_",
@@ -171,7 +172,6 @@ const RECHERCHE_TEXTE_FIELDS = new Set([
   "vendeur",
   "acheteur",
   "adresse",
-  "lotsCadastraux",
   "sia",
   "mls",
   "autorisation_cptaq",
@@ -187,6 +187,7 @@ const RECHERCHE_TEXTE_FIELDS = new Set([
   "revue",
   "sousclasse_dominante",
   "zones_humides_types",
+  "entaille",
 ])
 
 export function recommendFilterType(champ: RecommendFilterTypeInput): FilterType {
@@ -215,6 +216,10 @@ export function recommendFilterType(champ: RecommendFilterTypeInput): FilterType
 
   if (PLAGE_NUMERIQUE_FIELDS.has(code)) {
     return "PLAGE_NUMERIQUE"
+  }
+
+  if (NUMERO_LOT_FIELDS.has(code)) {
+    return "NUMERO_LOT"
   }
 
   if (RECHERCHE_TEXTE_FIELDS.has(code)) {

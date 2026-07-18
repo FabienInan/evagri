@@ -82,6 +82,56 @@ describe("recommendFilterType", () => {
     })
     expect(result).toBe("TYPE_TRANSACTION")
   })
+
+  it("recommends NUMERO_LOT for lotsCadastraux", () => {
+    const result = recommendFilterType({
+      codeMachine: "lotsCadastraux",
+      nomAffichage: "Lots",
+      typeDonnees: "TEXTE",
+      nature: "SOURCE",
+    })
+    expect(result).toBe("NUMERO_LOT")
+  })
+
+  it("recommends RECHERCHE_TEXTE for sousclasse_dominante", () => {
+    const result = recommendFilterType({
+      codeMachine: "sousclasse_dominante",
+      nomAffichage: "Sous-classe dominante",
+      typeDonnees: "TEXTE",
+      nature: "SAISISSABLE",
+    })
+    expect(result).toBe("RECHERCHE_TEXTE")
+  })
+
+  it("recommends RECHERCHE_TEXTE for entaille", () => {
+    const result = recommendFilterType({
+      codeMachine: "entaille",
+      nomAffichage: "$/entaille",
+      typeDonnees: "ENTIER",
+      nature: "SAISISSABLE",
+    })
+    expect(result).toBe("RECHERCHE_TEXTE")
+  })
+
+  it("recommends RECHERCHE_TEXTE for mls", () => {
+    const result = recommendFilterType({
+      codeMachine: "mls",
+      nomAffichage: "# MLS",
+      typeDonnees: "ENTIER",
+      nature: "SAISISSABLE",
+    })
+    expect(result).toBe("RECHERCHE_TEXTE")
+  })
+
+  it("recommends PLAGE_NUMERIQUE for superficie_cultive_ha", () => {
+    const result = recommendFilterType({
+      codeMachine: "superficie_cultive_ha",
+      nomAffichage: "Superficie cultivée (ha)",
+      typeDonnees: "DECIMAL",
+      nature: "SAISISSABLE",
+    })
+    expect(result).toBe("PLAGE_NUMERIQUE")
+  })
 })
 
 describe("DEFAULT_OPERATEURS", () => {
