@@ -30,7 +30,7 @@ function createClusterIcon(cluster: L.MarkerCluster): L.DivIcon {
     html: `<div style="
       width:${size}px;
       height:${size}px;
-      background:#2563eb;
+      background:#6b8e4e;
       color:#fff;
       border-radius:50%;
       display:flex;
