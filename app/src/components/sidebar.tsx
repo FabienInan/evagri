@@ -105,6 +105,11 @@ export function Sidebar({
             collapsed ? "w-full justify-center px-2" : "w-full justify-start"
           )}
           title="Déconnexion"
+          onClick={() => {
+            fetch("/api/logout", { credentials: "include" }).then(() => {
+              window.location.href = "/login"
+            })
+          }}
         >
           <LogOut className="h-4 w-4 shrink-0" />
           {!collapsed && "Déconnexion"}
