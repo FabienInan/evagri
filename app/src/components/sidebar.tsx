@@ -106,9 +106,7 @@ export function Sidebar({
           )}
           title="Déconnexion"
           onClick={() => {
-            fetch("/api/logout", { credentials: "include" }).then(() => {
-              window.location.href = "/login"
-            })
+            window.location.href = "/api/logout"
           }}
         >
           <LogOut className="h-4 w-4 shrink-0" />
