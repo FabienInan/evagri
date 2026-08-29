@@ -61,34 +61,24 @@ function computeTauxGlobal(row: TransactionRow): number | null {
 }
 
 function StatusBadge({ statut }: { statut: string | null | undefined }) {
-  const value = statut ?? "NON_ANALYSEE"
-  switch (value.toUpperCase()) {
-    case "ANALYSEE":
-    case "VALIDEE":
+  const value = statut ?? "A analyser"
+  switch (value) {
+    case "Analysée":
       return <Badge variant="default">Analysée</Badge>
-    case "A_ANALYSER":
-    case "A ANALYSER":
-    case "NON_ANALYSEE":
-    case "EN_COURS":
-    case "EN COURS D'ANALYSE":
-      return <Badge variant="warning">À analyser</Badge>
-    case "INCOMPLETE":
-      return <Badge variant="outline">Incomplète</Badge>
-    case "ERREUR":
-    case "REFUSEE":
-      return <Badge variant="destructive">Refusée</Badge>
+    case "A analyser":
+      return <Badge variant="warning">A analyser</Badge>
     default:
       return <Badge variant="secondary">{value}</Badge>
   }
 }
 
 function Actions({ statut }: { statut: string | null | undefined }) {
-  const value = statut ?? "NON_ANALYSEE"
-  const isAnalyzed = ["ANALYSEE", "VALIDEE"].includes(value.toUpperCase())
+  const value = statut ?? "A analyser"
+  const isAnalysee = value === "Analysée"
 
   return (
     <div className="flex items-center justify-end gap-1">
-      {isAnalyzed ? (
+      {isAnalysee ? (
         <>
           <Button variant="ghost" size="icon" className="h-8 w-8" title="Voir">
             <Eye className="h-4 w-4" />

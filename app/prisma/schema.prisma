@@ -89,7 +89,7 @@ model TransactionEnrichie {
   id                  String                 @id @default(uuid())
   organisationId      String                 @map("id_organisation")
   transactionSourceId String                 @unique @map("id_transaction_source")
-  statut              String                 @default("NON_ANALYSEE")
+  statut              String                 @default("A analyser")
   contributeurId      String?                @map("id_contributeur")
   dateStatut          DateTime?              @map("date_statut")
   createdAt           DateTime               @default(now()) @map("date_creation")

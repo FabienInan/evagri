@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, type FormEvent } from "react"
 import { Search, RotateCcw, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,9 +17,8 @@ type VirtualOption = { label: string; value: string }
 
 const VIRTUAL_FILTER_OPTIONS: Record<string, VirtualOption[]> = {
   statut: [
-    { label: "Analysée", value: "ANALYSEE" },
-    { label: "À analyser", value: "NON_ANALYSEE" },
-    { label: "Incomplète", value: "INCOMPLETE" },
+    { label: "Analysée", value: "Analysée" },
+    { label: "A analyser", value: "A analyser" },
   ],
 }
 
@@ -177,12 +176,18 @@ export function TransactionFilters({
     onSearch([])
   }
 
+  function handleFormSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    handleSearch()
+  }
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Filtres</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4"> 
+      <form onSubmit={handleFormSubmit} className="space-y-4">
         {activeFilters.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {activeFilters.map((f) => {
@@ -282,14 +287,15 @@ export function TransactionFilters({
         </div>
 
         <div className="flex gap-2 pt-2">
-          <Button onClick={handleSearch} className="flex-1 gap-2">
+          <Button type="submit" className="flex-1 gap-2">
             <Search className="h-4 w-4" />
             Rechercher
           </Button>
-          <Button variant="outline" size="icon" onClick={handleReset} aria-label="Réinitialiser les filtres">
+          <Button type="button" variant="outline" size="icon" onClick={handleReset} aria-label="Réinitialiser les filtres">
             <RotateCcw className="h-4 w-4" />
           </Button>
         </div>
+      </form>
       </CardContent>
     </Card>
   )

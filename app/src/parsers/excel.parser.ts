@@ -16,7 +16,7 @@ export const SOURCE_COLUMNS = [
   { headerKeys: ["Prix de vente", "Prix de vente ($)", "Prixdevente($)"], field: "prixVente" },
   { headerKeys: ["MRC"], field: "mrc" },
   { headerKeys: ["Ville/Municipalité"], field: "municipalite" },
-  { headerKeys: ["Adresse complete", "Adresse complète"], field: "adresse" },
+  { headerKeys: ["Adresse complete", "Adresse complète", "Adresse complette"], field: "adresse" },
   { headerKeys: ["Superficie Totale (ha)", "Superficie totale (ha)"], field: "superficieTotaleHectare" },
 ]
 

@@ -93,36 +93,70 @@ function hasAnySourceValue(raw: ParsedRow): boolean {
   return SOURCE_FIELDS.some((field) => hasSourceValue(raw, field))
 }
 
-function isVenteIncomplete(raw: ParsedRow): boolean {
-  const hasAdresse = hasSourceValue(raw, "adresse")
-  const hasMunicipalite = hasSourceValue(raw, "municipalite")
-  return !hasAdresse && !hasMunicipalite
-}
-
-function isVenteAAnalyser(raw: ParsedRow): boolean {
-  const minimalFields: (keyof ParsedRow)[] = [
+function isVenteAAnalyser(
+  raw: ParsedRow,
+  rawRow: Record<string, unknown>,
+  enrichmentChamps: EnrichmentChamp[],
+  coords: ResolvedCoordinates,
+  typologieCode: string
+): boolean {
+  const terreRequiredSource: (keyof ParsedRow)[] = [
     "numeroInscription",
     "dateVente",
-    "mrc",
-    "lotsCadastraux",
-  ]
-
-  // At least one of the minimal fields must be present
-  if (!minimalFields.some((field) => hasSourceValue(raw, field))) return false
-
-  // Incomplete transactions are handled before this check
-  if (isVenteIncomplete(raw)) return false
-
-  // No supplementary source information should be filled
-  const supplementaryFields: (keyof ParsedRow)[] = [
     "vendeur",
     "acheteur",
+    "lotsCadastraux",
     "prixVente",
+    "mrc",
+    "municipalite",
     "adresse",
     "superficieTotaleHectare",
-    "municipalite",
   ]
-  return supplementaryFields.every((field) => !hasSourceValue(raw, field))
+
+  const boisRequiredSource: (keyof ParsedRow)[] = [
+    "numeroInscription",
+    "dateVente",
+    "vendeur",
+    "acheteur",
+    "lotsCadastraux",
+    "prixVente",
+    "mrc",
+    "municipalite",
+    "adresse",
+    "superficieTotaleHectare",
+  ]
+
+  const requiredSource = typologieCode === "TERRES_CULTIVEES" ? terreRequiredSource : boisRequiredSource
+  const missingSourceField = requiredSource.some((field) => !hasSourceValue(raw, field))
+
+  function hasEnrichment(codeMachine: string): boolean {
+    const champ = enrichmentChamps.find((c) => c.codeMachine === codeMachine)
+    if (!champ) return false
+    const v = rawRow[champ.header]
+    return v !== undefined && v !== null && v !== ""
+  }
+
+  const terreRequiredEnrichment = [
+    "zone_agricole_cptaq",
+    "topographie",
+    "classe_de_sol_dominante",
+    "sousclasse_dominante",
+    "superficie_cultive_ha",
+  ]
+
+  const boisRequiredEnrichment = [
+    "zone_agricole_cptaq",
+    "topographie",
+    "proportion_feuillus",
+    "densit_plantation",
+  ]
+
+  const requiredEnrichment = typologieCode === "TERRES_CULTIVEES" ? terreRequiredEnrichment : boisRequiredEnrichment
+  const missingEnrichmentField = requiredEnrichment.some((code) => !hasEnrichment(code))
+
+  const missingCoords = coords === null
+
+  return missingSourceField || missingEnrichmentField || missingCoords
 }
 
 function findCoordinateHeader(enrichmentChamps: EnrichmentChamp[], codes: string[]): string | undefined {
@@ -155,6 +189,7 @@ export interface ImportSheetInput {
   systemeSource: string
   importationId: string
   typologieNom?: string
+  typologieCode?: string
 }
 
 type ResolvedCoordinates = { latitude: number; longitude: number; fromFile: boolean } | null
@@ -264,11 +299,9 @@ export async function importSheet(
       }
 
       const statut =
-        systemeSource === "EXISTANT_EVAGRI" && isVenteIncomplete(raw)
-          ? "INCOMPLETE"
-          : systemeSource === "EXISTANT_EVAGRI" && isVenteAAnalyser(raw)
-            ? "A_ANALYSER"
-            : "ANALYSEE"
+        systemeSource === "EXISTANT_EVAGRI" && isVenteAAnalyser(raw, rawRow, enrichmentChamps, coords, input.typologieCode || "")
+          ? "A analyser"
+          : "Analysée"
 
       const enrichmentValues: EnrichmentValueInput[] = enrichmentChamps
         .map((champ: EnrichmentChamp) => {

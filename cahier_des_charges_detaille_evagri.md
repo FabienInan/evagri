@@ -792,3 +792,5 @@ L’Administrateur peut désactiver un compte utilisateur. Sur demande, il peut 
 | **Version beta** | Fiches transaction détaillé,<br>écran administrateur champs à enrichir,<br>Panier de dossiers comparables,<br>export Excel et export carte | fin octobre 2026 |
 | **Version gamma** | authentification et rôles,<br>écran administrateur gestion des utilisateurs | mi novembre 2026 |
 | **Version RC** | import JLR | fin novembre 2026 |
+
+Phase de test intense la semaine du 19 au 23 décembre (import la fds, test en condition reelle de SImon et correction eventuelle des bugs)

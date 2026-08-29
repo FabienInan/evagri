@@ -56,6 +56,7 @@ export async function importExcel(formData: FormData) {
         systemeSource: "EXISTANT_EVAGRI",
         importationId: importation.id,
         typologieNom: typologie.nom,
+        typologieCode: sheet.typologieCode,
       })
 
       totalInserted += inserted
