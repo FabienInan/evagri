@@ -20,7 +20,8 @@ function useIsClient() {
 export function useResponsiveColumns(
   columns: ResponsiveColumn[],
   initialVisible: Set<string>,
-  requiredKeys: string[] = []
+  requiredKeys: string[] = [],
+  storageKey?: string
 ) {
   const isClient = useIsClient()
   const [container, setContainer] = useState<HTMLDivElement | null>(null)
@@ -53,12 +54,12 @@ export function useResponsiveColumns(
   useEffect(() => {
     if (!isClient || initializedRef.current) return
     initializedRef.current = true
-    const saved = loadColumnPreference()
+    const saved = loadColumnPreference(storageKey)
     if (saved) {
       setVisibleColumnsState(new Set(saved))
       setHasUserOverride(true)
     }
-  }, [isClient])
+  }, [isClient, storageKey])
 
   // Calculate visible columns when the container is first measured, but only
   // if no saved user preference exists. Guard prevents infinite loops if the
@@ -88,19 +89,19 @@ export function useResponsiveColumns(
       const next = new Set(prev)
       if (next.has(key)) next.delete(key)
       else next.add(key)
-      saveColumnPreference([...next])
+      saveColumnPreference([...next], storageKey)
       return next
     })
     setHasUserOverride(true)
-  }, [])
+  }, [storageKey])
 
   const resetColumns = useCallback(() => {
-    clearColumnPreference()
+    clearColumnPreference(storageKey)
     setHasUserOverride(false)
     initializedRef.current = false
     measuredContainerRef.current = null
     if (container) calculate(container)
-  }, [calculate, container])
+  }, [calculate, container, storageKey])
 
   return {
     containerRef,

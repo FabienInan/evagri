@@ -12,14 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { DataTable, type DataTableColumn } from "@/components/data-table"
 
 type Importation = {
   id: string
@@ -48,12 +41,12 @@ function useIsClient() {
   )
 }
 
-function LocalDateCell({ date }: { date: Date }) {
+function LocalDate({ date }: { date: Date }) {
   const isClient = useIsClient()
   if (!isClient) {
-    return <TableCell>{new Date(date).toISOString().slice(0, 19).replace("T", " ")}</TableCell>
+    return <>{new Date(date).toISOString().slice(0, 19).replace("T", " ")}</>
   }
-  return <TableCell>{new Date(date).toLocaleString("fr-CA")}</TableCell>
+  return <>{new Date(date).toLocaleString("fr-CA")}</>
 }
 
 function statusBadge(statut: string) {
@@ -88,6 +81,48 @@ export function ImportHistory({ initialImports }: { initialImports: Importation[
     }
   }
 
+  const columns: DataTableColumn<Importation>[] = [
+    { key: "date", label: "Date", minWidth: 160, priority: 5, render: (imp) => <LocalDate date={imp.createdAt} /> },
+    { key: "typeSource", label: "Source", minWidth: 100, priority: 4, render: (imp) => imp.typeSource },
+    { key: "statut", label: "Statut", minWidth: 140, priority: 6, render: (imp) => statusBadge(imp.statut) },
+    { key: "lignesTotal", label: "Total", numeric: true, minWidth: 80, priority: 3, render: (imp) => imp.lignesTotal },
+    { key: "lignesInserees", label: "Insérées", numeric: true, minWidth: 90, priority: 2, render: (imp) => imp.lignesInserees },
+    { key: "lignesIgnorees", label: "Ignorées", numeric: true, minWidth: 90, priority: 1, render: (imp) => imp.lignesIgnorees },
+    { key: "lignesErreurs", label: "Erreurs", numeric: true, minWidth: 80, priority: 1, render: (imp) => imp.lignesErreurs },
+    {
+      key: "actions",
+      label: "Actions",
+      numeric: true,
+      minWidth: 80,
+      priority: 10,
+      locked: true,
+      render: (imp) => (
+        <div className="flex justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setSelected(imp)}
+            aria-label="Détails"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          {imp.statut === "EN_ECHEC" && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => handleRetry(imp.id)}
+              aria-label="Relancer"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ]
+
   return (
     <Card>
       <CardHeader>
@@ -102,59 +137,14 @@ export function ImportHistory({ initialImports }: { initialImports: Importation[
           <div className="rounded-md border border-border bg-muted p-3 text-sm">{message}</div>
         )}
 
-        <div className="overflow-auto">
-          <Table>
-            <TableHeader className="bg-muted/50">
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right">Insérées</TableHead>
-                <TableHead className="text-right">Ignorées</TableHead>
-                <TableHead className="text-right">Erreurs</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {imports.map((imp) => (
-                <TableRow key={imp.id}>
-                  <LocalDateCell date={imp.createdAt} />
-                  <TableCell>{imp.typeSource}</TableCell>
-                  <TableCell>{statusBadge(imp.statut)}</TableCell>
-                  <TableCell className="text-right">{imp.lignesTotal}</TableCell>
-                  <TableCell className="text-right">{imp.lignesInserees}</TableCell>
-                  <TableCell className="text-right">{imp.lignesIgnorees}</TableCell>
-                  <TableCell className="text-right">{imp.lignesErreurs}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => setSelected(imp)}
-                        aria-label="Détails"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      {imp.statut === "EN_ECHEC" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handleRetry(imp.id)}
-                          aria-label="Relancer"
-                        >
-                          <RefreshCw className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <DataTable
+          variant="bare"
+          storageKey="import-history"
+          columns={columns}
+          rows={imports}
+          rowKey={(imp) => imp.id}
+          emptyMessage="Aucune importation"
+        />
 
         {selected && (
           <Card className="mt-4 border border-border">
@@ -183,3 +173,4 @@ export function ImportHistory({ initialImports }: { initialImports: Importation[
     </Card>
   )
 }
+

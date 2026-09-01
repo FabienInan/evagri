@@ -66,7 +66,7 @@ function buildEnrichmentWhereClause(
       break
     case "LISTE":
     case "MULTI_SELECT":
-      valeurClause = { ...valeurClause, valeurTexte: { in: value.split(",") } }
+      valeurClause = { ...valeurClause, valeurTexte: { in: value.split(","), mode: "insensitive" } }
       break
     case "BOOLEEN":
       valeurClause = { ...valeurClause, valeurBooleen: value === "true" }
@@ -150,7 +150,7 @@ export function buildWhereClause(filters: FilterInput[]): Prisma.TransactionSour
       case "LISTE":
       case "MULTI_SELECT":
         if (isSource) {
-          clause = { [field]: { in: f.value.split(",") } }
+          clause = { [field]: { in: f.value.split(","), mode: "insensitive" } }
         } else {
           clause = buildEnrichmentWhereClause(field, f.typeFiltre as FilterType, "in", f.value)
         }
