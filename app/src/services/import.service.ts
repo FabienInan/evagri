@@ -1,5 +1,5 @@
 import Decimal from "decimal.js"
-import { geocodeAddress } from "@/lib/geocode"
+import { geocodeLotCadastral } from "@/lib/cadastre"
 import { ensureChampByCodeMachine, findChampByCodeMachine } from "@/repositories/enrichment.repository"
 import {
   createImportedTransaction,
@@ -194,6 +194,14 @@ export interface ImportSheetInput {
 
 type ResolvedCoordinates = { latitude: number; longitude: number; fromFile: boolean } | null
 
+async function geocodeFromLots(lots: string[]): Promise<{ latitude: number; longitude: number } | null> {
+  const results = await Promise.all(lots.slice(0, 5).map((lot) => geocodeLotCadastral(lot)))
+  const found = results.filter((r): r is { latitude: number; longitude: number } => r !== null)
+  if (found.length === 0) return null
+  const sum = found.reduce((acc, r) => ({ lat: acc.lat + r.latitude, lon: acc.lon + r.longitude }), { lat: 0, lon: 0 })
+  return { latitude: sum.lat / found.length, longitude: sum.lon / found.length }
+}
+
 async function resolveCoordinates(
   raw: ParsedRow,
   rawRow: Record<string, unknown>,
@@ -204,11 +212,9 @@ async function resolveCoordinates(
     return { ...fileCoords, fromFile: true }
   }
 
-  const geoQuery = [raw.adresse, raw.municipalite].filter(Boolean).join(", ")
-  if (!geoQuery) return null
-  const coords = await geocodeAddress(geoQuery)
-  if (!coords) return null
-  return { ...coords, fromFile: false }
+  const lotCoords = raw.lotsCadastraux?.length ? await geocodeFromLots(raw.lotsCadastraux) : null
+  if (!lotCoords) return null
+  return { ...lotCoords, fromFile: false }
 }
 
 async function resolveCoordinatesBatch(
