@@ -230,6 +230,8 @@ export function FiltersAdminForm({
         id: f.id,
         ordreAffichage: f.ordreAffichage,
         estActif: f.estActif,
+        typeFiltre: f.typeFiltre as FilterType,
+        operateursDisponibles: f.operateursDisponibles,
       }))
     )
     setPublishing(false)

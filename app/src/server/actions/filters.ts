@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { getCurrentOrganisationId } from "@/repositories/organisation.repository"
-import { FILTER_OPERATORS, FILTER_TYPES } from "@/types/filter"
+import { FILTER_OPERATORS, FILTER_TYPES, type FilterOperator, type FilterType } from "@/types/filter"
 import {
   createFilter as createFilterRepo,
   deleteFilter as deleteFilterRepo,
@@ -74,7 +74,13 @@ export async function createFilter(input: CreateFilterInput) {
 }
 
 export async function publishFilters(
-  filters: { id: string; ordreAffichage: number; estActif: boolean }[]
+  filters: {
+    id: string
+    ordreAffichage: number
+    estActif: boolean
+    typeFiltre?: FilterType
+    operateursDisponibles?: FilterOperator[] | null
+  }[]
 ) {
   await updateFiltersOrder(filters)
   revalidatePath("/admin/filters")

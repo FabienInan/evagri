@@ -228,9 +228,9 @@ export function TransactionFilters({
             return (
               <div key={f.id} className="space-y-1.5">
                 <Label className="text-xs font-medium text-muted-foreground">{f.nomFiltre}</Label>
-                <div className="flex gap-2">
+                <div className="flex min-w-0 gap-2">
                   <select
-                    className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="h-9 w-16 shrink-0 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     value={values[f.id]?.operator || defaultOperator(f.typeFiltre)}
                     onChange={(e) =>
                       setValues((prev) => ({
@@ -245,7 +245,7 @@ export function TransactionFilters({
                   </select>
                   {rawOptions.length > 0 ? (
                     <select
-                      className="flex-1 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       value={values[f.id]?.value || ""}
                       onChange={(e) =>
                         setValues((prev) => ({
@@ -261,7 +261,7 @@ export function TransactionFilters({
                     </select>
                   ) : (
                     <Input
-                      className="flex-1 text-sm"
+                      className="min-w-0 flex-1 text-sm"
                       placeholder="valeur"
                       value={values[f.id]?.value || ""}
                       onChange={(e) =>

@@ -12,7 +12,7 @@ import {
   normalizeDensitePlantation,
   discretizeProportion,
 } from "../src/lib/normalization/transforms"
-import { cleanText, toKey } from "../src/lib/normalization/mappings"
+import { cleanText, normalizeCase, toKey } from "../src/lib/normalization/mappings"
 import { createReport, incrementCounter, type NormalizationReport } from "../src/lib/normalization/report"
 
 const __filename = fileURLToPath(import.meta.url)
@@ -112,7 +112,7 @@ function normalizeTransactionRow(
       }
       case "Sous-classe dominante": {
         const cleaned = cleanText(value)
-        normalized[canonicalHeader] = cleaned === "0" ? null : cleaned
+        normalized[canonicalHeader] = cleaned === "0" ? null : cleaned ? normalizeCase(cleaned) : cleaned
         break
       }
       case "Type de culture": {
@@ -144,7 +144,8 @@ function normalizeTransactionRow(
         break
       }
       default: {
-        normalized[canonicalHeader] = typeof value === "string" ? value.trim() : value
+        normalized[canonicalHeader] =
+          typeof value === "string" ? normalizeCase(value.replace(/\s+/g, " ").trim()) : value
       }
     }
   }

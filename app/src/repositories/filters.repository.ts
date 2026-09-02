@@ -1,6 +1,36 @@
 import { prisma } from "@/lib/prisma"
-import type { Prisma } from "@prisma/client"
+import { Prisma } from "@prisma/client"
 import type { FilterConfig } from "@/types/filter"
+
+const LIST_TYPE_FILTRES = new Set(["LISTE", "MULTI_SELECT"])
+
+// Colonnes texte de TransactionSource pouvant alimenter un select de valeurs distinctes
+const SOURCE_TEXT_FIELDS = new Set(["numeroInscription", "vendeur", "acheteur", "adresse", "municipalite", "mrc", "systemeSource"])
+
+function distinctNonEmpty(values: (string | null)[]): string[] {
+  const unique = Array.from(new Set(values.filter((v): v is string => !!v && v.trim() !== "")))
+  return unique.sort((a, b) => a.localeCompare(b))
+}
+
+async function findDistinctEnrichmentValues(champEnrichissableId: string): Promise<string[]> {
+  const rows = await prisma.valeurEnrichissement.findMany({
+    where: { champEnrichissableId, valeurTexte: { not: null } },
+    select: { valeurTexte: true },
+    distinct: ["valeurTexte"],
+  })
+  return distinctNonEmpty(rows.map((r) => r.valeurTexte))
+}
+
+// Requête générique sur une colonne texte de TransactionSource (accès dynamique, hors typage strict Prisma)
+async function findDistinctSourceValues(organisationId: string, field: string): Promise<string[]> {
+  if (!SOURCE_TEXT_FIELDS.has(field)) return []
+  const rows = await prisma.transactionSource.findMany({
+    where: { organisationId, [field]: { not: "" } },
+    select: { [field]: true },
+    distinct: [field],
+  } as Prisma.TransactionSourceFindManyArgs)
+  return distinctNonEmpty((rows as Record<string, unknown>[]).map((r) => r[field] as string | null))
+}
 
 export async function findFiltersByOrganisation(
   organisationId: string,
@@ -12,7 +42,27 @@ export async function findFiltersByOrganisation(
     include: options.includeChamp ? { champEnrichissable: true } : undefined,
   })
 
-  return filters.map((f) => ({
+  const withOptions = await Promise.all(
+    filters.map(async (f) => {
+      const champ = (f as { champEnrichissable?: Prisma.ChampEnrichissableGetPayload<object> | null }).champEnrichissable
+      const hasStaticOptions = Array.isArray(champ?.optionsListe) && champ.optionsListe.length > 0
+
+      if (champ && LIST_TYPE_FILTRES.has(f.typeFiltre) && !hasStaticOptions) {
+        const valeurs =
+          champ.nature === "SOURCE"
+            ? await findDistinctSourceValues(organisationId, champ.codeMachine)
+            : await findDistinctEnrichmentValues(champ.id)
+
+        if (valeurs.length > 0) {
+          return { ...f, champEnrichissable: { ...champ, optionsListe: valeurs } }
+        }
+      }
+
+      return f
+    })
+  )
+
+  return withOptions.map((f) => ({
     ...f,
     typeFiltre: f.typeFiltre,
     operateursDisponibles: Array.isArray(f.operateursDisponibles)
@@ -63,13 +113,26 @@ export async function createFilter(
 }
 
 export async function updateFiltersOrder(
-  filters: { id: string; ordreAffichage: number; estActif: boolean }[]
+  filters: {
+    id: string
+    ordreAffichage: number
+    estActif: boolean
+    typeFiltre?: string
+    operateursDisponibles?: string[] | null
+  }[]
 ) {
   await prisma.$transaction(
     filters.map((f) =>
       prisma.filtreRecherche.update({
         where: { id: f.id },
-        data: { ordreAffichage: f.ordreAffichage, estActif: f.estActif },
+        data: {
+          ordreAffichage: f.ordreAffichage,
+          estActif: f.estActif,
+          ...(f.typeFiltre ? { typeFiltre: f.typeFiltre } : {}),
+          ...(f.operateursDisponibles !== undefined
+            ? { operateursDisponibles: f.operateursDisponibles ?? Prisma.JsonNull }
+            : {}),
+        },
       })
     )
   )
