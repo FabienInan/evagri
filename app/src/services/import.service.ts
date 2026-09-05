@@ -212,7 +212,9 @@ async function resolveCoordinates(
     return { ...fileCoords, fromFile: true }
   }
 
-  const lotCoords = raw.lotsCadastraux?.length ? await geocodeFromLots(raw.lotsCadastraux) : null
+  // parseLots: raw rows may hold the unparsed Excel cell (string/number), not string[]
+  const lots = parseLots(raw.lotsCadastraux)
+  const lotCoords = lots.length ? await geocodeFromLots(lots) : null
   if (!lotCoords) return null
   return { ...lotCoords, fromFile: false }
 }
