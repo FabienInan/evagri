@@ -1,4 +1,5 @@
 import { TransactionViewToggle } from "@/components/transaction-view-toggle"
+import { SelectedTransactionsProvider } from "@/components/selected-transactions-context"
 
 export default function TransactionsLayout({
   children,
@@ -6,11 +7,13 @@ export default function TransactionsLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-end">
-        <TransactionViewToggle />
+    <SelectedTransactionsProvider>
+      <div className="space-y-4">
+        <div className="flex items-center justify-end">
+          <TransactionViewToggle />
+        </div>
+        {children}
       </div>
-      {children}
-    </div>
+    </SelectedTransactionsProvider>
   )
 }

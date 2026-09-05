@@ -324,7 +324,7 @@ export function DataTable<T>({
                     key={rowKey(row, index)}
                     className={cn(
                       onRowClick && "cursor-pointer",
-                      selected ? "bg-[#e3b044]/25 hover:bg-[#e3b044]/35" : onRowClick && "hover:bg-muted/30"
+                      selected ? "bg-accent/25 hover:bg-accent/35" : onRowClick && "hover:bg-muted/30"
                     )}
                     onClick={() => onRowClick?.(row)}
                   >

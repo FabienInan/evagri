@@ -5,6 +5,7 @@ import { useMap } from "react-leaflet"
 import L from "leaflet"
 import "./leaflet-plugins"
 import type { MapTransaction } from "./types"
+import { getThemeColors } from "@/lib/theme-colors"
 
 const pinIcon = new L.Icon({
   iconUrl: "/pin.svg",
@@ -28,32 +29,34 @@ interface MarkerOptionsWithSelection extends L.MarkerOptions {
   selected?: boolean
 }
 
-function createClusterIcon(cluster: L.MarkerCluster): L.DivIcon {
-  const count = cluster.getChildCount()
-  const size = count < 10 ? 28 : count < 100 ? 36 : 44
-  const hasSelected = cluster
-    .getAllChildMarkers()
-    .some((marker) => (marker.options as MarkerOptionsWithSelection).selected)
-  const background = hasSelected ? "#e3b044" : "#6b8e4e"
-  return L.divIcon({
-    html: `<div style="
-      width:${size}px;
-      height:${size}px;
-      background:${background};
-      color:#fff;
-      border-radius:50%;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:${count < 100 ? 12 : 10}px;
-      font-weight:600;
-      border:2px solid #fff;
-      box-shadow:0 2px 6px rgba(0,0,0,0.25);
-    ">${count}</div>`,
-    className: "marker-cluster-custom",
-    iconSize: L.point(size, size),
-    iconAnchor: L.point(size / 2, size / 2),
-  })
+function createClusterIcon(colors: ReturnType<typeof getThemeColors>) {
+  return function iconCreateFunction(cluster: L.MarkerCluster): L.DivIcon {
+    const count = cluster.getChildCount()
+    const size = count < 10 ? 28 : count < 100 ? 36 : 44
+    const hasSelected = cluster
+      .getAllChildMarkers()
+      .some((marker) => (marker.options as MarkerOptionsWithSelection).selected)
+    const background = hasSelected ? colors.accent : colors.primary
+    return L.divIcon({
+      html: `<div style="
+        width:${size}px;
+        height:${size}px;
+        background:${background};
+        color:${colors.primaryForeground};
+        border-radius:50%;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size:${count < 100 ? 12 : 10}px;
+        font-weight:600;
+        border:2px solid ${colors.primaryForeground};
+        box-shadow:0 2px 6px ${colors.shadow};
+      ">${count}</div>`,
+      className: "marker-cluster-custom",
+      iconSize: L.point(size, size),
+      iconAnchor: L.point(size / 2, size / 2),
+    })
+  }
 }
 
 export function ClusterLayer({ transactions, selectedIds, onMarkerClick }: ClusterLayerProps) {
@@ -61,7 +64,7 @@ export function ClusterLayer({ transactions, selectedIds, onMarkerClick }: Clust
 
   useEffect(() => {
     const group = L.markerClusterGroup({
-      iconCreateFunction: createClusterIcon,
+      iconCreateFunction: createClusterIcon(getThemeColors()),
     })
     transactions.forEach((t) => {
       const isSelected = selectedIds.has(t.id)

@@ -8,7 +8,7 @@ import { TransactionMapSelectedPanel } from "@/components/transaction-map/select
 import type { FilterInput } from "@/types/filter"
 import { pointInPolygon } from "@/lib/geo"
 import type { MapTransaction } from "@/components/transaction-map/types"
-import { useSelectedTransactions } from "@/hooks/use-selected-transactions"
+import { useSelectedTransactions } from "@/components/selected-transactions-context"
 import "@/components/transaction-map/leaflet-plugins"
 
 interface TransactionMapProps {

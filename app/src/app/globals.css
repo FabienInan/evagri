@@ -23,6 +23,7 @@
   --input: #e5e7eb;
   --ring: #6b8e4e;
   --radius: 0.625rem;
+  --shadow-color: rgba(0, 0, 0, 0.25);
 }
 
 .dark {

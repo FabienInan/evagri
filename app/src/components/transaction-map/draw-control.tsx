@@ -4,6 +4,7 @@ import { useEffect } from "react"
 import { useMap } from "react-leaflet"
 import L from "leaflet"
 import "./leaflet-plugins"
+import { getThemeColors } from "@/lib/theme-colors"
 
 type DrawControlProps = {
   onPolygonChange: (polygon: { lat: number; lng: number }[] | null) => void
@@ -13,6 +14,7 @@ export function DrawControl({ onPolygonChange }: DrawControlProps) {
   const map = useMap()
 
   useEffect(() => {
+    const colors = getThemeColors()
     const drawnItems = new L.FeatureGroup()
     map.addLayer(drawnItems)
 
@@ -27,12 +29,12 @@ export function DrawControl({ onPolygonChange }: DrawControlProps) {
           allowIntersection: false,
           showArea: false,
           drawError: {
-            color: "#dc2626",
+            color: colors.destructive,
             timeout: 1000,
           },
           shapeOptions: {
-            color: "#6b8e4e",
-            fillColor: "#6b8e4e",
+            color: colors.primary,
+            fillColor: colors.primary,
             fillOpacity: 0.2,
             weight: 2,
           },
