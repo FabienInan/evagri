@@ -24,11 +24,11 @@ export function useTransactionFilters() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const filtersParam = searchParams.get(FILTERS_PARAM)
 
-  const filters = useMemo(
-    () => parseFiltersParam(searchParams.get(FILTERS_PARAM)),
-    [searchParams]
-  )
+  // Depend on the raw param string (not `searchParams`) so unrelated params
+  // (e.g. `selected`) don't produce a new array reference and retrigger effects.
+  const filters = useMemo(() => parseFiltersParam(filtersParam), [filtersParam])
 
   const updateUrl = useCallback(
     (nextFilters: FilterInput[]) => {

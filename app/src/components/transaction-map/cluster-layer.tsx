@@ -24,14 +24,22 @@ type ClusterLayerProps = {
   onMarkerClick?: (id: string) => void
 }
 
+interface MarkerOptionsWithSelection extends L.MarkerOptions {
+  selected?: boolean
+}
+
 function createClusterIcon(cluster: L.MarkerCluster): L.DivIcon {
   const count = cluster.getChildCount()
   const size = count < 10 ? 28 : count < 100 ? 36 : 44
+  const hasSelected = cluster
+    .getAllChildMarkers()
+    .some((marker) => (marker.options as MarkerOptionsWithSelection).selected)
+  const background = hasSelected ? "#e3b044" : "#6b8e4e"
   return L.divIcon({
     html: `<div style="
       width:${size}px;
       height:${size}px;
-      background:#6b8e4e;
+      background:${background};
       color:#fff;
       border-radius:50%;
       display:flex;
@@ -59,7 +67,8 @@ export function ClusterLayer({ transactions, selectedIds, onMarkerClick }: Clust
       const isSelected = selectedIds.has(t.id)
       const marker = L.marker([t.latitude, t.longitude], {
         icon: isSelected ? selectedPinIcon : pinIcon,
-      })
+        selected: isSelected,
+      } as MarkerOptionsWithSelection)
       marker.bindPopup(
         `<div>
           <strong>${t.numeroInscription ?? "—"}</strong>
