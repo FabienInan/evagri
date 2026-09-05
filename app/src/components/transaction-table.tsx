@@ -62,7 +62,8 @@ function Actions({ statut }: { statut: string | null | undefined }) {
   const isAnalysee = value === "Analysée"
 
   return (
-    <div className="flex items-center justify-end gap-1">
+    // stopPropagation: keeps action clicks from toggling the row selection
+    <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
       {isAnalysee ? (
         <>
           <Button variant="ghost" size="icon" className="h-8 w-8" title="Voir">
