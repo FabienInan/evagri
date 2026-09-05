@@ -1,6 +1,7 @@
 import Decimal from "decimal.js"
 import { geocodeLotCadastral } from "@/lib/cadastre"
 import { ensureChampByCodeMachine, findChampByCodeMachine } from "@/repositories/enrichment.repository"
+import { incrementImportationCounters } from "@/repositories/import.repository"
 import {
   createImportedTransaction,
   findExistingTransaction,
@@ -249,6 +250,24 @@ export async function importSheet(
   let ignored = 0
   const errors: { row: number; message: string }[] = []
 
+  // Deltas since the last progress flush (UI polls these counters during the run).
+  const PROGRESS_FLUSH_EVERY = 25
+  let lastFlushed = { inserted: 0, ignored: 0, errors: 0 }
+  async function flushProgress() {
+    const delta = {
+      lignesInserees: inserted - lastFlushed.inserted,
+      lignesIgnorees: ignored - lastFlushed.ignored,
+      lignesErreurs: errors.length - lastFlushed.errors,
+    }
+    if (!delta.lignesInserees && !delta.lignesIgnorees && !delta.lignesErreurs) return
+    lastFlushed = { inserted, ignored, errors: errors.length }
+    try {
+      await incrementImportationCounters(importationId, delta)
+    } catch {
+      // Progress reporting must never break the import itself.
+    }
+  }
+
   const typeChamp = await findChampByCodeMachine(organisationId, "typeTransaction")
   const [latitudeChamp, longitudeChamp] = await Promise.all([
     ensureChampByCodeMachine(organisationId, "latitude", "Latitude", "DECIMAL", "°"),
@@ -358,7 +377,13 @@ export async function importSheet(
     } catch (e) {
       errors.push({ row: i + 2, message: (e as Error).message })
     }
+
+    if ((i + 1) % PROGRESS_FLUSH_EVERY === 0) {
+      await flushProgress()
+    }
   }
+
+  await flushProgress()
 
   return { inserted, ignored, errors }
 }

@@ -6,6 +6,7 @@ import { ensureEnrichmentChamps } from "@/repositories/enrichment.repository"
 import {
   createImportation,
   findImportationById,
+  incrementImportationCounters,
   listImports as listImportRecords,
   markImportationFailed,
   resetImportForRetry,
@@ -47,6 +48,8 @@ export async function importExcel(formData: FormData) {
       const enrichmentChamps = await ensureEnrichmentChamps(organisationId, sheet.rows)
       const rows = sheet.rows.map((r) => rowToSourceFields(r) as ParsedRow)
       totalRows += rows.length
+      // Publish the total upfront so the UI shows progress against a known denominator.
+      await incrementImportationCounters(importation.id, { lignesTotal: rows.length })
 
       const { inserted, ignored, errors } = await importSheet({
         organisationId,

@@ -54,6 +54,29 @@ export async function updateImportationResults(
   })
 }
 
+export interface ImportationCounterDelta {
+  lignesTotal?: number
+  lignesInserees?: number
+  lignesIgnorees?: number
+  lignesErreurs?: number
+}
+
+/** Incremental progress updates so the UI reflects a running import. */
+export async function incrementImportationCounters(
+  importationId: string,
+  delta: ImportationCounterDelta
+) {
+  return prisma.importation.update({
+    where: { id: importationId },
+    data: {
+      ...(delta.lignesTotal ? { lignesTotal: { increment: delta.lignesTotal } } : {}),
+      ...(delta.lignesInserees ? { lignesInserees: { increment: delta.lignesInserees } } : {}),
+      ...(delta.lignesIgnorees ? { lignesIgnorees: { increment: delta.lignesIgnorees } } : {}),
+      ...(delta.lignesErreurs ? { lignesErreurs: { increment: delta.lignesErreurs } } : {}),
+    },
+  })
+}
+
 export async function markImportationFailed(
   importationId: string,
   error: Error

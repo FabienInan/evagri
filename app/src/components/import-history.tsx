@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useSyncExternalStore } from "react"
+import { useEffect, useState, useSyncExternalStore } from "react"
 import { RefreshCw, Eye, X, History } from "lucide-react"
-import { retryImport } from "@/server/actions/import"
+import { listImports, retryImport } from "@/server/actions/import"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -68,6 +68,20 @@ export function ImportHistory({ initialImports }: { initialImports: Importation[
   const [imports, setImports] = useState(initialImports)
   const [selected, setSelected] = useState<Importation | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+
+  // Poll while an import is running so counters and status stay live.
+  const hasRunning = imports.some((imp) => imp.statut === "EN_COURS")
+  useEffect(() => {
+    if (!hasRunning) return
+    const interval = setInterval(async () => {
+      try {
+        setImports(await listImports())
+      } catch {
+        // Keep last known state if a poll fails.
+      }
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [hasRunning])
 
   async function handleRetry(id: string) {
     try {
