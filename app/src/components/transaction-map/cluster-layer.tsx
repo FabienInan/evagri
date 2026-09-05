@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useMap } from "react-leaflet"
 import L from "leaflet"
 import "./leaflet-plugins"
@@ -61,6 +61,8 @@ function createClusterIcon(colors: ReturnType<typeof getThemeColors>) {
 
 export function ClusterLayer({ transactions, selectedIds, onMarkerClick }: ClusterLayerProps) {
   const map = useMap()
+  // One-shot per map mount: don't re-center on every subsequent pin toggle.
+  const hasAutoFittedRef = useRef(false)
 
   useEffect(() => {
     const group = L.markerClusterGroup({
@@ -87,6 +89,17 @@ export function ClusterLayer({ transactions, selectedIds, onMarkerClick }: Clust
       group.addLayer(marker)
     })
     map.addLayer(group)
+
+    if (!hasAutoFittedRef.current && transactions.length > 0) {
+      hasAutoFittedRef.current = true
+      const selectedCoords = transactions
+        .filter((t) => selectedIds.has(t.id))
+        .map((t) => [t.latitude, t.longitude] as [number, number])
+      if (selectedCoords.length > 0) {
+        map.fitBounds(L.latLngBounds(selectedCoords), { padding: [60, 60], maxZoom: 12 })
+      }
+    }
+
     return () => {
       map.removeLayer(group)
     }
