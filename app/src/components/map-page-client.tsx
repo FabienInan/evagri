@@ -20,13 +20,11 @@ interface MapPageClientProps {
 }
 
 export function MapPageClient({ filtersConfig }: MapPageClientProps) {
-  const { filters, addOrReplaceFilter } = useTransactionFilters()
+  const { filters, setFilters, addOrReplaceFilter } = useTransactionFilters()
   const { visible: showFilters, toggle: toggleFilters } = useFilterPanelVisibility()
 
   function handleSearch(newFilters: FilterInput[]) {
-    // Map page only supports geo + simple filters through URL; no server reload needed.
-    // TransactionFilters updates its own local state and calls onSearch.
-    // We intentionally do not call setFilters here because TransactionFilters owns local state.
+    setFilters(newFilters)
   }
 
   function handleGeoFilter(geoFilter: FilterInput) {
