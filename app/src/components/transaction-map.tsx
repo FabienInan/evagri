@@ -16,23 +16,38 @@ interface TransactionMapProps {
   onGeoFilter?: (filter: FilterInput) => void
 }
 
+// Module-level cache: makes list->map view switches instant after the first load.
+const mapDataCache = new Map<string, MapTransaction[]>()
+
 export function TransactionMap({ filters, onGeoFilter }: TransactionMapProps) {
-  const [transactions, setTransactions] = useState<MapTransaction[]>([])
+  const filtersCacheKey = JSON.stringify(filters ?? [])
+  const [transactions, setTransactions] = useState<MapTransaction[]>(
+    () => mapDataCache.get(filtersCacheKey) ?? []
+  )
   const [polygon, setPolygon] = useState<{ lat: number; lng: number }[] | null>(null)
-  const [filtersKey, setFiltersKey] = useState(0)
   const { selectedIds: pickedIds, toggleSelected } = useSelectedTransactions()
 
   useEffect(() => {
+    const cached = mapDataCache.get(filtersCacheKey)
+    if (cached) {
+      setTransactions(cached)
+      return
+    }
+    let cancelled = false
     const query = filters?.length
       ? `?filters=${encodeURIComponent(JSON.stringify(filters))}`
       : ""
     fetch(`/api/transactions/map${query}`)
       .then((res) => res.json())
       .then((data) => {
-        setTransactions(data)
-        setFiltersKey((k) => k + 1)
+        mapDataCache.set(filtersCacheKey, data)
+        if (!cancelled) setTransactions(data)
       })
-  }, [filters])
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtersCacheKey])
 
   const polygonIds = useMemo(() => {
     if (!polygon || polygon.length < 3) return new Set<string>()
@@ -64,7 +79,6 @@ export function TransactionMap({ filters, onGeoFilter }: TransactionMapProps) {
   return (
     <div className="relative h-full w-full">
       <MapContainer
-        key={filtersKey}
         center={[52.0, -72.0]}
         zoom={6}
         scrollWheelZoom={true}

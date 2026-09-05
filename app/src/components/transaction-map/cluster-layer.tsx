@@ -67,6 +67,7 @@ export function ClusterLayer({ transactions, selectedIds, onMarkerClick }: Clust
   useEffect(() => {
     const group = L.markerClusterGroup({
       iconCreateFunction: createClusterIcon(getThemeColors()),
+      chunkedLoading: true,
     })
     transactions.forEach((t) => {
       const isSelected = selectedIds.has(t.id)

@@ -95,6 +95,10 @@ export async function findTransactionsForMap(
       enrichie: {
         select: {
           valeurs: {
+            // Only coordinate values: avoids loading every enrichment value per transaction.
+            where: {
+              champEnrichissable: { codeMachine: { in: ["latitude", "longitude"] } },
+            },
             select: {
               valeurNombre: true,
               champEnrichissable: {
