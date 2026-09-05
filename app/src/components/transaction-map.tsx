@@ -8,6 +8,7 @@ import { TransactionMapSelectedPanel } from "@/components/transaction-map/select
 import type { FilterInput } from "@/types/filter"
 import { pointInPolygon } from "@/lib/geo"
 import type { MapTransaction } from "@/components/transaction-map/types"
+import { useSelectedTransactions } from "@/hooks/use-selected-transactions"
 import "@/components/transaction-map/leaflet-plugins"
 
 interface TransactionMapProps {
@@ -19,6 +20,7 @@ export function TransactionMap({ filters, onGeoFilter }: TransactionMapProps) {
   const [transactions, setTransactions] = useState<MapTransaction[]>([])
   const [polygon, setPolygon] = useState<{ lat: number; lng: number }[] | null>(null)
   const [filtersKey, setFiltersKey] = useState(0)
+  const { selectedIds: pickedIds, toggleSelected } = useSelectedTransactions()
 
   useEffect(() => {
     const query = filters?.length
@@ -32,7 +34,7 @@ export function TransactionMap({ filters, onGeoFilter }: TransactionMapProps) {
       })
   }, [filters])
 
-  const selectedIds = useMemo(() => {
+  const polygonIds = useMemo(() => {
     if (!polygon || polygon.length < 3) return new Set<string>()
     const ids = new Set<string>()
     for (const t of transactions) {
@@ -42,6 +44,11 @@ export function TransactionMap({ filters, onGeoFilter }: TransactionMapProps) {
     }
     return ids
   }, [transactions, polygon])
+
+  const selectedIds = useMemo(
+    () => new Set([...polygonIds, ...pickedIds]),
+    [polygonIds, pickedIds]
+  )
 
   function handleFilter() {
     if (!polygon || polygon.length < 3) return
@@ -67,7 +74,11 @@ export function TransactionMap({ filters, onGeoFilter }: TransactionMapProps) {
           attribution='© OpenStreetMap contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <ClusterLayer transactions={transactions} selectedIds={selectedIds} />
+        <ClusterLayer
+          transactions={transactions}
+          selectedIds={selectedIds}
+          onMarkerClick={toggleSelected}
+        />
         <DrawControl onPolygonChange={setPolygon} />
       </MapContainer>
 

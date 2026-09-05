@@ -21,6 +21,7 @@ const selectedPinIcon = new L.Icon({
 type ClusterLayerProps = {
   transactions: MapTransaction[]
   selectedIds: Set<string>
+  onMarkerClick?: (id: string) => void
 }
 
 function createClusterIcon(cluster: L.MarkerCluster): L.DivIcon {
@@ -47,7 +48,7 @@ function createClusterIcon(cluster: L.MarkerCluster): L.DivIcon {
   })
 }
 
-export function ClusterLayer({ transactions, selectedIds }: ClusterLayerProps) {
+export function ClusterLayer({ transactions, selectedIds, onMarkerClick }: ClusterLayerProps) {
   const map = useMap()
 
   useEffect(() => {
@@ -68,13 +69,16 @@ export function ClusterLayer({ transactions, selectedIds }: ClusterLayerProps) {
           <p>Superficie: ${t.superficieTotaleHectare ?? "-"} ha</p>
         </div>`
       )
+      if (onMarkerClick) {
+        marker.on("click", () => onMarkerClick(t.id))
+      }
       group.addLayer(marker)
     })
     map.addLayer(group)
     return () => {
       map.removeLayer(group)
     }
-  }, [map, transactions, selectedIds])
+  }, [map, transactions, selectedIds, onMarkerClick])
 
   return null
 }

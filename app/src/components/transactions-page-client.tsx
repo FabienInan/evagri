@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { PanelLeftClose, PanelLeft, ShoppingCart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { searchTransactions } from "@/server/actions/transaction"
 import { TransactionTable } from "@/components/transaction-table"
 import { TransactionFilters } from "@/components/transaction-filters"
 import { useTransactionFilters } from "@/hooks/use-transaction-filters"
+import { useSelectedTransactions } from "@/hooks/use-selected-transactions"
 import { useFilterPanelVisibility } from "@/hooks/use-filter-panel-visibility"
 import type { FilterConfig, FilterInput } from "@/types/filter"
 import type { TransactionSourceField } from "@/lib/transaction-source-fields"
@@ -31,6 +32,8 @@ export function TransactionsPageClient({
   enrichmentFields,
 }: TransactionsPageClientProps) {
   const { filters, setFilters } = useTransactionFilters()
+  const { selectedIds, toggleSelected } = useSelectedTransactions()
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds])
 
   const [transactions, setTransactions] = useState<TransactionRow[]>(initialData.transactions)
   const [total, setTotal] = useState(initialData.total)
@@ -171,6 +174,8 @@ export function TransactionsPageClient({
           hasMore={hasMore}
           loading={loading}
           sentinelRef={sentinelRef}
+          selectedIds={selectedIdSet}
+          onSelectRow={(row) => toggleSelected(row.id)}
         />
       </div>
     </div>

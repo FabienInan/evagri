@@ -107,6 +107,7 @@ Le présent document constitue la spécification fonctionnelle exhaustive de la 
 ### 5.2 Hors périmètre Phase 2
 
 - Module mandats formalisés.
+- Trouver l'activité à partir du nom des proprios (si entité/compagnie) et du REQ
 - Recommandation automatique ou intelligence artificielle.
 - Rapport Word automatisé.
 - Application mobile.

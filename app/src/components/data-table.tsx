@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { ChevronDown, ChevronUp, Loader2, Settings2 } from "lucide-react"
 import { useResponsiveColumns } from "@/hooks/use-responsive-columns"
 import { loadColumnOrder, saveColumnOrder, clearColumnOrder } from "@/lib/responsive-columns"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -200,6 +201,8 @@ export interface DataTableProps<T> {
   toolbar?: ReactNode
   emptyMessage?: string
   onRowClick?: (row: T) => void
+  /** Highlights the row in yellow (shared selection with the map view). */
+  isRowSelected?: (row: T) => boolean
   /** Use "bare" to skip the outer Card, e.g. when embedding inside an existing Card. Defaults to "card". */
   variant?: "card" | "bare"
 }
@@ -219,6 +222,7 @@ export function DataTable<T>({
   toolbar,
   emptyMessage = "Aucun résultat",
   onRowClick,
+  isRowSelected,
   variant = "card",
 }: DataTableProps<T>) {
   const visibleStorageKey = `evagri:${storageKey}:visible-columns`
@@ -313,19 +317,25 @@ export function DataTable<T>({
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((row, index) => (
-                <TableRow
-                  key={rowKey(row, index)}
-                  className={onRowClick ? "cursor-pointer hover:bg-muted/30" : undefined}
-                  onClick={() => onRowClick?.(row)}
-                >
-                  {visible.map((col) => (
-                    <TableCell key={col.key} className={`py-2 ${col.numeric ? "text-right" : ""}`}>
-                      {col.render(row)}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              rows.map((row, index) => {
+                const selected = isRowSelected?.(row) ?? false
+                return (
+                  <TableRow
+                    key={rowKey(row, index)}
+                    className={cn(
+                      onRowClick && "cursor-pointer",
+                      selected ? "bg-[#e3b044]/25 hover:bg-[#e3b044]/35" : onRowClick && "hover:bg-muted/30"
+                    )}
+                    onClick={() => onRowClick?.(row)}
+                  >
+                    {visible.map((col) => (
+                      <TableCell key={col.key} className={`py-2 ${col.numeric ? "text-right" : ""}`}>
+                        {col.render(row)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                )
+              })
             )}
           </TableBody>
         </Table>

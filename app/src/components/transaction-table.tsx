@@ -177,6 +177,8 @@ interface TransactionTableProps {
   hasMore: boolean
   loading: boolean
   sentinelRef: React.RefObject<HTMLDivElement | null>
+  selectedIds?: Set<string>
+  onSelectRow?: (row: TransactionRow) => void
 }
 
 export function TransactionTable({
@@ -188,6 +190,8 @@ export function TransactionTable({
   sortOrder,
   loading,
   sentinelRef,
+  selectedIds,
+  onSelectRow,
 }: TransactionTableProps) {
   const columns = useTableColumns(sourceFields, enrichmentFields)
 
@@ -204,6 +208,8 @@ export function TransactionTable({
       sentinelRef={sentinelRef}
       title="Résultats"
       totalCount={data.total}
+      onRowClick={onSelectRow}
+      isRowSelected={selectedIds ? (row) => selectedIds.has(row.id) : undefined}
     />
   )
 }
