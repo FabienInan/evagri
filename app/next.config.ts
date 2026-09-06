@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "10mb",
     },
+    // Router cache for dynamic pages: makes Liste<->Carte toggles instant (30s staleness tolerated).
+    staleTimes: {
+      dynamic: 30,
+    },
   },
 }
 
