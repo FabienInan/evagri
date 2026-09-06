@@ -84,6 +84,8 @@ export function ClusterLayer({ transactions, selectedIds, onMarkerClick }: Clust
           <p>Superficie: ${t.superficieTotaleHectare ?? "-"} ha</p>
         </div>`
       )
+      marker.on("mouseover", () => marker.openPopup())
+      marker.on("mouseout", () => marker.closePopup())
       if (onMarkerClick) {
         marker.on("click", () => onMarkerClick(t.id))
       }

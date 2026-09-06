@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { PanelLeftClose, PanelLeft, ShoppingCart } from "lucide-react"
+import { PanelLeftClose, PanelLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { searchTransactions } from "@/server/actions/transaction"
 import { TransactionTable } from "@/components/transaction-table"
@@ -117,15 +117,9 @@ export function TransactionsPageClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-foreground">Liste des transactions</h2>
-          <p className="text-sm text-muted-foreground">Consultez et filtrez les ventes agricoles</p>
-        </div>
-        <Button size="sm" className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
-          <ShoppingCart className="h-4 w-4" />
-          Paniers
-        </Button>
+      <div>
+        <h2 className="text-lg font-semibold text-foreground">Liste des transactions</h2>
+        <p className="text-sm text-muted-foreground">Consultez et filtrez les ventes agricoles</p>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
