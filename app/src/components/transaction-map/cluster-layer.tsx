@@ -11,12 +11,15 @@ const pinIcon = new L.Icon({
   iconUrl: "/pin.svg",
   iconSize: [24, 36],
   iconAnchor: [12, 36],
+  // Above the pin so the popup never sits under the cursor (would flicker mouseout/mouseover).
+  popupAnchor: [0, -38],
 })
 
 const selectedPinIcon = new L.Icon({
   iconUrl: "/pin-selected.svg",
   iconSize: [24, 36],
   iconAnchor: [12, 36],
+  popupAnchor: [0, -38],
 })
 
 type ClusterLayerProps = {
@@ -59,6 +62,19 @@ function createClusterIcon(colors: ReturnType<typeof getThemeColors>) {
   }
 }
 
+// Zoom level from which selected pins display their details permanently.
+const DETAIL_MIN_ZOOM = 12
+
+function detailHtml(t: MapTransaction): string {
+  return `<div>
+    <strong>${t.numeroInscription ?? "—"}</strong>
+    <p>${t.municipalite || ""}</p>
+    <p>Date: ${t.dateVente ? new Date(t.dateVente).toLocaleDateString("fr-CA") : "—"}</p>
+    <p>Prix: ${t.prixVente ? t.prixVente.toLocaleString("fr-CA") : "-"} $</p>
+    <p>Superficie: ${t.superficieTotaleHectare ?? "-"} ha</p>
+  </div>`
+}
+
 export function ClusterLayer({ transactions, selectedIds, onMarkerClick }: ClusterLayerProps) {
   const map = useMap()
   // One-shot per map mount: don't re-center on every subsequent pin toggle.
@@ -69,29 +85,41 @@ export function ClusterLayer({ transactions, selectedIds, onMarkerClick }: Clust
       iconCreateFunction: createClusterIcon(getThemeColors()),
       chunkedLoading: true,
     })
+    const selectedMarkers: { marker: L.Marker; html: string }[] = []
     transactions.forEach((t) => {
       const isSelected = selectedIds.has(t.id)
       const marker = L.marker([t.latitude, t.longitude], {
         icon: isSelected ? selectedPinIcon : pinIcon,
         selected: isSelected,
       } as MarkerOptionsWithSelection)
-      marker.bindPopup(
-        `<div>
-          <strong>${t.numeroInscription ?? "—"}</strong>
-          <p>${t.municipalite || ""}</p>
-          <p>Date: ${t.dateVente ? new Date(t.dateVente).toLocaleDateString("fr-CA") : "—"}</p>
-          <p>Prix: ${t.prixVente ? t.prixVente.toLocaleString("fr-CA") : "-"} $</p>
-          <p>Superficie: ${t.superficieTotaleHectare ?? "-"} ha</p>
-        </div>`
-      )
-      marker.on("mouseover", () => marker.openPopup())
-      marker.on("mouseout", () => marker.closePopup())
+      if (isSelected) {
+        selectedMarkers.push({ marker, html: detailHtml(t) })
+      }
       if (onMarkerClick) {
         marker.on("click", () => onMarkerClick(t.id))
       }
       group.addLayer(marker)
     })
     map.addLayer(group)
+
+    // Selected pins show their details as permanent tooltips once zoomed in close enough.
+    function syncDetailTooltips() {
+      const show = map.getZoom() >= DETAIL_MIN_ZOOM
+      for (const { marker, html } of selectedMarkers) {
+        const hasTooltip = !!marker.getTooltip()
+        if (show && !hasTooltip) {
+          marker.bindTooltip(html, {
+            permanent: true,
+            direction: "top",
+            offset: L.point(0, -36),
+          })
+        } else if (!show && hasTooltip) {
+          marker.unbindTooltip()
+        }
+      }
+    }
+    syncDetailTooltips()
+    map.on("zoomend", syncDetailTooltips)
 
     if (!hasAutoFittedRef.current && transactions.length > 0) {
       hasAutoFittedRef.current = true
@@ -104,6 +132,7 @@ export function ClusterLayer({ transactions, selectedIds, onMarkerClick }: Clust
     }
 
     return () => {
+      map.off("zoomend", syncDetailTooltips)
       map.removeLayer(group)
     }
   }, [map, transactions, selectedIds, onMarkerClick])
