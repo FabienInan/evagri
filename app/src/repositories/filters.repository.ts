@@ -1,11 +1,9 @@
 import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
 import type { FilterConfig } from "@/types/filter"
+import { isSourceFieldCode, sourceColumnOf, SOURCE_FIELD_BY_CODE } from "@/lib/transaction-source-fields"
 
 const LIST_TYPE_FILTRES = new Set(["LISTE", "MULTI_SELECT"])
-
-// Colonnes texte de TransactionSource pouvant alimenter un select de valeurs distinctes
-const SOURCE_TEXT_FIELDS = new Set(["numeroInscription", "vendeur", "acheteur", "adresse", "municipalite", "mrc", "systemeSource"])
 
 function distinctNonEmpty(values: (string | null)[]): string[] {
   const unique = Array.from(new Set(values.filter((v): v is string => !!v && v.trim() !== "")))
@@ -21,15 +19,17 @@ async function findDistinctEnrichmentValues(champEnrichissableId: string): Promi
   return distinctNonEmpty(rows.map((r) => r.valeurTexte))
 }
 
-// Requête générique sur une colonne texte de TransactionSource (accès dynamique, hors typage strict Prisma)
-async function findDistinctSourceValues(organisationId: string, field: string): Promise<string[]> {
-  if (!SOURCE_TEXT_FIELDS.has(field)) return []
+/** Distinct non-empty values of a text source column, for a list-type filter's dropdown. */
+async function findDistinctSourceValues(organisationId: string, code: string): Promise<string[]> {
+  const descriptor = SOURCE_FIELD_BY_CODE[code]
+  if (!descriptor || descriptor.array || descriptor.typeDonnees !== "TEXTE") return []
+  const column = sourceColumnOf(code) as string
   const rows = await prisma.transactionSource.findMany({
-    where: { organisationId, [field]: { not: "" } },
-    select: { [field]: true },
-    distinct: [field],
+    where: { organisationId, [column]: { not: "" } },
+    select: { [column]: true },
+    distinct: [column],
   } as Prisma.TransactionSourceFindManyArgs)
-  return distinctNonEmpty((rows as Record<string, unknown>[]).map((r) => r[field] as string | null))
+  return distinctNonEmpty((rows as Record<string, unknown>[]).map((r) => r[column] as string | null))
 }
 
 export async function findFiltersByOrganisation(
@@ -44,31 +44,34 @@ export async function findFiltersByOrganisation(
 
   const withOptions = await Promise.all(
     filters.map(async (f) => {
-      const champ = (f as { champEnrichissable?: Prisma.ChampEnrichissableGetPayload<object> | null }).champEnrichissable
-      const hasStaticOptions = Array.isArray(champ?.optionsListe) && champ.optionsListe.length > 0
+      const champ = (f as { champEnrichissable?: Prisma.ChampEnrichissableGetPayload<object> | null })
+        .champEnrichissable
 
-      if (champ && LIST_TYPE_FILTRES.has(f.typeFiltre) && !hasStaticOptions) {
-        const valeurs =
-          champ.nature === "SOURCE"
-            ? await findDistinctSourceValues(organisationId, champ.codeMachine)
-            : await findDistinctEnrichmentValues(champ.id)
-
-        if (valeurs.length > 0) {
-          return { ...f, champEnrichissable: { ...champ, optionsListe: valeurs } }
+      // Distinct dropdown values: static champ options win, otherwise source column or enrichment values.
+      let optionsListe: string[] | null = null
+      if (champ) {
+        const staticOptions = Array.isArray(champ.optionsListe) && champ.optionsListe.length > 0
+        if (staticOptions) {
+          optionsListe = champ.optionsListe as string[]
+        } else if (LIST_TYPE_FILTRES.has(f.typeFiltre)) {
+          optionsListe = await findDistinctEnrichmentValues(champ.id)
         }
+      } else if (LIST_TYPE_FILTRES.has(f.typeFiltre) && isSourceFieldCode(f.codeMachine)) {
+        optionsListe = await findDistinctSourceValues(organisationId, f.codeMachine as string)
       }
 
-      return f
+      return {
+        ...f,
+        typeFiltre: f.typeFiltre,
+        operateursDisponibles: Array.isArray(f.operateursDisponibles)
+          ? (f.operateursDisponibles as string[])
+          : null,
+        optionsListe: optionsListe && optionsListe.length > 0 ? optionsListe : null,
+      }
     })
   )
 
-  return withOptions.map((f) => ({
-    ...f,
-    typeFiltre: f.typeFiltre,
-    operateursDisponibles: Array.isArray(f.operateursDisponibles)
-      ? (f.operateursDisponibles as string[])
-      : null,
-  })) as FilterConfig[]
+  return withOptions as FilterConfig[]
 }
 
 export async function findChampsByOrganisation(organisationId: string) {
@@ -79,7 +82,6 @@ export async function findChampsByOrganisation(organisationId: string) {
       codeMachine: true,
       nomAffichage: true,
       typeDonnees: true,
-      nature: true,
       unite: true,
       typeFiltreRecommande: true,
     },

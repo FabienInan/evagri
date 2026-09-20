@@ -63,7 +63,6 @@ type Champ = {
   codeMachine: string
   nomAffichage: string
   typeDonnees: string
-  nature: string
   unite: string
   typeFiltreRecommande: string | null
 }
@@ -465,8 +464,10 @@ function ChampSelect({
   value?: string
   onValueChange?: (value: string) => void
 }) {
-  const sourceChamps = champs.filter((c) => c.nature === "SOURCE")
-  const enrichedChamps = champs.filter((c) => c.nature !== "SOURCE")
+  // `nature` n'est plus sélectionné en base (cf. findChampsByOrganisation) : ce regroupement
+  // est neutralisé ici, le temps que Task 4 remplace ChampSelect par le catalogue des sources.
+  const sourceChamps = champs.filter((c) => (c as { nature?: string }).nature === "SOURCE")
+  const enrichedChamps = champs.filter((c) => (c as { nature?: string }).nature !== "SOURCE")
 
   return (
     <Select name="champEnrichissableId" value={value} defaultValue={champs[0]?.id} onValueChange={onValueChange}>
