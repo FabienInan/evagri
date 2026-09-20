@@ -102,6 +102,11 @@ model TransactionEnrichie {
   @@map("transaction_enrichie")
 }
 
+enum NatureChamp {
+  SAISISSABLE
+  CALCULE
+}
+
 model ChampEnrichissable {
   id               String                 @id @default(uuid())
   organisationId   String                 @map("id_organisation")
@@ -109,7 +114,7 @@ model ChampEnrichissable {
   nomAffichage         String                 @map("nom_affichage")
   typeDonnees          String                 @map("type_donnees")
   typeFiltreRecommande String?                @map("type_filtre_recommande")
-  nature               String
+  nature               NatureChamp
   unite                String                 @default("N/A") @map("unite")
   plageMin         Decimal?               @map("plage_min") @db.Decimal(18, 4)
   plageMax         Decimal?               @map("plage_max") @db.Decimal(18, 4)

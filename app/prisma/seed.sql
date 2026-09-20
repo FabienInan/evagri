@@ -24,24 +24,6 @@ VALUES
   (gen_random_uuid(), '90a5866e-06e5-46ce-9941-56582b8ca15c', 'Nicolet', 'Nicolet-Yamaska', 'Centre-du-Québec')
 ON CONFLICT (id_organisation, nom_municipalite) DO NOTHING;
 
--- Champs enrichissables sources
-INSERT INTO champ_enrichissable (
-  id, id_organisation, code_machine, nom_affichage, type_donnees, nature, unite, applicable_a_types,
-  plage_min, plage_max, options_liste, regle_calcul, ordre_affichage, est_affiche, est_obligatoire, est_modifiable, actif
-)
-VALUES
-  (gen_random_uuid(), '90a5866e-06e5-46ce-9941-56582b8ca15c', 'numeroInscription', 'N° d''inscription', 'TEXTE', 'SOURCE', 'N/A', '[]', NULL, NULL, NULL, NULL, 0, true, false, true, true),
-  (gen_random_uuid(), '90a5866e-06e5-46ce-9941-56582b8ca15c', 'dateVente', 'Date de vente', 'DATE', 'SOURCE', 'N/A', '[]', NULL, NULL, NULL, NULL, 0, true, false, true, true),
-  (gen_random_uuid(), '90a5866e-06e5-46ce-9941-56582b8ca15c', 'vendeur', 'Vendeur', 'TEXTE', 'SOURCE', 'N/A', '[]', NULL, NULL, NULL, NULL, 0, true, false, true, true),
-  (gen_random_uuid(), '90a5866e-06e5-46ce-9941-56582b8ca15c', 'acheteur', 'Acheteur', 'TEXTE', 'SOURCE', 'N/A', '[]', NULL, NULL, NULL, NULL, 0, true, false, true, true),
-  (gen_random_uuid(), '90a5866e-06e5-46ce-9941-56582b8ca15c', 'lotsCadastraux', 'Lots', 'TEXTE', 'SOURCE', 'N/A', '[]', NULL, NULL, NULL, NULL, 0, true, false, true, true),
-  (gen_random_uuid(), '90a5866e-06e5-46ce-9941-56582b8ca15c', 'prixVente', 'Prix de vente', 'DECIMAL', 'SOURCE', '$', '[]', NULL, NULL, NULL, NULL, 0, true, false, true, true),
-  (gen_random_uuid(), '90a5866e-06e5-46ce-9941-56582b8ca15c', 'mrc', 'MRC', 'TEXTE', 'SOURCE', 'N/A', '[]', NULL, NULL, NULL, NULL, 0, true, false, true, true),
-  (gen_random_uuid(), '90a5866e-06e5-46ce-9941-56582b8ca15c', 'municipalite', 'Municipalité', 'TEXTE', 'SOURCE', 'N/A', '[]', NULL, NULL, NULL, NULL, 0, true, false, true, true),
-  (gen_random_uuid(), '90a5866e-06e5-46ce-9941-56582b8ca15c', 'adresse', 'Adresse', 'TEXTE', 'SOURCE', 'N/A', '[]', NULL, NULL, NULL, NULL, 0, true, false, true, true),
-  (gen_random_uuid(), '90a5866e-06e5-46ce-9941-56582b8ca15c', 'superficieTotaleHectare', 'Superficie totale (ha)', 'DECIMAL', 'SOURCE', 'ha', '[]', NULL, NULL, NULL, NULL, 0, true, false, true, true)
-ON CONFLICT (id_organisation, code_machine) DO NOTHING;
-
 -- Champs géo
 INSERT INTO champ_enrichissable (
   id, id_organisation, code_machine, nom_affichage, type_donnees, nature, unite, applicable_a_types,
