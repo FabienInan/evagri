@@ -8,6 +8,10 @@ import {
 } from "@/lib/transaction-source-fields"
 
 describe("SOURCE_FIELDS catalogue", () => {
+  it("has exactly the ten TransactionSource columns", () => {
+    expect(SOURCE_FIELDS).toHaveLength(10)
+  })
+
   it("has a unique snake_case code for every entry", () => {
     const codes = SOURCE_FIELDS.map((f) => f.code)
     expect(new Set(codes).size).toBe(codes.length)

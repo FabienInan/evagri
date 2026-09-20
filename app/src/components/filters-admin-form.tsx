@@ -371,7 +371,9 @@ export function FiltersAdminForm({
 
                 {selected.codeMachine && (
                   <div className="space-y-1.5">
-                    <Label className="text-sm font-medium">Code virtuel</Label>
+                    <Label className="text-sm font-medium">
+                      {isSourceFieldCode(selected.codeMachine) ? "Donnée source" : "Code virtuel"}
+                    </Label>
                     <p className="text-sm text-foreground">{selected.codeMachine}</p>
                   </div>
                 )}
