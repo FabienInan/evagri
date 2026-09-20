@@ -20,6 +20,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { getFilterIcon, getFilterIconColor } from "@/lib/filter-icons"
 import { recommendFilterType, DEFAULT_OPERATEURS } from "@/lib/filters"
+import { SOURCE_FIELDS, SOURCE_FIELD_BY_CODE } from "@/lib/transaction-source-fields"
 import type { FilterConfig, FilterType } from "@/types/filter"
 import type { CreateFilterInput } from "@/server/actions/filters"
 
@@ -91,12 +92,17 @@ export function FiltersAdminForm({
   const [newChampId, setNewChampId] = useState<string>(
     firstAvailableChamp?.id ?? (firstAvailableVirtual ? `__VIRTUAL_${firstAvailableVirtual.codeMachine}` : "")
   )
+  const isSourceSelection = newChampId.startsWith("__SOURCE_")
+  const sourceCode = isSourceSelection ? newChampId.replace("__SOURCE_", "") : null
   const isVirtualSelection = newChampId.startsWith("__VIRTUAL_")
   const selectedVirtualCode = isVirtualSelection ? newChampId.replace("__VIRTUAL_", "") : null
-  const isNewChampUsed = isVirtualSelection
-    ? items.some((f) => f.codeMachine === selectedVirtualCode)
-    : items.some((f) => f.champEnrichissable?.id === newChampId)
+  const isNewChampUsed = isSourceSelection
+    ? items.some((f) => f.codeMachine === sourceCode)
+    : isVirtualSelection
+      ? items.some((f) => f.codeMachine === selectedVirtualCode)
+      : items.some((f) => f.champEnrichissable?.id === newChampId)
   const recommendedTypeForNew = useMemo<FilterType | null>(() => {
+    if (isSourceSelection) return SOURCE_FIELD_BY_CODE[sourceCode ?? ""]?.typeFiltreRecommande ?? null
     if (isVirtualSelection) return null
     const champ = champs.find((c) => c.id === newChampId)
     if (!champ) return null
@@ -105,7 +111,7 @@ export function FiltersAdminForm({
       nomAffichage: champ.nomAffichage,
       typeDonnees: champ.typeDonnees,
     })
-  }, [newChampId, isVirtualSelection, champs])
+  }, [newChampId, isSourceSelection, sourceCode, isVirtualSelection, champs])
   const { setAction, clearAction } = useHeaderActions()
 
   useEffect(() => {
@@ -167,8 +173,6 @@ export function FiltersAdminForm({
   async function handleCreate(formData: FormData) {
     setCreateError(null)
     const rawChampId = formData.get("champEnrichissableId") as string
-    const isVirtual = rawChampId.startsWith("__VIRTUAL_")
-    const virtualCode = isVirtual ? rawChampId.replace("__VIRTUAL_", "") : null
     const type = formData.get("typeFiltre") as FilterType
     const ordre = Number(formData.get("ordreAffichage") || items.length)
 
@@ -180,7 +184,22 @@ export function FiltersAdminForm({
 
     let input: CreateFilterInput
 
-    if (isVirtual) {
+    if (rawChampId.startsWith("__SOURCE_")) {
+      const code = rawChampId.replace("__SOURCE_", "")
+      const descriptor = SOURCE_FIELD_BY_CODE[code]
+      if (!descriptor) return
+      if (items.some((f) => f.codeMachine === code)) {
+        setCreateError("Un filtre existe déjà pour cette donnée source.")
+        return
+      }
+      input = {
+        ...baseInput,
+        nomFiltre: descriptor.label,
+        codeMachine: code,
+        champEnrichissableId: null,
+      }
+    } else if (rawChampId.startsWith("__VIRTUAL_")) {
+      const virtualCode = rawChampId.replace("__VIRTUAL_", "")
       const virtual = VIRTUAL_FILTERS.find((v) => v.codeMachine === virtualCode)
       if (!virtual) return
       if (items.some((f) => f.codeMachine === virtual.codeMachine)) {
@@ -464,11 +483,6 @@ function ChampSelect({
   value?: string
   onValueChange?: (value: string) => void
 }) {
-  // `nature` n'est plus sélectionné en base (cf. findChampsByOrganisation) : ce regroupement
-  // est neutralisé ici, le temps que Task 4 remplace ChampSelect par le catalogue des sources.
-  const sourceChamps = champs.filter((c) => (c as { nature?: string }).nature === "SOURCE")
-  const enrichedChamps = champs.filter((c) => (c as { nature?: string }).nature !== "SOURCE")
-
   return (
     <Select name="champEnrichissableId" value={value} defaultValue={champs[0]?.id} onValueChange={onValueChange}>
       <SelectTrigger className="h-10 w-full rounded-lg">
@@ -476,17 +490,17 @@ function ChampSelect({
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="__source-heading__" disabled className="font-semibold text-muted-foreground">
-          Champs sources
+          Données sources
         </SelectItem>
-        {sourceChamps.map((c) => (
-          <SelectItem key={c.id} value={c.id} className="pl-6">
-            {c.nomAffichage}
+        {SOURCE_FIELDS.map((f) => (
+          <SelectItem key={f.code} value={`__SOURCE_${f.code}`} className="pl-6">
+            {f.label}
           </SelectItem>
         ))}
         <SelectItem value="__enrichi-heading__" disabled className="font-semibold text-muted-foreground">
           Champs enrichis
         </SelectItem>
-        {enrichedChamps.map((c) => (
+        {champs.map((c) => (
           <SelectItem key={c.id} value={c.id} className="pl-6">
             {c.nomAffichage}
           </SelectItem>
