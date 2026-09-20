@@ -47,4 +47,9 @@ describe("SOURCE_FIELDS catalogue", () => {
     expect(isSourceFieldCode(null)).toBe(false)
     expect(isSourceFieldCode(undefined)).toBe(false)
   })
+
+  it("rejects prototype-chain keys that are not real codes", () => {
+    expect(isSourceFieldCode("constructor")).toBe(false)
+    expect(isSourceFieldCode("toString")).toBe(false)
+  })
 })

@@ -60,7 +60,7 @@ export const SOURCE_FIELD_BY_CODE: Record<string, SourceField> = Object.fromEntr
 )
 
 export function isSourceFieldCode(code: string | null | undefined): boolean {
-  return !!code && code in SOURCE_FIELD_BY_CODE
+  return !!code && Object.hasOwn(SOURCE_FIELD_BY_CODE, code)
 }
 
 export function sourceColumnOf(code: string): string | undefined {
