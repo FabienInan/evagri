@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import type { FilterConfig, FilterInput } from "@/types/filter"
+import { isSourceFieldCode } from "@/lib/transaction-source-fields"
 
 type VirtualOption = { label: string; value: string }
 
@@ -129,7 +130,7 @@ export function TransactionFilters({
       active.push({
         id: "lot",
         typeFiltre: "NUMERO_LOT",
-        field: "lotsCadastraux",
+        field: "lots_cadastraux",
         operator: "has",
         value: lot,
       })
@@ -217,13 +218,16 @@ export function TransactionFilters({
           .filter((f) => f.estActif)
           .sort((a, b) => a.ordreAffichage - b.ordreAffichage)
           .map((f) => {
-            const rawOptions = f.codeMachine
-              ? VIRTUAL_FILTER_OPTIONS[f.codeMachine] || []
-              : Array.isArray(f.champEnrichissable?.optionsListe)
-                ? f.champEnrichissable.optionsListe.filter((o): o is string => typeof o === "string").map((o) => ({ label: o, value: o }))
+            const isVirtual = !!f.codeMachine && !isSourceFieldCode(f.codeMachine)
+            const rawOptions = isVirtual
+              ? VIRTUAL_FILTER_OPTIONS[f.codeMachine as string] || []
+              : Array.isArray(f.optionsListe)
+                ? f.optionsListe
+                    .filter((o): o is string => typeof o === "string")
+                    .map((o) => ({ label: o, value: o }))
                 : []
-            const operators = f.codeMachine
-              ? VIRTUAL_FILTER_OPERATORS[f.codeMachine] || [defaultOperator(f.typeFiltre)]
+            const operators = isVirtual
+              ? VIRTUAL_FILTER_OPERATORS[f.codeMachine as string] || [defaultOperator(f.typeFiltre)]
               : f.operateursDisponibles || [defaultOperator(f.typeFiltre)]
             return (
               <div key={f.id} className="space-y-1.5">

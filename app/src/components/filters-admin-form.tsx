@@ -20,7 +20,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { getFilterIcon, getFilterIconColor } from "@/lib/filter-icons"
 import { recommendFilterType, DEFAULT_OPERATEURS } from "@/lib/filters"
-import { SOURCE_FIELDS, SOURCE_FIELD_BY_CODE } from "@/lib/transaction-source-fields"
+import { SOURCE_FIELDS, SOURCE_FIELD_BY_CODE, isSourceFieldCode } from "@/lib/transaction-source-fields"
 import type { FilterConfig, FilterType } from "@/types/filter"
 import type { CreateFilterInput } from "@/server/actions/filters"
 
@@ -311,7 +311,7 @@ export function FiltersAdminForm({
               <p className="text-sm text-muted-foreground">Aucun filtre ne correspond à la recherche.</p>
             ) : (
               filtered.map((f) => {
-                const isVirtual = !f.champEnrichissable && f.codeMachine
+                const isVirtual = !f.champEnrichissable && !!f.codeMachine && !isSourceFieldCode(f.codeMachine)
                 const Icon = getFilterIcon(f.typeFiltre, f.champEnrichissable, f.codeMachine)
                 const color = getFilterIconColor(f.typeFiltre)
                 const unit = f.champEnrichissable?.unite
