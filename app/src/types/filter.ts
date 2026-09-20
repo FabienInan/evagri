@@ -48,12 +48,13 @@ export interface FilterConfig {
         codeMachine: string
         nomAffichage: string
         typeDonnees: string
-        nature: string
         unite?: string | null
         optionsListe?: unknown
         typeFiltreRecommande?: string | null
       }
     | null
   operateursDisponibles?: FilterOperator[] | null
+  /** Distinct values for a list-type filter: source column values or distinct enrichment values. */
+  optionsListe?: string[] | null
   ordreAffichage: number
 }

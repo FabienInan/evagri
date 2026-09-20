@@ -11,7 +11,6 @@ async function main() {
           codeMachine: champ.codeMachine,
           nomAffichage: champ.nomAffichage,
           typeDonnees: champ.typeDonnees,
-          nature: champ.nature,
         }),
       },
     })

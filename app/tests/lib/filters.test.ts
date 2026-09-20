@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
-import { recommendFilterType, DEFAULT_OPERATEURS } from "@/lib/filters"
-import type { FilterType } from "@/types/filter"
+import { recommendFilterType, DEFAULT_OPERATEURS, buildWhereClause } from "@/lib/filters"
+import type { FilterInput, FilterType } from "@/types/filter"
 
 describe("recommendFilterType", () => {
   it("recommends LISTE for topography", () => {
@@ -8,27 +8,6 @@ describe("recommendFilterType", () => {
       codeMachine: "topographie",
       nomAffichage: "Topographie",
       typeDonnees: "TEXTE",
-      nature: "SAISISSABLE",
-    })
-    expect(result).toBe("LISTE")
-  })
-
-  it("recommends PLAGE_NUMERIQUE for price", () => {
-    const result = recommendFilterType({
-      codeMachine: "prixVente",
-      nomAffichage: "Prix de vente",
-      typeDonnees: "DECIMAL",
-      nature: "SOURCE",
-    })
-    expect(result).toBe("PLAGE_NUMERIQUE")
-  })
-
-  it("recommends LISTE for mrc", () => {
-    const result = recommendFilterType({
-      codeMachine: "mrc",
-      nomAffichage: "MRC",
-      typeDonnees: "TEXTE",
-      nature: "SOURCE",
     })
     expect(result).toBe("LISTE")
   })
@@ -38,29 +17,8 @@ describe("recommendFilterType", () => {
       codeMachine: "type_de_culture",
       nomAffichage: "Type de culture",
       typeDonnees: "TEXTE",
-      nature: "SAISISSABLE",
     })
     expect(result).toBe("MULTI_SELECT")
-  })
-
-  it("recommends RECHERCHE_TEXTE for source numeroInscription", () => {
-    const result = recommendFilterType({
-      codeMachine: "numeroInscription",
-      nomAffichage: "No d'enr.",
-      typeDonnees: "TEXTE",
-      nature: "SOURCE",
-    })
-    expect(result).toBe("RECHERCHE_TEXTE")
-  })
-
-  it("recommends PLAGE_DATE for source dateVente", () => {
-    const result = recommendFilterType({
-      codeMachine: "dateVente",
-      nomAffichage: "Date de vente",
-      typeDonnees: "DATE",
-      nature: "SOURCE",
-    })
-    expect(result).toBe("PLAGE_DATE")
   })
 
   it("recommends BOOLEEN for boolean saisissable", () => {
@@ -68,7 +26,6 @@ describe("recommendFilterType", () => {
       codeMachine: "nouveauChamp",
       nomAffichage: "Nouveau champ",
       typeDonnees: "BOOLEAN",
-      nature: "SAISISSABLE",
     })
     expect(result).toBe("BOOLEEN")
   })
@@ -78,19 +35,8 @@ describe("recommendFilterType", () => {
       codeMachine: "typeTransaction",
       nomAffichage: "Type de transaction",
       typeDonnees: "TEXTE",
-      nature: "SAISISSABLE",
     })
     expect(result).toBe("TYPE_TRANSACTION")
-  })
-
-  it("recommends NUMERO_LOT for lotsCadastraux", () => {
-    const result = recommendFilterType({
-      codeMachine: "lotsCadastraux",
-      nomAffichage: "Lots",
-      typeDonnees: "TEXTE",
-      nature: "SOURCE",
-    })
-    expect(result).toBe("NUMERO_LOT")
   })
 
   it("recommends RECHERCHE_TEXTE for sousclasse_dominante", () => {
@@ -98,7 +44,6 @@ describe("recommendFilterType", () => {
       codeMachine: "sousclasse_dominante",
       nomAffichage: "Sous-classe dominante",
       typeDonnees: "TEXTE",
-      nature: "SAISISSABLE",
     })
     expect(result).toBe("RECHERCHE_TEXTE")
   })
@@ -108,7 +53,6 @@ describe("recommendFilterType", () => {
       codeMachine: "entaille",
       nomAffichage: "$/entaille",
       typeDonnees: "ENTIER",
-      nature: "SAISISSABLE",
     })
     expect(result).toBe("RECHERCHE_TEXTE")
   })
@@ -118,7 +62,6 @@ describe("recommendFilterType", () => {
       codeMachine: "mls",
       nomAffichage: "# MLS",
       typeDonnees: "ENTIER",
-      nature: "SAISISSABLE",
     })
     expect(result).toBe("RECHERCHE_TEXTE")
   })
@@ -128,9 +71,17 @@ describe("recommendFilterType", () => {
       codeMachine: "superficie_cultive_ha",
       nomAffichage: "Superficie cultivée (ha)",
       typeDonnees: "DECIMAL",
-      nature: "SAISISSABLE",
     })
     expect(result).toBe("PLAGE_NUMERIQUE")
+  })
+
+  it("recommends PLAGE_DATE for a date field", () => {
+    const result = recommendFilterType({
+      codeMachine: "date_inspection",
+      nomAffichage: "Date d'inspection",
+      typeDonnees: "DATE",
+    })
+    expect(result).toBe("PLAGE_DATE")
   })
 })
 
@@ -152,5 +103,59 @@ describe("DEFAULT_OPERATEURS", () => {
       expect(DEFAULT_OPERATEURS[t]).toBeDefined()
       expect(DEFAULT_OPERATEURS[t].length).toBeGreaterThan(0)
     }
+  })
+})
+
+describe("buildWhereClause", () => {
+  it("maps a source LISTE filter to its TransactionSource column", () => {
+    const filters: FilterInput[] = [
+      { id: "f1", typeFiltre: "LISTE", field: "mrc", operator: "in", value: "Drummond" },
+    ]
+    expect(buildWhereClause(filters)).toEqual({
+      AND: [{ mrc: { in: ["Drummond"], mode: "insensitive" } }],
+    })
+  })
+
+  it("narrows a source text search to its own column", () => {
+    const filters: FilterInput[] = [
+      { id: "f1", typeFiltre: "RECHERCHE_TEXTE", field: "vendeur", operator: "contient", value: "Gagnon" },
+    ]
+    expect(buildWhereClause(filters)).toEqual({
+      AND: [{ vendeur: { contains: "Gagnon", mode: "insensitive" } }],
+    })
+  })
+
+  it("maps a source PLAGE_NUMERIQUE filter to its column", () => {
+    const filters: FilterInput[] = [
+      { id: "f1", typeFiltre: "PLAGE_NUMERIQUE", field: "prix_vente", operator: "+", value: "100000" },
+    ]
+    expect(buildWhereClause(filters)).toEqual({ AND: [{ prixVente: { gte: 100000 } }] })
+  })
+
+  it("maps a source NUMERO_LOT filter to the lotsCadastraux array column", () => {
+    const filters: FilterInput[] = [
+      { id: "f1", typeFiltre: "NUMERO_LOT", field: "lots_cadastraux", operator: "has", value: "123" },
+    ]
+    expect(buildWhereClause(filters)).toEqual({ AND: [{ lotsCadastraux: { has: "123" } }] })
+  })
+
+  it("keeps enrichment filters on the valeur_enrichissement relation", () => {
+    const filters: FilterInput[] = [
+      { id: "f1", typeFiltre: "RECHERCHE_TEXTE", field: "topographie", operator: "contient", value: "plat" },
+    ]
+    expect(buildWhereClause(filters)).toEqual({
+      AND: [
+        {
+          enrichie: {
+            valeurs: {
+              some: {
+                champEnrichissable: { codeMachine: "topographie" },
+                valeurTexte: { contains: "plat", mode: "insensitive" },
+              },
+            },
+          },
+        },
+      ],
+    })
   })
 })

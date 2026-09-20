@@ -105,7 +105,6 @@ export function FiltersAdminForm({
       codeMachine: champ.codeMachine,
       nomAffichage: champ.nomAffichage,
       typeDonnees: champ.typeDonnees,
-      nature: champ.nature,
     })
   }, [newChampId, isVirtualSelection, champs])
   const { setAction, clearAction } = useHeaderActions()
