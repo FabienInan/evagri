@@ -176,14 +176,15 @@ export interface FicheValidationError {
   message: string
 }
 
-/** Enrichi codeMachine aliases for the superficie slots used by V-001/V-002/V-005. Accent-free variants cover
- *  the codes produced by the importer's buildCodeMachine (accents stripped). */
+/** Enrichi codeMachine aliases for the superficie slots used by V-001/V-002/V-005. The `_ha` variants are the
+ *  codes produced by the importer's buildCodeMachine (unit suffix kept, accents stripped); the plain variants
+ *  cover a champ created manually by an admin. See filters.ts / filter-icons.ts for the authoritative list. */
 const SUPERFICIE_ALIASES = {
-  superficieCultivee: ["superficie_cultivee"],
-  superficieBoisee: ["superficie_boisee"],
-  superficieConstructible: ["superficie_constructible"],
-  superficieDrainee: ["superficie_drainee"],
-  superficieAcericole: ["superficie_acericole", "superficie_acéricole"],
+  superficieCultivee: ["superficie_cultivee", "superficie_cultive_ha"],
+  superficieBoisee: ["superficie_boisee", "superficie_boise_ha"],
+  superficieConstructible: ["superficie_constructible", "superficie_constructible_ha"],
+  superficieDrainee: ["superficie_drainee", "superficie_draine_ha"],
+  superficieAcericole: ["superficie_acericole", "superficie_acricole_ha", "superficie_acéricole"],
 } as const
 
 function pickNumber(valeurs: Record<string, FicheValeur>, aliases: readonly string[]): number | null {
@@ -208,11 +209,15 @@ export function validateFiche(input: {
 }): FicheValidationError[] {
   const errors: FicheValidationError[] = []
 
+  // A non-applicable champ is never rendered (buildFicheViewModel filters it out), so it must not be validated:
+  // otherwise a type-scoped obligatory champ blocks forever and a stale hidden value raises spurious errors.
+  const champs = input.champs.filter((c) => isChampApplicable(c, input.typeCode))
+
   if (!input.typeCode) {
     errors.push({ code: "V-TYPE", message: "Le type de transaction est obligatoire." })
   }
 
-  for (const champ of input.champs) {
+  for (const champ of champs) {
     if (champ.nature !== "SAISISSABLE" || !champ.estObligatoire) continue
     const v = input.valeurs[champ.codeMachine]
     if (v === null || v === undefined || v === "") {
@@ -228,7 +233,7 @@ export function validateFiche(input: {
   const champsPourcentage: Record<string, number | null> = {}
   const plages: Record<string, RangeCheck> = {}
 
-  for (const champ of input.champs) {
+  for (const champ of champs) {
     if (champ.nature !== "SAISISSABLE") continue
     const value = pickNumber(input.valeurs, [champ.codeMachine])
 

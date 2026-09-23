@@ -265,4 +265,38 @@ describe("validateFiche", () => {
     const errors = validateFiche({ ...base, dateVente: future.toISOString(), valeurs: {} })
     expect(errors.some((e) => e.code === "V-004")).toBe(true)
   })
+
+  it("ignores a type-scoped mandatory champ when the type does not match", () => {
+    const scoped = champ({ id: "sb", codeMachine: "note_boisee", estObligatoire: true, applicableATypes: ["BOISEE"] })
+    const errors = validateFiche({ ...base, champs: [...base.champs, scoped], typeCode: "CULTIVEE", valeurs: {} })
+    expect(errors.some((e) => e.code === "V-OBLIG")).toBe(false)
+  })
+
+  it("applies V-OBLIG to a type-scoped mandatory champ when the type matches", () => {
+    const scoped = champ({ id: "sb", codeMachine: "note_boisee", estObligatoire: true, applicableATypes: ["BOISEE"] })
+    const errors = validateFiche({ ...base, champs: [...base.champs, scoped], typeCode: "BOISEE", valeurs: {} })
+    expect(errors.some((e) => e.code === "V-OBLIG")).toBe(true)
+  })
+
+  it("applies V-005 on the real importer codes (acricole_ha > boise_ha)", () => {
+    const boiseImporter = champ({ id: "bi", codeMachine: "superficie_boise_ha", unite: "ha" })
+    const acericoleImporter = champ({ id: "ai", codeMachine: "superficie_acricole_ha", unite: "ha" })
+    const errors = validateFiche({
+      ...base,
+      champs: [...base.champs, boiseImporter, acericoleImporter],
+      valeurs: { superficie_boise_ha: 20, superficie_acricole_ha: 30 },
+    })
+    expect(errors.some((e) => e.code === "V-005")).toBe(true)
+  })
+
+  it("applies V-002 on the real importer codes (draine_ha > cultive_ha)", () => {
+    const cultiveImporter = champ({ id: "ci", codeMachine: "superficie_cultive_ha", unite: "ha" })
+    const draineImporter = champ({ id: "di", codeMachine: "superficie_draine_ha", unite: "ha" })
+    const errors = validateFiche({
+      ...base,
+      champs: [...base.champs, cultiveImporter, draineImporter],
+      valeurs: { superficie_cultive_ha: 10, superficie_draine_ha: 15 },
+    })
+    expect(errors.some((e) => e.code === "V-002")).toBe(true)
+  })
 })
