@@ -12,6 +12,7 @@ import {
   resolveTypeTransaction,
   toNumericValues,
   toStorageValue,
+  validateFiche,
 } from "@/lib/fiche"
 import type { ChampEnrichissableConfig } from "@/types/champ"
 
@@ -206,5 +207,62 @@ describe("resolveTypeTransaction", () => {
   })
   it("returns null for an unknown value", () => {
     expect(resolveTypeTransaction("NOPE", typologies)).toBeNull()
+  })
+})
+
+describe("validateFiche", () => {
+  const superficieTotale = champ({ id: "tot", codeMachine: "superficie_totale_hectare", unite: "ha" })
+  const cultivee = champ({ id: "cult", codeMachine: "superficie_cultivee", unite: "ha" })
+  const boisee = champ({ id: "bois", codeMachine: "superficie_boisee", unite: "ha" })
+  const pourcent = champ({ id: "pct", codeMachine: "peuplement_feuillu", unite: "%" })
+
+  const base = {
+    champs: [superficieTotale, cultivee, boisee, pourcent],
+    source: { superficie_totale_hectare: 40 },
+    typeCode: "CULTIVEE" as string | null,
+    dateVente: null as string | null,
+  }
+
+  it("passes a coherent fiche", () => {
+    expect(validateFiche({ ...base, valeurs: { superficie_cultivee: 10, superficie_boisee: 20 } })).toEqual([])
+  })
+
+  it("blocks when the type is missing", () => {
+    const errors = validateFiche({ ...base, typeCode: null, valeurs: {} })
+    expect(errors.some((e) => e.message.includes("type de transaction"))).toBe(true)
+  })
+
+  it("blocks a mandatory field left empty", () => {
+    const required = champ({ id: "r", codeMachine: "note", estObligatoire: true })
+    const errors = validateFiche({ ...base, champs: [...base.champs, required], valeurs: {} })
+    expect(errors.some((e) => e.code === "V-OBLIG")).toBe(true)
+  })
+
+  it("applies V-001 (components exceed the total)", () => {
+    const errors = validateFiche({ ...base, valeurs: { superficie_cultivee: 30, superficie_boisee: 20 } })
+    expect(errors.some((e) => e.code === "V-001")).toBe(true)
+  })
+
+  it("applies V-003 (percentage over 100)", () => {
+    const errors = validateFiche({ ...base, valeurs: { peuplement_feuillu: 120 } })
+    expect(errors.some((e) => e.code === "V-003")).toBe(true)
+  })
+
+  it("applies V-006 (negative value)", () => {
+    const errors = validateFiche({ ...base, valeurs: { superficie_cultivee: -1 } })
+    expect(errors.some((e) => e.code === "V-006")).toBe(true)
+  })
+
+  it("applies V-007 (out of the configured range)", () => {
+    const ranged = champ({ id: "g", codeMachine: "pente", plageMin: 0, plageMax: 20 })
+    const errors = validateFiche({ ...base, champs: [...base.champs, ranged], valeurs: { pente: 45 } })
+    expect(errors.some((e) => e.code === "V-007")).toBe(true)
+  })
+
+  it("applies V-004 (future sale date)", () => {
+    const future = new Date()
+    future.setDate(future.getDate() + 5)
+    const errors = validateFiche({ ...base, dateVente: future.toISOString(), valeurs: {} })
+    expect(errors.some((e) => e.code === "V-004")).toBe(true)
   })
 })

@@ -2,6 +2,7 @@ import type { ChampEnrichissableConfig, FicheSection, TypeDonneesChamp } from "@
 import { SOURCE_FIELDS } from "@/lib/transaction-source-fields"
 import { evaluateRule, roundToInteger, type CalculationContext } from "@/lib/calculator"
 import type { TypologieOption } from "@/repositories/typologie.repository"
+import { validateEnrichment, validateSaleDate, type RangeCheck } from "@/lib/validation"
 
 export type FicheMode = "edition" | "consultation"
 export type FicheValeur = string | number | boolean | null
@@ -168,4 +169,90 @@ export function resolveTypeTransaction(
 ): TypologieOption | null {
   if (typeof valeur !== "string" || valeur === "") return null
   return typologies.find((t) => t.code === valeur) ?? typologies.find((t) => t.nom === valeur) ?? null
+}
+
+export interface FicheValidationError {
+  code: string
+  message: string
+}
+
+/** Enrichi codeMachine aliases for the superficie slots used by V-001/V-002/V-005. Accent-free variants cover
+ *  the codes produced by the importer's buildCodeMachine (accents stripped). */
+const SUPERFICIE_ALIASES = {
+  superficieCultivee: ["superficie_cultivee"],
+  superficieBoisee: ["superficie_boisee"],
+  superficieConstructible: ["superficie_constructible"],
+  superficieDrainee: ["superficie_drainee"],
+  superficieAcericole: ["superficie_acericole", "superficie_acéricole"],
+} as const
+
+function pickNumber(valeurs: Record<string, FicheValeur>, aliases: readonly string[]): number | null {
+  for (const code of aliases) {
+    const v = valeurs[code]
+    if (typeof v === "number") return v
+    if (typeof v === "string" && v.trim() !== "") {
+      const n = Number(v)
+      if (!Number.isNaN(n)) return n
+    }
+  }
+  return null
+}
+
+/** Blocking rules (§7.8.3): V-001..V-007, mandatory sale type (§7.5.3) and est_obligatoire fields. */
+export function validateFiche(input: {
+  champs: ChampEnrichissableConfig[]
+  valeurs: Record<string, FicheValeur>
+  source: Record<string, number | null>
+  typeCode: string | null
+  dateVente: string | null
+}): FicheValidationError[] {
+  const errors: FicheValidationError[] = []
+
+  if (!input.typeCode) {
+    errors.push({ code: "V-TYPE", message: "Le type de transaction est obligatoire." })
+  }
+
+  for (const champ of input.champs) {
+    if (champ.nature !== "SAISISSABLE" || !champ.estObligatoire) continue
+    const v = input.valeurs[champ.codeMachine]
+    if (v === null || v === undefined || v === "") {
+      errors.push({ code: "V-OBLIG", message: `${champ.nomAffichage} est obligatoire.` })
+    }
+  }
+
+  if (input.dateVente) {
+    errors.push(...validateSaleDate(new Date(input.dateVente)))
+  }
+
+  const valeursNumeriques: Record<string, number | null> = {}
+  const champsPourcentage: Record<string, number | null> = {}
+  const plages: Record<string, RangeCheck> = {}
+
+  for (const champ of input.champs) {
+    if (champ.nature !== "SAISISSABLE") continue
+    const value = pickNumber(input.valeurs, [champ.codeMachine])
+
+    if (value !== null && champ.typeDonnees !== "TEXTE" && champ.typeDonnees !== "LISTE" && champ.typeDonnees !== "DATE" && champ.typeDonnees !== "BOOLEAN") {
+      if (champ.codeMachine !== "longitude") valeursNumeriques[champ.codeMachine] = value
+    }
+    if (value !== null && champ.unite === "%") champsPourcentage[champ.codeMachine] = value
+    if (champ.plageMin !== null || champ.plageMax !== null) {
+      plages[champ.codeMachine] = { min: champ.plageMin, max: champ.plageMax, valeur: value }
+    }
+  }
+
+  const surfaceErrors = validateEnrichment({
+    superficieTotaleHectare: input.source["superficie_totale_hectare"] ?? null,
+    superficieCultivee: pickNumber(input.valeurs, SUPERFICIE_ALIASES.superficieCultivee),
+    superficieBoisee: pickNumber(input.valeurs, SUPERFICIE_ALIASES.superficieBoisee),
+    superficieConstructible: pickNumber(input.valeurs, SUPERFICIE_ALIASES.superficieConstructible),
+    superficieDrainee: pickNumber(input.valeurs, SUPERFICIE_ALIASES.superficieDrainee),
+    superficieAcericole: pickNumber(input.valeurs, SUPERFICIE_ALIASES.superficieAcericole),
+    champsPourcentage,
+    valeursNumeriques,
+    plages,
+  })
+
+  errors.push(...surfaceErrors)
+  return errors
 }
