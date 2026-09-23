@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { Eye, Pencil, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -57,7 +58,8 @@ function StatusBadge({ statut }: { statut: string | null | undefined }) {
   }
 }
 
-function Actions({ statut }: { statut: string | null | undefined }) {
+function Actions({ id, statut }: { id: string; statut: string | null | undefined }) {
+  const router = useRouter()
   const value = statut ?? "A analyser"
   const isAnalysee = value === "Analysée"
 
@@ -66,7 +68,13 @@ function Actions({ statut }: { statut: string | null | undefined }) {
     <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
       {isAnalysee ? (
         <>
-          <Button variant="ghost" size="icon" className="h-8 w-8" title="Voir">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            title="Voir"
+            onClick={() => router.push(`/transactions/${id}`)}
+          >
             <Eye className="h-4 w-4" />
           </Button>
           <Button variant="ghost" size="icon" className="h-8 w-8" title="Ajouter au panier">
@@ -74,7 +82,13 @@ function Actions({ statut }: { statut: string | null | undefined }) {
           </Button>
         </>
       ) : (
-        <Button variant="ghost" size="icon" className="h-8 w-8" title="Analyser">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          title="Analyser"
+          onClick={() => router.push(`/transactions/${id}`)}
+        >
           <Pencil className="h-4 w-4" />
         </Button>
       )}
@@ -160,7 +174,7 @@ function useTableColumns(
         minWidth: 80,
         priority: 10,
         locked: true,
-        render: (row) => <Actions statut={row.enrichie?.statut} />,
+        render: (row) => <Actions id={row.id} statut={row.enrichie?.statut} />,
       },
     ]
 
