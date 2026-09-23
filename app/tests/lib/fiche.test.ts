@@ -1,11 +1,17 @@
 import { describe, it, expect } from "vitest"
 import {
   TYPE_TRANSACTION_CODE,
+  buildCalculationContext,
   buildFicheViewModel,
+  buildSourceNumbers,
   deriveFicheMode,
   formatFicheValue,
   formatSourceFieldValue,
   isChampApplicable,
+  recomputeIndicateurs,
+  resolveTypeTransaction,
+  toNumericValues,
+  toStorageValue,
 } from "@/lib/fiche"
 import type { ChampEnrichissableConfig } from "@/types/champ"
 
@@ -136,5 +142,69 @@ describe("formatSourceFieldValue", () => {
     expect(formatSourceFieldValue({ column: "lotsCadastraux", typeDonnees: "TEXTE", array: true }, { lotsCadastraux: ["1", "2"] })).toBe("1, 2")
     expect(formatSourceFieldValue({ column: "mrc", typeDonnees: "TEXTE" }, { mrc: "Drummond" })).toBe("Drummond")
     expect(formatSourceFieldValue({ column: "mrc", typeDonnees: "TEXTE" }, {})).toBe("—")
+  })
+})
+
+describe("buildSourceNumbers", () => {
+  it("maps source columns to their snake_case codes and ignores non-numeric columns", () => {
+    const source = buildSourceNumbers({ prixVente: 120000, superficieTotaleHectare: 40, mrc: "Drummond" })
+    expect(source.prix_vente).toBe(120000)
+    expect(source.superficie_totale_hectare).toBe(40)
+    expect(source.mrc).toBeNull()
+  })
+})
+
+describe("buildCalculationContext and recomputeIndicateurs", () => {
+  it("evaluates the rule and rounds the result to an integer", () => {
+    const context = buildCalculationContext({ prixVente: 100000, superficieTotaleHectare: 30 }, {})
+    const result = recomputeIndicateurs(
+      [champ({ id: "k", codeMachine: "taux_global", nature: "CALCULE", regleCalcul: "prix_vente / superficie_totale_hectare" })],
+      context
+    )
+    expect(result.taux_global).toBe(3333)
+  })
+
+  it("leaves the indicator null on a division by zero", () => {
+    const context = buildCalculationContext({ prixVente: 1000, superficieTotaleHectare: 0 }, {})
+    const result = recomputeIndicateurs(
+      [champ({ id: "k", codeMachine: "taux_global", nature: "CALCULE", regleCalcul: "prix_vente / superficie_totale_hectare" })],
+      context
+    )
+    expect(result.taux_global).toBeNull()
+  })
+})
+
+describe("toNumericValues", () => {
+  it("keeps numbers, parses numeric strings and drops the rest", () => {
+    expect(toNumericValues({ a: 1, b: "2.5", c: "", d: null, e: "x" })).toEqual({ a: 1, b: 2.5 })
+  })
+})
+
+describe("toStorageValue", () => {
+  it("routes decimals to valeurNombre", () => {
+    expect(toStorageValue("DECIMAL", 4.2)).toEqual({ valeurNombre: 4.2, valeurTexte: null, valeurBooleen: null })
+  })
+  it("routes booleans to valeurBooleen", () => {
+    expect(toStorageValue("BOOLEAN", false)).toEqual({ valeurNombre: null, valeurTexte: null, valeurBooleen: false })
+  })
+  it("routes text and list to valeurTexte", () => {
+    expect(toStorageValue("LISTE", "CULTIVEE")).toEqual({ valeurNombre: null, valeurTexte: "CULTIVEE", valeurBooleen: null })
+  })
+  it("returns all-null for an empty value", () => {
+    expect(toStorageValue("TEXTE", "")).toEqual({ valeurNombre: null, valeurTexte: null, valeurBooleen: null })
+    expect(toStorageValue("DECIMAL", null)).toEqual({ valeurNombre: null, valeurTexte: null, valeurBooleen: null })
+  })
+})
+
+describe("resolveTypeTransaction", () => {
+  const typologies = [{ id: "t1", code: "CULTIVEE", nom: "Cultivée", parentId: null }]
+  it("resolves by code", () => {
+    expect(resolveTypeTransaction("CULTIVEE", typologies)?.id).toBe("t1")
+  })
+  it("falls back to the display name (importer writes the name)", () => {
+    expect(resolveTypeTransaction("Cultivée", typologies)?.id).toBe("t1")
+  })
+  it("returns null for an unknown value", () => {
+    expect(resolveTypeTransaction("NOPE", typologies)).toBeNull()
   })
 })

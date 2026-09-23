@@ -1,4 +1,7 @@
 import type { ChampEnrichissableConfig, FicheSection, TypeDonneesChamp } from "@/types/champ"
+import { SOURCE_FIELDS } from "@/lib/transaction-source-fields"
+import { evaluateRule, roundToInteger, type CalculationContext } from "@/lib/calculator"
+import type { TypologieOption } from "@/repositories/typologie.repository"
 
 export type FicheMode = "edition" | "consultation"
 export type FicheValeur = string | number | boolean | null
@@ -91,4 +94,78 @@ export function formatSourceFieldValue(
   }
   if (raw === null || raw === undefined || raw === "") return "—"
   return formatFicheValue(field.typeDonnees, raw as FicheValeur)
+}
+
+/** Only numeric source columns feed the calculation/validation context; text/date/array columns yield null. */
+export function buildSourceNumbers(transaction: Record<string, unknown>): Record<string, number | null> {
+  const source: Record<string, number | null> = {}
+  for (const field of SOURCE_FIELDS) {
+    if (field.array) continue
+    const raw = transaction[field.column]
+    source[field.code] = typeof raw === "number" ? raw : null
+  }
+  return source
+}
+
+export function buildCalculationContext(
+  transaction: Record<string, unknown>,
+  enrichiValues: Record<string, number | null>
+): CalculationContext {
+  return { source: buildSourceNumbers(transaction), enrichi: enrichiValues }
+}
+
+export function toNumericValues(valeurs: Record<string, FicheValeur>): Record<string, number | null> {
+  const result: Record<string, number | null> = {}
+  for (const [code, valeur] of Object.entries(valeurs)) {
+    if (typeof valeur === "number") {
+      result[code] = valeur
+    } else if (typeof valeur === "string" && valeur.trim() !== "") {
+      const n = Number(valeur)
+      if (!Number.isNaN(n)) result[code] = n
+    }
+  }
+  return result
+}
+
+export function recomputeIndicateurs(
+  champs: ChampEnrichissableConfig[],
+  context: CalculationContext
+): Record<string, number | null> {
+  const result: Record<string, number | null> = {}
+  for (const champ of champs) {
+    if (champ.nature !== "CALCULE" || !champ.regleCalcul) continue
+    result[champ.codeMachine] = roundToInteger(evaluateRule(champ.regleCalcul, context))
+  }
+  return result
+}
+
+export function toStorageValue(
+  typeDonnees: TypeDonneesChamp,
+  valeur: FicheValeur
+): { valeurNombre: number | null; valeurTexte: string | null; valeurBooleen: boolean | null } {
+  const empty = { valeurNombre: null, valeurTexte: null, valeurBooleen: null }
+  if (valeur === null || valeur === undefined || valeur === "") return empty
+
+  switch (typeDonnees) {
+    case "DECIMAL":
+    case "ENTIER": {
+      const n = typeof valeur === "number" ? valeur : Number(valeur)
+      return Number.isNaN(n) ? empty : { ...empty, valeurNombre: n }
+    }
+    case "BOOLEAN": {
+      const b = typeof valeur === "boolean" ? valeur : valeur === "true"
+      return { ...empty, valeurBooleen: b }
+    }
+    default:
+      return { ...empty, valeurTexte: String(valeur) }
+  }
+}
+
+/** Resolves the stored type value (canonical code, or a legacy display name written by the importer). */
+export function resolveTypeTransaction(
+  valeur: FicheValeur,
+  typologies: TypologieOption[]
+): TypologieOption | null {
+  if (typeof valeur !== "string" || valeur === "") return null
+  return typologies.find((t) => t.code === valeur) ?? typologies.find((t) => t.nom === valeur) ?? null
 }
