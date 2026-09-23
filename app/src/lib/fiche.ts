@@ -261,3 +261,35 @@ export function validateFiche(input: {
   errors.push(...surfaceErrors)
   return errors
 }
+
+/** Entries persisted for a save: enrichment champs plus the header's type de transaction. */
+export function buildStorageEntries(
+  champs: ChampEnrichissableConfig[],
+  valeurs: Record<string, FicheValeur>,
+  typeTransactionCode: string | null
+): { champEnrichissableId: string; valeurNombre: number | null; valeurTexte: string | null; valeurBooleen: boolean | null }[] {
+  const entries: { champEnrichissableId: string; valeurNombre: number | null; valeurTexte: string | null; valeurBooleen: boolean | null }[] = []
+
+  for (const champ of champs) {
+    if (champ.codeMachine === TYPE_TRANSACTION_CODE) continue
+    const raw = valeurs[champ.codeMachine]
+    if (raw === undefined) continue
+    const stored = toStorageValue(champ.typeDonnees, raw)
+    if (stored.valeurNombre === null && stored.valeurTexte === null && stored.valeurBooleen === null) continue
+    entries.push({ champEnrichissableId: champ.id, ...stored })
+  }
+
+  if (typeTransactionCode) {
+    const typeChamp = champs.find((c) => c.codeMachine === TYPE_TRANSACTION_CODE)
+    if (typeChamp) {
+      entries.push({
+        champEnrichissableId: typeChamp.id,
+        valeurNombre: null,
+        valeurTexte: typeTransactionCode,
+        valeurBooleen: null,
+      })
+    }
+  }
+
+  return entries
+}

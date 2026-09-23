@@ -4,6 +4,7 @@ import {
   buildCalculationContext,
   buildFicheViewModel,
   buildSourceNumbers,
+  buildStorageEntries,
   deriveFicheMode,
   formatFicheValue,
   formatSourceFieldValue,
@@ -298,5 +299,17 @@ describe("validateFiche", () => {
       valeurs: { superficie_cultive_ha: 10, superficie_draine_ha: 15 },
     })
     expect(errors.some((e) => e.code === "V-002")).toBe(true)
+  })
+})
+
+describe("buildStorageEntries", () => {
+  it("persists filled champs and the type de transaction, dropping empty ones", () => {
+    const a = champ({ id: "a", codeMachine: "a", typeDonnees: "DECIMAL" })
+    const t = champ({ id: "t", codeMachine: TYPE_TRANSACTION_CODE, typeDonnees: "LISTE" })
+    const entries = buildStorageEntries([a, t], { a: 5, b: null }, "CULTIVEE")
+    expect(entries).toEqual([
+      { champEnrichissableId: "a", valeurNombre: 5, valeurTexte: null, valeurBooleen: null },
+      { champEnrichissableId: "t", valeurNombre: null, valeurTexte: "CULTIVEE", valeurBooleen: null },
+    ])
   })
 })
