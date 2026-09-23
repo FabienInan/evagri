@@ -217,65 +217,68 @@ describe("validateFiche", () => {
   const boisee = champ({ id: "bois", codeMachine: "superficie_boisee", unite: "ha" })
   const pourcent = champ({ id: "pct", codeMachine: "peuplement_feuillu", unite: "%" })
 
-  const base = {
-    champs: [superficieTotale, cultivee, boisee, pourcent],
+  const baseChamps: ChampEnrichissableConfig[] = [superficieTotale, cultivee, boisee, pourcent]
+
+  const baseFor = (champs: ChampEnrichissableConfig[]) => ({
+    champs,
+    sections: [{ id: "s1", nom: "Section", ordre: 0, champs: champs.map((c) => c.id) }],
     source: { superficie_totale_hectare: 40 },
     typeCode: "CULTIVEE" as string | null,
     dateVente: null as string | null,
-  }
+  })
 
   it("passes a coherent fiche", () => {
-    expect(validateFiche({ ...base, valeurs: { superficie_cultivee: 10, superficie_boisee: 20 } })).toEqual([])
+    expect(validateFiche({ ...baseFor(baseChamps), valeurs: { superficie_cultivee: 10, superficie_boisee: 20 } })).toEqual([])
   })
 
   it("blocks when the type is missing", () => {
-    const errors = validateFiche({ ...base, typeCode: null, valeurs: {} })
+    const errors = validateFiche({ ...baseFor(baseChamps), typeCode: null, valeurs: {} })
     expect(errors.some((e) => e.message.includes("type de transaction"))).toBe(true)
   })
 
   it("blocks a mandatory field left empty", () => {
     const required = champ({ id: "r", codeMachine: "note", estObligatoire: true })
-    const errors = validateFiche({ ...base, champs: [...base.champs, required], valeurs: {} })
+    const errors = validateFiche({ ...baseFor([...baseChamps, required]), valeurs: {} })
     expect(errors.some((e) => e.code === "V-OBLIG")).toBe(true)
   })
 
   it("applies V-001 (components exceed the total)", () => {
-    const errors = validateFiche({ ...base, valeurs: { superficie_cultivee: 30, superficie_boisee: 20 } })
+    const errors = validateFiche({ ...baseFor(baseChamps), valeurs: { superficie_cultivee: 30, superficie_boisee: 20 } })
     expect(errors.some((e) => e.code === "V-001")).toBe(true)
   })
 
   it("applies V-003 (percentage over 100)", () => {
-    const errors = validateFiche({ ...base, valeurs: { peuplement_feuillu: 120 } })
+    const errors = validateFiche({ ...baseFor(baseChamps), valeurs: { peuplement_feuillu: 120 } })
     expect(errors.some((e) => e.code === "V-003")).toBe(true)
   })
 
   it("applies V-006 (negative value)", () => {
-    const errors = validateFiche({ ...base, valeurs: { superficie_cultivee: -1 } })
+    const errors = validateFiche({ ...baseFor(baseChamps), valeurs: { superficie_cultivee: -1 } })
     expect(errors.some((e) => e.code === "V-006")).toBe(true)
   })
 
   it("applies V-007 (out of the configured range)", () => {
     const ranged = champ({ id: "g", codeMachine: "pente", plageMin: 0, plageMax: 20 })
-    const errors = validateFiche({ ...base, champs: [...base.champs, ranged], valeurs: { pente: 45 } })
+    const errors = validateFiche({ ...baseFor([...baseChamps, ranged]), valeurs: { pente: 45 } })
     expect(errors.some((e) => e.code === "V-007")).toBe(true)
   })
 
   it("applies V-004 (future sale date)", () => {
     const future = new Date()
     future.setDate(future.getDate() + 5)
-    const errors = validateFiche({ ...base, dateVente: future.toISOString(), valeurs: {} })
+    const errors = validateFiche({ ...baseFor(baseChamps), dateVente: future.toISOString(), valeurs: {} })
     expect(errors.some((e) => e.code === "V-004")).toBe(true)
   })
 
   it("ignores a type-scoped mandatory champ when the type does not match", () => {
     const scoped = champ({ id: "sb", codeMachine: "note_boisee", estObligatoire: true, applicableATypes: ["BOISEE"] })
-    const errors = validateFiche({ ...base, champs: [...base.champs, scoped], typeCode: "CULTIVEE", valeurs: {} })
+    const errors = validateFiche({ ...baseFor([...baseChamps, scoped]), typeCode: "CULTIVEE", valeurs: {} })
     expect(errors.some((e) => e.code === "V-OBLIG")).toBe(false)
   })
 
   it("applies V-OBLIG to a type-scoped mandatory champ when the type matches", () => {
     const scoped = champ({ id: "sb", codeMachine: "note_boisee", estObligatoire: true, applicableATypes: ["BOISEE"] })
-    const errors = validateFiche({ ...base, champs: [...base.champs, scoped], typeCode: "BOISEE", valeurs: {} })
+    const errors = validateFiche({ ...baseFor([...baseChamps, scoped]), typeCode: "BOISEE", valeurs: {} })
     expect(errors.some((e) => e.code === "V-OBLIG")).toBe(true)
   })
 
@@ -283,8 +286,7 @@ describe("validateFiche", () => {
     const boiseImporter = champ({ id: "bi", codeMachine: "superficie_boise_ha", unite: "ha" })
     const acericoleImporter = champ({ id: "ai", codeMachine: "superficie_acricole_ha", unite: "ha" })
     const errors = validateFiche({
-      ...base,
-      champs: [...base.champs, boiseImporter, acericoleImporter],
+      ...baseFor([...baseChamps, boiseImporter, acericoleImporter]),
       valeurs: { superficie_boise_ha: 20, superficie_acricole_ha: 30 },
     })
     expect(errors.some((e) => e.code === "V-005")).toBe(true)
@@ -294,11 +296,22 @@ describe("validateFiche", () => {
     const cultiveImporter = champ({ id: "ci", codeMachine: "superficie_cultive_ha", unite: "ha" })
     const draineImporter = champ({ id: "di", codeMachine: "superficie_draine_ha", unite: "ha" })
     const errors = validateFiche({
-      ...base,
-      champs: [...base.champs, cultiveImporter, draineImporter],
+      ...baseFor([...baseChamps, cultiveImporter, draineImporter]),
       valeurs: { superficie_cultive_ha: 10, superficie_draine_ha: 15 },
     })
     expect(errors.some((e) => e.code === "V-002")).toBe(true)
+  })
+
+  it("does not block on an obligatory champ that is hidden (estAffiche=false)", () => {
+    const hidden = champ({ id: "h", codeMachine: "cache", estObligatoire: true, estAffiche: false })
+    const errors = validateFiche({ ...baseFor([...baseChamps, hidden]), valeurs: {} })
+    expect(errors.some((e) => e.code === "V-OBLIG")).toBe(false)
+  })
+
+  it("does not block on an obligatory champ that is not placed in any section", () => {
+    const unplaced = champ({ id: "u", codeMachine: "orphelin", estObligatoire: true })
+    const errors = validateFiche({ ...baseFor(baseChamps), champs: [...baseChamps, unplaced], valeurs: {} })
+    expect(errors.some((e) => e.code === "V-OBLIG")).toBe(false)
   })
 })
 

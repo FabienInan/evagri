@@ -37,6 +37,22 @@ export function isChampApplicable(champ: { applicableATypes: string[] }, typeCod
   return champ.applicableATypes.includes(typeCode)
 }
 
+/** A champ is visible on the fiche iff it is active, displayed, applicable to the transaction type,
+ *  and placed in a saved section (Decision 2: the saved layout is the source of truth). Rendering and
+ *  validation MUST use this same predicate so an invisible champ can never block the save. */
+export function isChampVisible(
+  champ: ChampEnrichissableConfig,
+  typeCode: string | null,
+  placedChampIds: ReadonlySet<string>
+): boolean {
+  return (
+    champ.actif &&
+    champ.estAffiche &&
+    isChampApplicable(champ, typeCode) &&
+    placedChampIds.has(champ.id)
+  )
+}
+
 export function buildFicheViewModel(input: {
   sections: FicheSection[]
   champs: ChampEnrichissableConfig[]
@@ -44,6 +60,7 @@ export function buildFicheViewModel(input: {
   typeCode: string | null
 }): FicheViewModel {
   const byId = new Map(input.champs.map((c) => [c.id, c]))
+  const placedChampIds = new Set(input.sections.flatMap((s) => s.champs))
 
   const mainSections: FicheSectionChamps[] = []
   for (const section of [...input.sections].sort((a, b) => a.ordre - b.ordre)) {
@@ -53,8 +70,7 @@ export function buildFicheViewModel(input: {
       if (!config) continue
       if (config.nature !== "SAISISSABLE") continue
       if (config.codeMachine === TYPE_TRANSACTION_CODE) continue
-      if (!config.actif || !config.estAffiche) continue
-      if (!isChampApplicable(config, input.typeCode)) continue
+      if (!isChampVisible(config, input.typeCode, placedChampIds)) continue
       champs.push({ config, valeur: input.valeurs[config.codeMachine] ?? null })
     }
     if (champs.length > 0) mainSections.push({ section, champs })
@@ -202,6 +218,7 @@ function pickNumber(valeurs: Record<string, FicheValeur>, aliases: readonly stri
 /** Blocking rules (§7.8.3): V-001..V-007, mandatory sale type (§7.5.3) and est_obligatoire fields. */
 export function validateFiche(input: {
   champs: ChampEnrichissableConfig[]
+  sections: FicheSection[]
   valeurs: Record<string, FicheValeur>
   source: Record<string, number | null>
   typeCode: string | null
@@ -209,9 +226,15 @@ export function validateFiche(input: {
 }): FicheValidationError[] {
   const errors: FicheValidationError[] = []
 
-  // A non-applicable champ is never rendered (buildFicheViewModel filters it out), so it must not be validated:
-  // otherwise a type-scoped obligatory champ blocks forever and a stale hidden value raises spurious errors.
-  const champs = input.champs.filter((c) => isChampApplicable(c, input.typeCode))
+  const placedChampIds = new Set(input.sections.flatMap((s) => s.champs))
+  // Validation uses the SAME visibility predicate as rendering: a champ the user cannot see must never
+  // block the save (an obligatory-but-hidden or unplaced champ would brick Enregistrer/Analyser forever),
+  // and a stale value of a hidden champ must not raise spurious V-003/V-006/V-007.
+  const champs = input.champs.filter((c) => isChampVisible(c, input.typeCode, placedChampIds))
+  const visibleCodes = new Set(champs.map((c) => c.codeMachine))
+  const valeursVisibles: Record<string, FicheValeur> = Object.fromEntries(
+    Object.entries(input.valeurs).filter(([code]) => visibleCodes.has(code))
+  )
 
   if (!input.typeCode) {
     errors.push({ code: "V-TYPE", message: "Le type de transaction est obligatoire." })
@@ -248,11 +271,11 @@ export function validateFiche(input: {
 
   const surfaceErrors = validateEnrichment({
     superficieTotaleHectare: input.source["superficie_totale_hectare"] ?? null,
-    superficieCultivee: pickNumber(input.valeurs, SUPERFICIE_ALIASES.superficieCultivee),
-    superficieBoisee: pickNumber(input.valeurs, SUPERFICIE_ALIASES.superficieBoisee),
-    superficieConstructible: pickNumber(input.valeurs, SUPERFICIE_ALIASES.superficieConstructible),
-    superficieDrainee: pickNumber(input.valeurs, SUPERFICIE_ALIASES.superficieDrainee),
-    superficieAcericole: pickNumber(input.valeurs, SUPERFICIE_ALIASES.superficieAcericole),
+    superficieCultivee: pickNumber(valeursVisibles, SUPERFICIE_ALIASES.superficieCultivee),
+    superficieBoisee: pickNumber(valeursVisibles, SUPERFICIE_ALIASES.superficieBoisee),
+    superficieConstructible: pickNumber(valeursVisibles, SUPERFICIE_ALIASES.superficieConstructible),
+    superficieDrainee: pickNumber(valeursVisibles, SUPERFICIE_ALIASES.superficieDrainee),
+    superficieAcericole: pickNumber(valeursVisibles, SUPERFICIE_ALIASES.superficieAcericole),
     champsPourcentage,
     valeursNumeriques,
     plages,

@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { getCurrentOrganisationId } from "@/repositories/organisation.repository"
 import { listChampsEnrichissablesByOrganisation } from "@/repositories/champs.repository"
+import { findFicheLayout } from "@/repositories/fiche-layout.repository"
+import { listTypologiesByOrganisation } from "@/repositories/typologie.repository"
 import {
   createDocument,
   deleteDocument as deleteDocumentRepo,
@@ -12,7 +14,7 @@ import {
   updateFicheStatut,
 } from "@/repositories/fiche.repository"
 import { serializeTransaction } from "@/serializers/transaction.serializer"
-import { buildSourceNumbers, buildStorageEntries, TYPE_TRANSACTION_CODE, validateFiche } from "@/lib/fiche"
+import { buildSourceNumbers, buildStorageEntries, resolveTypeTransaction, TYPE_TRANSACTION_CODE, validateFiche } from "@/lib/fiche"
 import { saveActePDF } from "@/lib/file-storage"
 
 export type FicheActionResult = { ok: true } | { ok: false; error: string }
@@ -33,12 +35,16 @@ export async function saveFiche(input: unknown): Promise<FicheActionResult> {
   const record = await findTransactionFiche(organisationId, parsed.data.id)
   if (!record || !record.enrichie) return { ok: false, error: "Transaction introuvable." }
 
-  const champs = await listChampsEnrichissablesByOrganisation(organisationId)
+  const [champs, sections] = await Promise.all([
+    listChampsEnrichissablesByOrganisation(organisationId),
+    findFicheLayout(organisationId),
+  ])
   const transaction = serializeTransaction(record)
   const valeurs = parsed.data.valeurs
 
   const errors = validateFiche({
     champs,
+    sections,
     valeurs,
     source: buildSourceNumbers(transaction),
     typeCode: parsed.data.typeTransactionCode,
@@ -62,17 +68,23 @@ export async function setFicheStatut(id: string, statut: string): Promise<FicheA
   if (!record || !record.enrichie) return { ok: false, error: "Transaction introuvable." }
 
   if (statut === "Analysée") {
-    const champs = await listChampsEnrichissablesByOrganisation(organisationId)
+    const [champs, sections, typologies] = await Promise.all([
+      listChampsEnrichissablesByOrganisation(organisationId),
+      findFicheLayout(organisationId),
+      listTypologiesByOrganisation(organisationId),
+    ])
     const transaction = serializeTransaction(record)
     const valeurs = transaction.enrichment
     const typeChamp = champs.find((c) => c.codeMachine === TYPE_TRANSACTION_CODE)
     const storedType = typeChamp ? valeurs[typeChamp.codeMachine] : null
+    const typeCode = resolveTypeTransaction(storedType ?? null, typologies)?.code ?? null
 
     const errors = validateFiche({
       champs,
+      sections,
       valeurs,
       source: buildSourceNumbers(transaction),
-      typeCode: typeof storedType === "string" ? storedType : null,
+      typeCode,
       dateVente: transaction.dateVente,
     })
     if (errors.length > 0) return { ok: false, error: errors[0].message }
@@ -97,6 +109,9 @@ export async function uploadDocument(
   if (file.type !== "application/pdf") {
     return { ok: false, error: "Seuls les fichiers PDF sont acceptés." }
   }
+
+  const record = await findTransactionFiche(organisationId, transactionSourceId)
+  if (!record) return { ok: false, error: "Transaction introuvable." }
 
   const stored = await saveActePDF(file, organisationId, transactionSourceId)
   await createDocument({
