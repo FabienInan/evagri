@@ -120,18 +120,26 @@ function DataTableHeader<T>({
   sortOrder,
   onSort,
   onReorderColumn,
+  sticky = false,
 }: {
   visible: DataTableColumn<T>[]
   sortField?: string
   sortOrder?: "asc" | "desc"
   onSort?: (field: string) => void
   onReorderColumn: (fromKey: string, toKey: string) => void
+  /** Keeps the header pinned to the top of the scrolling body (fill-height mode). */
+  sticky?: boolean
 }) {
   const [draggedKey, setDraggedKey] = useState<string | null>(null)
   const [dragOverKey, setDragOverKey] = useState<string | null>(null)
 
   return (
-    <TableHeader className="bg-muted/50">
+    <TableHeader
+      className={cn(
+        "bg-muted/50",
+        sticky && "lg:sticky lg:top-0 lg:z-10 lg:bg-muted"
+      )}
+    >
       <TableRow>
         {visible.map((col) => {
           const draggable = !col.locked
@@ -205,6 +213,8 @@ export interface DataTableProps<T> {
   isRowSelected?: (row: T) => boolean
   /** Use "bare" to skip the outer Card, e.g. when embedding inside an existing Card. Defaults to "card". */
   variant?: "card" | "bare"
+  /** Fills its container's height (lg+) and scrolls the body, keeping the header pinned. Defaults to false. */
+  fillHeight?: boolean
 }
 
 export function DataTable<T>({
@@ -224,6 +234,7 @@ export function DataTable<T>({
   onRowClick,
   isRowSelected,
   variant = "card",
+  fillHeight = false,
 }: DataTableProps<T>) {
   const visibleStorageKey = `evagri:${storageKey}:visible-columns`
   const orderStorageKey = `evagri:${storageKey}:column-order`
@@ -274,10 +285,13 @@ export function DataTable<T>({
 
   const Wrapper = variant === "bare" ? "div" : Card
   const Body = variant === "bare" ? "div" : CardContent
-  const bodyProps = variant === "bare" ? {} : { className: "p-0" }
+  const bodyProps =
+    variant === "bare"
+      ? {}
+      : { className: cn("p-0", fillHeight && "lg:min-h-0 lg:flex-1 lg:overflow-auto") }
 
   return (
-    <Wrapper className="flex flex-col min-w-0" ref={containerRef}>
+    <Wrapper className={cn("flex flex-col min-w-0", fillHeight && "lg:h-full lg:min-h-0")} ref={containerRef}>
       {(title !== undefined || totalCount !== undefined || toolbar) && (
         <div className="flex items-center justify-between border-b px-4 py-1">
           <span className="text-sm font-semibold text-foreground">
@@ -301,13 +315,16 @@ export function DataTable<T>({
         </div>
       )}
       <Body {...bodyProps}>
-        <Table>
+        <Table
+          containerClassName={fillHeight ? "overflow-x-auto lg:overflow-visible" : undefined}
+        >
           <DataTableHeader
             visible={visible}
             sortField={sortField}
             sortOrder={sortOrder}
             onSort={onSort}
             onReorderColumn={handleReorderColumn}
+            sticky={fillHeight}
           />
           <TableBody>
             {rows.length === 0 && !loading ? (

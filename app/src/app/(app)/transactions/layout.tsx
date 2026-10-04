@@ -1,5 +1,6 @@
-import { TransactionsToolbar } from "@/components/transactions-toolbar"
+import { TransactionsLayoutShell } from "@/components/transactions-layout-shell"
 import { SelectedTransactionsProvider } from "@/components/selected-transactions-context"
+import { FilterPanelVisibilityProvider } from "@/hooks/use-filter-panel-visibility"
 
 export default function TransactionsLayout({
   children,
@@ -8,10 +9,9 @@ export default function TransactionsLayout({
 }) {
   return (
     <SelectedTransactionsProvider>
-      <div className="space-y-4">
-        <TransactionsToolbar />
-        {children}
-      </div>
+      <FilterPanelVisibilityProvider>
+        <TransactionsLayoutShell>{children}</TransactionsLayoutShell>
+      </FilterPanelVisibilityProvider>
     </SelectedTransactionsProvider>
   )
 }

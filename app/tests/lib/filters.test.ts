@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { recommendFilterType, DEFAULT_OPERATEURS, buildWhereClause } from "@/lib/filters"
+import { recommendFilterType, DEFAULT_OPERATEURS, buildWhereClause, moveItemToIndex } from "@/lib/filters"
 import type { FilterInput, FilterType } from "@/types/filter"
 
 describe("recommendFilterType", () => {
@@ -157,5 +157,40 @@ describe("buildWhereClause", () => {
         },
       ],
     })
+  })
+})
+
+describe("moveItemToIndex", () => {
+  const items = [
+    { id: "a", ordreAffichage: 0 },
+    { id: "b", ordreAffichage: 1 },
+    { id: "c", ordreAffichage: 2 },
+  ]
+
+  it("appends at the end when the slot is the list length", () => {
+    const result = moveItemToIndex(items, "a", 3)
+    expect(result.map((i) => i.id)).toEqual(["b", "c", "a"])
+    expect(result.map((i) => i.ordreAffichage)).toEqual([0, 1, 2])
+  })
+
+  it("moves an item to the top (slot 0)", () => {
+    expect(moveItemToIndex(items, "c", 0).map((i) => i.id)).toEqual(["c", "a", "b"])
+  })
+
+  it("inserts before a middle item", () => {
+    expect(moveItemToIndex(items, "c", 1).map((i) => i.id)).toEqual(["a", "c", "b"])
+  })
+
+  it("normalizes non-contiguous starting orders", () => {
+    const spaced = [
+      { id: "a", ordreAffichage: 10 },
+      { id: "b", ordreAffichage: 20 },
+      { id: "c", ordreAffichage: 30 },
+    ]
+    expect(moveItemToIndex(spaced, "c", 0).map((i) => i.ordreAffichage)).toEqual([0, 1, 2])
+  })
+
+  it("returns the list unchanged for an unknown id", () => {
+    expect(moveItemToIndex(items, "x", 0)).toBe(items)
   })
 })

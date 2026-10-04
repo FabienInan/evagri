@@ -1,8 +1,6 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { PanelLeftClose, PanelLeft } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { searchTransactions } from "@/server/actions/transaction"
 import { TransactionTable } from "@/components/transaction-table"
 import { TransactionFilters } from "@/components/transaction-filters"
@@ -41,7 +39,7 @@ export function TransactionsPageClient({
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(initialData.transactions.length < initialData.total)
   const [loading, setLoading] = useState(false)
-  const { visible: showFilters, toggle: toggleFilters } = useFilterPanelVisibility()
+  const { visible: showFilters } = useFilterPanelVisibility()
   const sentinelRef = useRef<HTMLDivElement>(null)
 
   const loadPage = useCallback(
@@ -126,61 +124,35 @@ export function TransactionsPageClient({
   }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold text-foreground">Liste des transactions</h2>
-        <p className="text-sm text-muted-foreground">Consultez et filtrez les ventes agricoles</p>
-      </div>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-fit gap-2"
-          onClick={toggleFilters}
-        >
-          {showFilters ? (
-            <>
-              <PanelLeftClose className="h-4 w-4" />
-              Cacher les filtres
-            </>
-          ) : (
-            <>
-              <PanelLeft className="h-4 w-4" />
-              Afficher les filtres
-            </>
-          )}
-        </Button>
-      </div>
-
-      <div
-        className={`grid grid-cols-1 items-start gap-4 ${
-          showFilters ? "lg:grid-cols-[300px_1fr] lg:gap-4" : ""
-        }`}
-      >
-        {showFilters && (
-          <div className="self-start">
-            <TransactionFilters
-              filtersConfig={filtersConfig}
-              onSearch={handleSearch}
-              initialFilters={filters}
-            />
-          </div>
-        )}
-        <TransactionTable
-          data={{ transactions, total }}
-          sourceFields={sourceFields}
-          enrichmentFields={enrichmentFields}
-          onSort={handleSort}
-          sortField={sortField}
-          sortOrder={sortOrder}
-          hasMore={hasMore}
-          loading={loading}
-          sentinelRef={sentinelRef}
-          selectedIds={selectedIds}
-          onSelectRow={(row) => toggleSelected(row.id)}
-        />
-      </div>
+    <div
+      className={`grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 ${
+        showFilters ? "lg:grid-cols-[300px_1fr]" : ""
+      }`}
+    >
+      {showFilters && (
+        <div className="lg:min-h-0 lg:overflow-hidden">
+          <TransactionFilters
+            filtersConfig={filtersConfig}
+            onSearch={handleSearch}
+            initialFilters={filters}
+            scrollable
+          />
+        </div>
+      )}
+      <TransactionTable
+        data={{ transactions, total }}
+        sourceFields={sourceFields}
+        enrichmentFields={enrichmentFields}
+        onSort={handleSort}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        hasMore={hasMore}
+        loading={loading}
+        sentinelRef={sentinelRef}
+        selectedIds={selectedIds}
+        onSelectRow={(row) => toggleSelected(row.id)}
+        fillHeight
+      />
     </div>
   )
 }

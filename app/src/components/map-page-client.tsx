@@ -2,8 +2,6 @@
 
 import { useState } from "react"
 import dynamic from "next/dynamic"
-import { PanelLeftClose, PanelLeft } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { TransactionFilters } from "@/components/transaction-filters"
 import { useTransactionFilters } from "@/hooks/use-transaction-filters"
@@ -21,7 +19,7 @@ interface MapPageClientProps {
 
 export function MapPageClient({ filtersConfig }: MapPageClientProps) {
   const { filters, setFilters, addOrReplaceFilter } = useTransactionFilters()
-  const { visible: showFilters, toggle: toggleFilters } = useFilterPanelVisibility()
+  const { visible: showFilters } = useFilterPanelVisibility()
 
   function handleSearch(newFilters: FilterInput[]) {
     setFilters(newFilters)
@@ -33,34 +31,6 @@ export function MapPageClient({ filtersConfig }: MapPageClientProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-foreground">Carte des transactions</h2>
-          <p className="text-sm text-muted-foreground">Visualisation géographique des ventes agricoles</p>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-fit gap-2"
-          onClick={toggleFilters}
-        >
-          {showFilters ? (
-            <>
-              <PanelLeftClose className="h-4 w-4" />
-              Cacher les filtres
-            </>
-          ) : (
-            <>
-              <PanelLeft className="h-4 w-4" />
-              Afficher les filtres
-            </>
-          )}
-        </Button>
-      </div>
-
       <div
         className={`grid grid-cols-1 items-start gap-4 ${
           showFilters ? "lg:grid-cols-[300px_1fr] lg:gap-4" : ""

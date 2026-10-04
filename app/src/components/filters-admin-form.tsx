@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import { Search, Trash2, Plus, Globe } from "lucide-react"
+import { useEffect, useMemo, useRef, useState, type DragEvent } from "react"
+import { Search, Trash2, Plus, Globe, GripVertical } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createFilter, deleteFilter, publishFilters } from "@/server/actions/filters"
 import { useHeaderActions } from "@/components/header-actions"
@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { getFilterIcon, getFilterIconColor } from "@/lib/filter-icons"
-import { recommendFilterType, DEFAULT_OPERATEURS } from "@/lib/filters"
+import { recommendFilterType, DEFAULT_OPERATEURS, moveItemToIndex } from "@/lib/filters"
 import { SOURCE_FIELDS, SOURCE_FIELD_BY_CODE, isSourceFieldCode } from "@/lib/transaction-source-fields"
 import type { FilterConfig, FilterType } from "@/types/filter"
 import type { CreateFilterInput } from "@/server/actions/filters"
@@ -84,6 +84,9 @@ export function FiltersAdminForm({
   const [publishing, setPublishing] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [draggedId, setDraggedId] = useState<string | null>(null)
+  const [dropIndex, setDropIndex] = useState<number | null>(null)
+  const listRef = useRef<HTMLDivElement>(null)
   const firstAvailableChamp = champs.find(
     (c) => !filters.some((f) => f.champEnrichissable?.id === c.id)
   )
@@ -114,11 +117,15 @@ export function FiltersAdminForm({
     })
   }, [newChampId, isSourceSelection, sourceCode, isVirtualSelection, champs])
   const { setAction, clearAction } = useHeaderActions()
+  // The header button is set once per (publishing, lastSaved) change, so a bare `onClick={handlePublish}`
+  // would freeze an `items` snapshot: a pure reorder doesn't change those deps and would publish the old
+  // order. Keeping the latest handler in a ref avoids the stale closure.
+  const publishRef = useRef<() => void>(() => {})
 
   useEffect(() => {
     setAction(
       <Button
-        onClick={handlePublish}
+        onClick={() => publishRef.current()}
         disabled={publishing}
         className="h-9 gap-2 rounded-lg px-4"
       >
@@ -164,18 +171,44 @@ export function FiltersAdminForm({
     saveFilter(selected.id, { estActif: checked })
   }
 
-  function handleOrderChange(value: string) {
-    if (!selected) return
-    const ordre = Number(value)
-    if (Number.isNaN(ordre)) return
-    saveFilter(selected.id, { ordreAffichage: ordre })
+  // Réordonner un sous-ensemble filtré n'a pas de sens : le glisser-déposer est inactif pendant une recherche.
+  const canReorder = search.trim() === ""
+
+  // Position d'insertion = slot (0..length) sous le curseur : moitié haute d'une ligne → avant la
+  // ligne, moitié basse → après. Le slot `length` (sous la dernière ligne) permet d'atteindre la fin.
+  function computeDropIndex(clientY: number): number {
+    const container = listRef.current
+    if (!container) return filtered.length
+    const rows = Array.from(container.querySelectorAll<HTMLElement>("[data-row-id]"))
+    for (let i = 0; i < rows.length; i++) {
+      const rect = rows[i].getBoundingClientRect()
+      if (clientY < rect.top + rect.height / 2) return i
+    }
+    return rows.length
+  }
+
+  function handleDragOver(e: DragEvent<HTMLDivElement>) {
+    if (!canReorder || !draggedId) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = "move"
+    const next = computeDropIndex(e.clientY)
+    if (next !== dropIndex) setDropIndex(next)
+  }
+
+  function handleDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    if (!canReorder || !draggedId || dropIndex === null) return
+    setItems(moveItemToIndex(filtered, draggedId, dropIndex))
+    setDraggedId(null)
+    setDropIndex(null)
   }
 
   async function handleCreate(formData: FormData) {
     setCreateError(null)
     const rawChampId = formData.get("champEnrichissableId") as string
     const type = formData.get("typeFiltre") as FilterType
-    const ordre = Number(formData.get("ordreAffichage") || items.length)
+    // Nouveau filtre ajouté en fin de liste : l'ordre se règle ensuite par glisser-déposer.
+    const ordre = items.reduce((max, f) => Math.max(max, f.ordreAffichage), -1) + 1
 
     const baseInput: Omit<CreateFilterInput, "nomFiltre" | "champEnrichissableId" | "codeMachine"> = {
       typeFiltre: type,
@@ -280,6 +313,12 @@ export function FiltersAdminForm({
     }
   }
 
+  // Keeps `publishRef` pointing at the latest handlePublish (with the current `items`) on every render,
+  // so the header button never publishes a stale order.
+  useEffect(() => {
+    publishRef.current = handlePublish
+  })
+
   return (
     <div className="flex h-full flex-col gap-4 overflow-hidden">
       <Card className="shrink-0 border-border shadow-sm">
@@ -289,7 +328,7 @@ export function FiltersAdminForm({
         <CardContent>
           <form
             action={handleCreate}
-            className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-4"
+            className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-3"
           >
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">Champ cible</Label>
@@ -298,12 +337,6 @@ export function FiltersAdminForm({
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">Type de filtre</Label>
               <TypeSelect name="typeFiltre" recommendedType={recommendedTypeForNew} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="newOrdre" className="text-sm font-medium">
-                Ordre
-              </Label>
-              <Input id="newOrdre" name="ordreAffichage" type="number" defaultValue={items.length} />
             </div>
             <Button type="submit" disabled={isNewChampUsed} className="h-10 gap-2 rounded-lg">
               <Plus className="h-4 w-4" />
@@ -332,48 +365,90 @@ export function FiltersAdminForm({
 
       <div className="flex min-h-0 flex-1 gap-4">
         <div className="scrollable-list flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card p-3 shadow-sm">
-          <div className="flex-1 overflow-y-auto min-h-0 space-y-3 pr-1">
+          <div
+            ref={listRef}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            className="flex-1 overflow-y-auto min-h-0 space-y-3 pr-1"
+          >
             {filtered.length === 0 ? (
               <p className="text-sm text-muted-foreground">Aucun filtre ne correspond à la recherche.</p>
             ) : (
-              filtered.map((f) => {
+              filtered.map((f, index) => {
                 const isVirtual = !f.champEnrichissable && !!f.codeMachine && !isSourceFieldCode(f.codeMachine)
                 const Icon = getFilterIcon(f.typeFiltre, f.champEnrichissable, f.codeMachine)
                 const color = getFilterIconColor(f.typeFiltre)
                 const unit = f.champEnrichissable?.unite
                 const dataType = f.champEnrichissable?.typeDonnees
                 const isSelected = selectedId === f.id
+                const showTopLine = dropIndex === index
+                const showBottomLine = index === filtered.length - 1 && dropIndex === filtered.length
 
                 return (
-                  <button
+                  <div
                     key={f.id}
-                    type="button"
-                    onClick={() => setSelectedId(f.id)}
+                    data-row-id={f.id}
                     className={cn(
-                      "flex w-full items-center gap-4 rounded-xl border p-4 text-left transition-all",
+                      "flex w-full items-center gap-1 rounded-xl border p-2 pl-1 transition-all",
                       isSelected
                         ? "border-primary bg-primary/[0.04] shadow-sm"
-                        : "border-border bg-card hover:border-muted-foreground/30 hover:bg-muted/30"
+                        : "border-border bg-card hover:border-muted-foreground/30 hover:bg-muted/30",
+                      draggedId === f.id && "opacity-40",
+                      showTopLine && "border-t-2 border-t-primary",
+                      showBottomLine && "border-b-2 border-b-primary"
                     )}
                   >
-                    <div
+                    <span
+                      draggable={canReorder}
+                      onDragStart={(e) => {
+                        setDraggedId(f.id)
+                        e.dataTransfer.effectAllowed = "move"
+                      }}
+                      onDragEnd={() => {
+                        setDraggedId(null)
+                        setDropIndex(null)
+                      }}
+                      role="button"
+                      tabIndex={-1}
+                      aria-label="Réordonner"
+                      title={
+                        canReorder
+                          ? "Glisser pour réordonner"
+                          : "Réordonnancement indisponible pendant une recherche"
+                      }
                       className={cn(
-                        "flex h-12 w-12 shrink-0 items-center justify-center rounded-full",
-                        color
+                        "flex shrink-0 touch-none items-center justify-center rounded p-2 text-muted-foreground",
+                        canReorder
+                          ? "cursor-grab hover:bg-muted active:cursor-grabbing"
+                          : "cursor-not-allowed opacity-40"
                       )}
                     >
-                      <Icon className="h-6 w-6" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-base font-semibold text-foreground">{f.nomFiltre}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Type : {FILTER_TYPE_LABELS[f.typeFiltre as FilterType] ?? f.typeFiltre}
-                        {unit && unit !== "N/A" ? ` · Unité : ${unit}` : ""}
-                        {dataType ? ` · ${DATA_TYPE_LABELS[dataType] ?? dataType}` : ""}
-                        {isVirtual ? ` · Virtuel (${f.codeMachine})` : ""}
-                      </p>
-                    </div>
-                  </button>
+                      <GripVertical className="h-5 w-5" />
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(f.id)}
+                      className="flex min-w-0 flex-1 items-center gap-4 rounded-lg p-2 text-left"
+                    >
+                      <div
+                        className={cn(
+                          "flex h-12 w-12 shrink-0 items-center justify-center rounded-full",
+                          color
+                        )}
+                      >
+                        <Icon className="h-6 w-6" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-base font-semibold text-foreground">{f.nomFiltre}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Type : {FILTER_TYPE_LABELS[f.typeFiltre as FilterType] ?? f.typeFiltre}
+                          {unit && unit !== "N/A" ? ` · Unité : ${unit}` : ""}
+                          {dataType ? ` · ${DATA_TYPE_LABELS[dataType] ?? dataType}` : ""}
+                          {isVirtual ? ` · Virtuel (${f.codeMachine})` : ""}
+                        </p>
+                      </div>
+                    </button>
+                  </div>
                 )
               })
             )}
@@ -464,19 +539,6 @@ export function FiltersAdminForm({
                     <p className="text-xs text-muted-foreground">Le filtre apparaît dans le panneau de filtres</p>
                   </div>
                   <Switch id="estActif" checked={selected.estActif} onCheckedChange={handleToggleActive} />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="ordreAffichage" className="text-sm font-medium">
-                    Ordre d&apos;affichage
-                  </Label>
-                  <Input
-                    id="ordreAffichage"
-                    type="number"
-                    value={selected.ordreAffichage}
-                    onChange={(e) => handleOrderChange(e.target.value)}
-                    className="h-10 w-full rounded-lg"
-                  />
                 </div>
 
                 <div className="flex items-center justify-between pt-2">

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card"
 import type { FilterConfig, FilterInput } from "@/types/filter"
 import { isSourceFieldCode } from "@/lib/transaction-source-fields"
+import { cn } from "@/lib/utils"
 
 type VirtualOption = { label: string; value: string }
 
@@ -48,10 +49,14 @@ export function TransactionFilters({
   filtersConfig,
   onSearch,
   initialFilters = [],
+  scrollable = false,
 }: {
   filtersConfig: FilterConfig[]
   onSearch: (filters: FilterInput[]) => void
   initialFilters?: FilterInput[]
+  /** Sur desktop, la carte remplit la hauteur disponible et seule la zone des champs défile :
+   *  les boutons Rechercher/Réinitialiser restent visibles, hors du scroll. */
+  scrollable?: boolean
 }) {
   const defaultOperator = (type: FilterConfig["typeFiltre"]) => {
     switch (type) {
@@ -191,12 +196,21 @@ export function TransactionFilters({
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className={cn(scrollable && "lg:h-full lg:min-h-0")}>
+      <CardHeader className={cn(scrollable && "shrink-0")}>
         <CardTitle className="text-base">Filtres</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4"> 
-      <form onSubmit={handleFormSubmit} className="space-y-4">
+      <CardContent
+        className={cn(
+          "space-y-4",
+          scrollable && "lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden"
+        )}
+      >
+      <form
+        onSubmit={handleFormSubmit}
+        className={cn("space-y-4", scrollable && "lg:flex lg:min-h-0 lg:flex-1 lg:flex-col")}
+      >
+      <div className={cn("space-y-4", scrollable && "lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1")}>
         {activeFilters.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {activeFilters.map((f) => {
@@ -237,40 +251,71 @@ export function TransactionFilters({
             const operators = isVirtual
               ? VIRTUAL_FILTER_OPERATORS[f.codeMachine as string] || [defaultOperator(f.typeFiltre)]
               : f.operateursDisponibles || [defaultOperator(f.typeFiltre)]
+            const currentOperator = values[f.id]?.operator || defaultOperator(f.typeFiltre)
+            // Seuls les filtres de type MULTI_SELECT acceptent plusieurs valeurs (jointes par des
+            // virgules) ; un filtre LISTE reste mono-valeur même avec l'opérateur « in ».
+            const isMultiple = f.typeFiltre === "MULTI_SELECT" && rawOptions.length > 0
             return (
               <div key={f.id} className="space-y-1.5">
                 <Label className="text-xs font-medium text-muted-foreground">{f.nomFiltre}</Label>
                 <div className="flex min-w-0 gap-2">
                   <select
                     className="h-9 w-16 shrink-0 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    value={values[f.id]?.operator || defaultOperator(f.typeFiltre)}
-                    onChange={(e) =>
-                      setValues((prev) => ({
-                        ...prev,
-                        [f.id]: { ...(prev[f.id] || { value: "" }), operator: e.target.value },
-                      }))
-                    }
+                    value={currentOperator}
+                    onChange={(e) => {
+                      const nextOperator = e.target.value
+                      setValues((prev) => {
+                        const previous = prev[f.id] ?? { operator: nextOperator, value: "" }
+                        // En quittant « in », on ne garde que la première valeur pour ne pas envoyer
+                        // "a,b" comme valeur unique d'un opérateur mono-valeur.
+                        const value =
+                          nextOperator === "in"
+                            ? previous.value
+                            : previous.value.split(",")[0] ?? ""
+                        return { ...prev, [f.id]: { operator: nextOperator, value } }
+                      })
+                    }}
                   >
                     {operators.map((op) => (
                       <option key={op} value={op}>{op}</option>
                     ))}
                   </select>
                   {rawOptions.length > 0 ? (
-                    <select
-                      className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      value={values[f.id]?.value || ""}
-                      onChange={(e) =>
-                        setValues((prev) => ({
-                          ...prev,
-                          [f.id]: { ...(prev[f.id] || { operator: defaultOperator(f.typeFiltre) }), value: e.target.value },
-                        }))
-                      }
-                    >
-                      <option value="">Tous</option>
-                      {rawOptions.map((option) => (
-                        <option key={option.value} value={option.label}>{option.label}</option>
-                      ))}
-                    </select>
+                    isMultiple ? (
+                      <select
+                        multiple
+                        size={Math.min(Math.max(rawOptions.length, 4), 8)}
+                        className="min-h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        value={values[f.id]?.value ? values[f.id].value.split(",") : []}
+                        onChange={(e) => {
+                          const selected = Array.from(e.target.selectedOptions).map((o) => o.value)
+                          setValues((prev) => ({
+                            ...prev,
+                            [f.id]: { ...(prev[f.id] || { operator: currentOperator }), value: selected.join(",") },
+                          }))
+                        }}
+                      >
+                        {rawOptions.map((option) => (
+                          <option key={option.value} value={option.label}>{option.label}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <select
+                        className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        value={values[f.id]?.value || ""}
+                        onChange={(e) =>
+                          setValues((prev) => ({
+                            ...prev,
+                            [f.id]: { ...(prev[f.id] || { operator: defaultOperator(f.typeFiltre) }), value: e.target.value },
+                          }))
+                        }
+                      >
+                        <option value="">Tous</option>
+                        {rawOptions.map((option) => (
+                          <option key={option.value} value={option.label}>{option.label}</option>
+                        ))}
+                      </select>
+                    )
                   ) : (
                     <Input
                       className="min-w-0 flex-1 text-sm"
@@ -297,8 +342,9 @@ export function TransactionFilters({
             onChange={(e) => setLotValue(e.target.value)}
           />
         </div>
+      </div>
 
-        <div className="flex gap-2 pt-2">
+        <div className="flex shrink-0 gap-2 pt-2">
           <Button type="submit" className="flex-1 gap-2">
             <Search className="h-4 w-4" />
             Rechercher

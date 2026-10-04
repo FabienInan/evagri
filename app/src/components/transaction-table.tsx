@@ -194,6 +194,7 @@ interface TransactionTableProps {
   sentinelRef: React.RefObject<HTMLDivElement | null>
   selectedIds?: Set<string>
   onSelectRow?: (row: TransactionRow) => void
+  fillHeight?: boolean
 }
 
 export function TransactionTable({
@@ -207,6 +208,7 @@ export function TransactionTable({
   sentinelRef,
   selectedIds,
   onSelectRow,
+  fillHeight,
 }: TransactionTableProps) {
   const columns = useTableColumns(sourceFields, enrichmentFields)
 
@@ -221,6 +223,7 @@ export function TransactionTable({
       onSort={onSort}
       loading={loading}
       sentinelRef={sentinelRef}
+      fillHeight={fillHeight}
       title="Résultats"
       totalCount={data.total}
       onRowClick={onSelectRow}
