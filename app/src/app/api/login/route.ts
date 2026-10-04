@@ -10,7 +10,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing credentials" }, { status: 400 })
     }
 
-    if (!verifyCredentials(username, password)) {
+    if (!(await verifyCredentials(username, password))) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 

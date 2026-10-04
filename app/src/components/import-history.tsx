@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useSyncExternalStore } from "react"
+import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { RefreshCw, Eye, X, History } from "lucide-react"
 import { listImports, retryImport } from "@/server/actions/import"
 import { Button } from "@/components/ui/button"
@@ -68,6 +68,15 @@ export function ImportHistory({ initialImports }: { initialImports: Importation[
   const [imports, setImports] = useState(initialImports)
   const [selected, setSelected] = useState<Importation | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+
+  // Adopt genuinely new server data (router.refresh after an import) without clobbering the list on the
+  // first render or fighting the poll, which owns the state while an import is running.
+  const initialImportsRef = useRef(initialImports)
+  useEffect(() => {
+    if (initialImportsRef.current === initialImports) return
+    initialImportsRef.current = initialImports
+    setImports(initialImports)
+  }, [initialImports])
 
   // Poll while an import is running so counters and status stay live.
   const hasRunning = imports.some((imp) => imp.statut === "EN_COURS")

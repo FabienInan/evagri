@@ -5,6 +5,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 interface SelectedTransactionsContextValue {
   selectedIds: Set<string>
   toggleSelected: (id: string) => void
+  clearSelected: () => void
 }
 
 const SelectedTransactionsContext = createContext<SelectedTransactionsContextValue | null>(null)
@@ -30,7 +31,12 @@ export function SelectedTransactionsProvider({ children }: { children: ReactNode
     })
   }, [])
 
-  const value = useMemo(() => ({ selectedIds, toggleSelected }), [selectedIds, toggleSelected])
+  const clearSelected = useCallback(() => setSelectedIds(new Set()), [])
+
+  const value = useMemo(
+    () => ({ selectedIds, toggleSelected, clearSelected }),
+    [selectedIds, toggleSelected, clearSelected]
+  )
 
   return (
     <SelectedTransactionsContext.Provider value={value}>

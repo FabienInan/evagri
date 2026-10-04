@@ -1,16 +1,12 @@
-import { Geist, Geist_Mono } from "next/font/google"
+import { Montserrat } from "next/font/google"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 
-const fontSans = Geist({
+// Police imposée par la charte graphique (Montserrat, 9 graisses).
+const fontSans = Montserrat({
   subsets: ["latin"],
   variable: "--font-sans",
-})
-
-const fontMono = Geist_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
 })
 
 export default function RootLayout({
@@ -22,7 +18,7 @@ export default function RootLayout({
     <html
       lang="fr"
       suppressHydrationWarning
-      className={`${fontSans.variable} ${fontMono.variable} font-sans antialiased`}
+      className={`${fontSans.variable} font-sans antialiased`}
     >
       <body>
         <ThemeProvider>{children}</ThemeProvider>

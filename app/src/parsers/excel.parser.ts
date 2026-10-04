@@ -26,6 +26,16 @@ export interface ParsedSheet {
   rows: Record<string, unknown>[]
 }
 
+/** Excel headers often carry stray leading/trailing spaces ("Colonne " vs "Colonne"). Trimming row keys
+ *  once, here, keeps every downstream lookup (source mapping, enrichment header extraction) consistent. */
+function trimRowKeys(row: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(row)) {
+    result[key.trim()] = value
+  }
+  return result
+}
+
 export function parseWorkbook(buffer: ArrayBuffer | Uint8Array): ParsedSheet[] {
   const workbook = XLSX.read(buffer, { type: "array" })
   const results: ParsedSheet[] = []
@@ -36,8 +46,9 @@ export function parseWorkbook(buffer: ArrayBuffer | Uint8Array): ParsedSheet[] {
 
     const worksheet = workbook.Sheets[sheetName]
     const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: null })
-    if (json.length > 0) {
-      results.push({ sheet: sheetName, rows: json, typologieCode: mapping.typologieCode })
+    const rows = json.map(trimRowKeys)
+    if (rows.length > 0) {
+      results.push({ sheet: sheetName, rows, typologieCode: mapping.typologieCode })
     }
   }
 

@@ -1,6 +1,4 @@
 export const AUTH_COOKIE_NAME = "evagri_session"
-export const AUTH_USER = "test"
-export const AUTH_PASSWORD = "evagri"
 
 const SESSION_VERSION = "v1"
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000
@@ -81,6 +79,36 @@ function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
   return result === 0
 }
 
-export function verifyCredentials(user: string, password: string): boolean {
-  return user === AUTH_USER && password === AUTH_PASSWORD
+/** Credentials come exclusively from the environment: no literal fallback, so a misconfigured
+ *  deployment fails closed instead of exposing a guessable default. */
+function getCredentials(): { user: string; password: string } | null {
+  const user = process.env.AUTH_USER
+  const password = process.env.AUTH_PASSWORD
+  if (!user || !password) {
+    console.warn("AUTH_USER / AUTH_PASSWORD are not set: login is disabled")
+    return null
+  }
+  return { user, password }
+}
+
+/** Compares both fields in constant time (SHA-256 digests of equal length) so a wrong username and
+ *  a wrong password are indistinguishable by timing. */
+export async function verifyCredentials(user: string, password: string): Promise<boolean> {
+  const expected = getCredentials()
+  if (!expected) return false
+
+  const [userOk, passwordOk] = await Promise.all([
+    timingSafeStringEqual(user, expected.user),
+    timingSafeStringEqual(password, expected.password),
+  ])
+  return userOk && passwordOk
+}
+
+async function timingSafeStringEqual(a: string, b: string): Promise<boolean> {
+  const encoder = new TextEncoder()
+  const [digestA, digestB] = await Promise.all([
+    crypto.subtle.digest("SHA-256", encoder.encode(a)),
+    crypto.subtle.digest("SHA-256", encoder.encode(b)),
+  ])
+  return timingSafeEqual(new Uint8Array(digestA), new Uint8Array(digestB))
 }

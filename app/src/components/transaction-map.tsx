@@ -24,13 +24,15 @@ export function TransactionMap({ filters, onGeoFilter }: TransactionMapProps) {
   const [transactions, setTransactions] = useState<MapTransaction[]>(
     () => mapDataCache.get(filtersCacheKey) ?? []
   )
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [polygon, setPolygon] = useState<{ lat: number; lng: number }[] | null>(null)
-  const { selectedIds: pickedIds, toggleSelected } = useSelectedTransactions()
+  const { selectedIds: pickedIds, toggleSelected, clearSelected } = useSelectedTransactions()
 
   useEffect(() => {
     const cached = mapDataCache.get(filtersCacheKey)
     if (cached) {
       setTransactions(cached)
+      setLoadError(null)
       return
     }
     let cancelled = false
@@ -38,10 +40,19 @@ export function TransactionMap({ filters, onGeoFilter }: TransactionMapProps) {
       ? `?filters=${encodeURIComponent(JSON.stringify(filters))}`
       : ""
     fetch(`/api/transactions/map${query}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json()
+      })
       .then((data) => {
         mapDataCache.set(filtersCacheKey, data)
-        if (!cancelled) setTransactions(data)
+        if (!cancelled) {
+          setTransactions(data)
+          setLoadError(null)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError("Impossible de charger les transactions sur la carte.")
       })
     return () => {
       cancelled = true
@@ -96,10 +107,19 @@ export function TransactionMap({ filters, onGeoFilter }: TransactionMapProps) {
         <DrawControl onPolygonChange={setPolygon} />
       </MapContainer>
 
+      {loadError && (
+        <div className="absolute left-1/2 top-3 z-[1000] -translate-x-1/2 rounded-md border border-destructive/40 bg-card px-3 py-2 text-sm text-destructive shadow-md">
+          {loadError}
+        </div>
+      )}
+
       {polygon && (
         <TransactionMapSelectedPanel
           selectedCount={selectedIds.size}
-          onClear={() => setPolygon(null)}
+          onClear={() => {
+            setPolygon(null)
+            clearSelected()
+          }}
           onFilter={handleFilter}
         />
       )}

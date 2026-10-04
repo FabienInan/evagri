@@ -73,6 +73,10 @@ export async function createDocument(data: {
   await prisma.documentActe.create({ data })
 }
 
-export async function deleteDocument(id: string): Promise<void> {
-  await prisma.documentActe.delete({ where: { id } })
+/** Scoped through the owning transaction so a document id from another tenant matches nothing. */
+export async function deleteDocument(organisationId: string, id: string): Promise<boolean> {
+  const result = await prisma.documentActe.deleteMany({
+    where: { id, transactionSource: { organisationId } },
+  })
+  return result.count > 0
 }

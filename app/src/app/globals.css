@@ -3,25 +3,26 @@
 @variant dark (&:where(.dark, .dark *));
 
 :root {
+  /* Couleurs de la charte graphique : Maïs #ffc40c, Gazon #66995c, Charbon #4d4d4f. */
   --background: #f3f4f6;
-  --foreground: #111827;
+  --foreground: #4d4d4f;
   --card: #ffffff;
-  --card-foreground: #111827;
+  --card-foreground: #4d4d4f;
   --popover: #ffffff;
-  --popover-foreground: #111827;
-  --primary: #6b8e4e;
+  --popover-foreground: #4d4d4f;
+  --primary: #66995c;
   --primary-foreground: #ffffff;
   --secondary: #f3f4f6;
-  --secondary-foreground: #111827;
+  --secondary-foreground: #4d4d4f;
   --muted: #f3f4f6;
   --muted-foreground: #6b7280;
-  --accent: #e3b044;
-  --accent-foreground: #1f2937;
+  --accent: #ffc40c;
+  --accent-foreground: #4d4d4f;
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
   --border: #e5e7eb;
   --input: #e5e7eb;
-  --ring: #6b8e4e;
+  --ring: #66995c;
   --radius: 0.625rem;
   --shadow-color: rgba(0, 0, 0, 0.25);
 }

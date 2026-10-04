@@ -1,5 +1,6 @@
 import Decimal from "decimal.js"
 import { geocodeLotCadastral } from "@/lib/cadastre"
+import { parseBooleanish, parseFrenchNumber } from "@/lib/normalization/parsing"
 import { ensureChampByCodeMachine, findChampByCodeMachine } from "@/repositories/enrichment.repository"
 import { incrementImportationCounters } from "@/repositories/import.repository"
 import {
@@ -39,10 +40,7 @@ function parseDate(value: unknown): Date | null {
 }
 
 function parseNumber(value: unknown): number | null {
-  if (value === null || value === undefined || value === "") return null
-  const normalized = String(value).trim().replace(",", ".").replace(/\s/g, "")
-  const n = Number(normalized)
-  return isNaN(n) ? null : n
+  return parseFrenchNumber(value)
 }
 
 function parseLots(value: unknown): string[] {
@@ -73,13 +71,13 @@ function parseEnrichmentValue(
     return { valeurNombre: null, valeurTexte: null, valeurBooleen: null }
   }
   if (champ.typeDonnees === "BOOLEAN") {
-    return { valeurNombre: null, valeurTexte: null, valeurBooleen: Boolean(rawValue) }
+    return { valeurNombre: null, valeurTexte: null, valeurBooleen: parseBooleanish(rawValue) }
   }
   if (champ.typeDonnees === "TEXTE") {
     return { valeurNombre: null, valeurTexte: String(rawValue), valeurBooleen: null }
   }
-  const n = Number(String(rawValue).replace(",", "."))
-  if (!isNaN(n)) {
+  const n = parseFrenchNumber(rawValue)
+  if (n !== null) {
     return { valeurNombre: new Decimal(n), valeurTexte: null, valeurBooleen: null }
   }
   return { valeurNombre: null, valeurTexte: String(rawValue), valeurBooleen: null }

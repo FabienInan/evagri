@@ -10,6 +10,7 @@ import {
   discretizeProportion,
 } from "@/lib/normalization/transforms"
 import { createReport, incrementCounter } from "@/lib/normalization/report"
+import { buildCodeMachine, parseBooleanish, parseFrenchNumber } from "@/lib/normalization/parsing"
 
 describe("cleanText", () => {
   it("trims, removes extra spaces, strips trailing punctuation, and removes accents", () => {
@@ -107,5 +108,61 @@ describe("report", () => {
     incrementCounter(report, "feuillusrsineux", "abbreviation_expanded")
     expect(report.fieldChanges.topographie.mapped_to_plane).toBe(2)
     expect(report.fieldChanges.feuillusrsineux.abbreviation_expanded).toBe(1)
+  })
+})
+
+describe("parseBooleanish", () => {
+  it("does not coerce a stored 'Non'/'false'/'0' to true", () => {
+    expect(parseBooleanish("Non")).toBe(false)
+    expect(parseBooleanish("false")).toBe(false)
+    expect(parseBooleanish("0")).toBe(false)
+    expect(parseBooleanish("Aucune")).toBe(false)
+  })
+
+  it("accepts affirmatives and passes real booleans/numbers through", () => {
+    expect(parseBooleanish(true)).toBe(true)
+    expect(parseBooleanish(1)).toBe(true)
+    expect(parseBooleanish("Oui")).toBe(true)
+    expect(parseBooleanish(0)).toBe(false)
+  })
+
+  it("treats an unrecognized non-empty remark as true and empty as false", () => {
+    expect(parseBooleanish("pente marquée")).toBe(true)
+    expect(parseBooleanish("")).toBe(false)
+    expect(parseBooleanish(null)).toBe(false)
+  })
+})
+
+describe("parseFrenchNumber", () => {
+  it("handles decimal comma, thousands separators and symbols", () => {
+    expect(parseFrenchNumber("1 234,50")).toBe(1234.5)
+    expect(parseFrenchNumber("1,234.56")).toBe(1234.56)
+    expect(parseFrenchNumber("12,5 %")).toBe(12.5)
+    expect(parseFrenchNumber("1\u202f234,5")).toBe(1234.5)
+  })
+
+  it("returns null when the value is not numeric", () => {
+    expect(parseFrenchNumber("abc")).toBeNull()
+    expect(parseFrenchNumber("")).toBeNull()
+    expect(parseFrenchNumber(null)).toBeNull()
+  })
+
+  it("passes a real number through", () => {
+    expect(parseFrenchNumber(42)).toBe(42)
+  })
+})
+
+describe("buildCodeMachine", () => {
+  it("drops accents (not transliterates) and collapses separators", () => {
+    expect(buildCodeMachine("Superficie cultivée (ha)")).toBe("superficie_cultive_ha")
+    expect(buildCodeMachine("  Hauteur  ")).toBe("hauteur")
+  })
+
+  it("prefixes champ_ when the code does not start with a letter", () => {
+    expect(buildCodeMachine("12 abc")).toBe("champ_12_abc")
+  })
+
+  it("returns an empty string when nothing usable remains", () => {
+    expect(buildCodeMachine("###")).toBe("")
   })
 })

@@ -83,6 +83,7 @@ export function FiltersAdminForm({
   const [lastSaved, setLastSaved] = useState<string | null>(null)
   const [publishing, setPublishing] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const firstAvailableChamp = champs.find(
     (c) => !filters.some((f) => f.champEnrichissable?.id === c.id)
   )
@@ -228,7 +229,11 @@ export function FiltersAdminForm({
     }
 
     try {
-      await createFilter(input)
+      const result = await createFilter(input)
+      if (!result.ok) {
+        setCreateError(result.error)
+        return
+      }
       window.location.reload()
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Erreur lors de la création du filtre.")
@@ -236,24 +241,43 @@ export function FiltersAdminForm({
   }
 
   async function handleDelete(id: string) {
-    await deleteFilter(id)
-    window.location.reload()
+    setActionError(null)
+    try {
+      const result = await deleteFilter(id)
+      if (!result.ok) {
+        setActionError(result.error)
+        return
+      }
+      window.location.reload()
+    } catch {
+      setActionError("Échec de la suppression du filtre.")
+    }
   }
 
   async function handlePublish() {
     setPublishing(true)
-    await publishFilters(
-      items.map((f) => ({
-        id: f.id,
-        ordreAffichage: f.ordreAffichage,
-        estActif: f.estActif,
-        typeFiltre: f.typeFiltre as FilterType,
-        operateursDisponibles: f.operateursDisponibles,
-      }))
-    )
-    setPublishing(false)
-    setLastSaved("__all__")
-    setTimeout(() => setLastSaved((current) => (current === "__all__" ? null : current)), 1500)
+    setActionError(null)
+    try {
+      const result = await publishFilters(
+        items.map((f) => ({
+          id: f.id,
+          ordreAffichage: f.ordreAffichage,
+          estActif: f.estActif,
+          typeFiltre: f.typeFiltre as FilterType,
+          operateursDisponibles: f.operateursDisponibles,
+        }))
+      )
+      if (!result.ok) {
+        setActionError(result.error)
+        return
+      }
+      setLastSaved("__all__")
+      setTimeout(() => setLastSaved((current) => (current === "__all__" ? null : current)), 1500)
+    } catch {
+      setActionError("Échec de la publication de la configuration.")
+    } finally {
+      setPublishing(false)
+    }
   }
 
   return (
@@ -303,6 +327,8 @@ export function FiltersAdminForm({
           className="h-10 rounded-lg border-border pl-10 text-sm"
         />
       </div>
+
+      {actionError && <p className="shrink-0 text-sm text-destructive">{actionError}</p>}
 
       <div className="flex min-h-0 flex-1 gap-4">
         <div className="scrollable-list flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card p-3 shadow-sm">

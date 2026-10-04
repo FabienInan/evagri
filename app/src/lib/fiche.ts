@@ -84,17 +84,32 @@ export function buildFicheViewModel(input: {
   return { mainSections, indicateurs }
 }
 
+/** Interprets a stored boolean-ish value: the form sends real booleans, but an imported or legacy value
+ *  may arrive as text ("false", "0"), which a plain truthiness check would render as "Oui". */
+function isTruthy(valeur: FicheValeur): boolean {
+  if (typeof valeur === "boolean") return valeur
+  if (typeof valeur === "number") return valeur !== 0
+  const normalized = String(valeur).trim().toLowerCase()
+  return normalized !== "" && normalized !== "false" && normalized !== "0" && normalized !== "non"
+}
+
 export function formatFicheValue(typeDonnees: TypeDonneesChamp, valeur: FicheValeur): string {
   if (valeur === null || valeur === undefined || valeur === "") return "—"
   switch (typeDonnees) {
     case "BOOLEAN":
-      return valeur ? "Oui" : "Non"
-    case "DATE":
-      return new Date(String(valeur)).toLocaleDateString("fr-CA")
+      return isTruthy(valeur) ? "Oui" : "Non"
+    case "DATE": {
+      const date = new Date(String(valeur))
+      return Number.isNaN(date.getTime()) ? "—" : date.toLocaleDateString("fr-CA")
+    }
     case "DECIMAL":
-      return new Intl.NumberFormat("fr-CA", { maximumFractionDigits: 2 }).format(Number(valeur))
-    case "ENTIER":
-      return new Intl.NumberFormat("fr-CA", { maximumFractionDigits: 0 }).format(Number(valeur))
+    case "ENTIER": {
+      const n = typeof valeur === "number" ? valeur : Number(valeur)
+      if (Number.isNaN(n)) return String(valeur)
+      return new Intl.NumberFormat("fr-CA", {
+        maximumFractionDigits: typeDonnees === "DECIMAL" ? 2 : 0,
+      }).format(n)
+    }
     default:
       return String(valeur)
   }
@@ -148,11 +163,27 @@ export function recomputeIndicateurs(
   champs: ChampEnrichissableConfig[],
   context: CalculationContext
 ): Record<string, number | null> {
+  const calcule = champs.filter((champ) => champ.nature === "CALCULE" && champ.regleCalcul)
+  const enrichi: Record<string, number | null> = { ...context.enrichi }
   const result: Record<string, number | null> = {}
-  for (const champ of champs) {
-    if (champ.nature !== "CALCULE" || !champ.regleCalcul) continue
-    result[champ.codeMachine] = roundToInteger(evaluateRule(champ.regleCalcul, context))
+
+  // Iterate to a fixpoint so a rule can reference another CALCULE field whose own value is computed in
+  // this same pass, regardless of the order the champs are listed in. Bounded to avoid a cyclic-rule loop.
+  let changed = true
+  let passes = 0
+  while (changed && passes <= calcule.length) {
+    passes += 1
+    changed = false
+    for (const champ of calcule) {
+      const value = roundToInteger(evaluateRule(champ.regleCalcul as string, { source: context.source, enrichi }))
+      if (!(champ.codeMachine in result) || result[champ.codeMachine] !== value) {
+        changed = true
+      }
+      result[champ.codeMachine] = value
+      enrichi[champ.codeMachine] = value
+    }
   }
+
   return result
 }
 
@@ -190,18 +221,52 @@ export function resolveTypeTransaction(
 export interface FicheValidationError {
   code: string
   message: string
+  /** codeMachine du champ à corriger, pour afficher le message sous ce champ ; null = au niveau de la fiche. */
+  champ: string | null
 }
 
-/** Enrichi codeMachine aliases for the superficie slots used by V-001/V-002/V-005. The `_ha` variants are the
- *  codes produced by the importer's buildCodeMachine (unit suffix kept, accents stripped); the plain variants
- *  cover a champ created manually by an admin. See filters.ts / filter-icons.ts for the authoritative list. */
-const SUPERFICIE_ALIASES = {
-  superficieCultivee: ["superficie_cultivee", "superficie_cultive_ha"],
-  superficieBoisee: ["superficie_boisee", "superficie_boise_ha"],
-  superficieConstructible: ["superficie_constructible", "superficie_constructible_ha"],
-  superficieDrainee: ["superficie_drainee", "superficie_draine_ha"],
-  superficieAcericole: ["superficie_acericole", "superficie_acricole_ha", "superficie_acéricole"],
+/** Comparison roots for the enrichi fields checked against superficie_totale_hectare (V-001/V-002/V-005).
+ *  Codes differ between the importer (`superficie_cultive_ha`), a manually created champ
+ *  (`superficie_cultivee`) and accented forms, so matching is normalized (see superficieMatchKey)
+ *  rather than literal. See filters.ts / filter-icons.ts for the authoritative code list. */
+const SUPERFICIE_ROOTS = {
+  superficieCultivee: ["superficiecultive"],
+  superficieBoisee: ["superficieboise"],
+  superficieConstructible: ["superficieconstructible"],
+  superficieDrainee: ["superficiedraine"],
+  // The importer drops the accent (acricole) while a transliterated manual code keeps it (acericole).
+  superficieAcericole: ["superficieacricole", "superficieacericole"],
 } as const
+
+/** Reduces a codeMachine to a comparison key: case, accents, separators, the hectare/metre unit suffix and
+ *  repeated letters are ignored, so `superficie_cultive_ha`, `superficieCultivée` and `superficie_cultivee`
+ *  all reduce to `superficiecultive`. */
+function superficieMatchKey(code: string): string {
+  return code
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .replace(/(hectares?|ha|m2|m)$/, "")
+    .replace(/(.)\1+/g, "$1")
+}
+
+/** The enrichi field whose normalized code matches one of the roots (see SUPERFICIE_ROOTS), with its
+ *  codeMachine so a rule can point the user at the field to correct. */
+function pickSuperficie(
+  valeurs: Record<string, FicheValeur>,
+  roots: readonly string[]
+): { code: string; valeur: number } | null {
+  for (const [code, valeur] of Object.entries(valeurs)) {
+    if (!roots.includes(superficieMatchKey(code))) continue
+    if (typeof valeur === "number") return { code, valeur }
+    if (typeof valeur === "string" && valeur.trim() !== "") {
+      const n = Number(valeur)
+      if (!Number.isNaN(n)) return { code, valeur: n }
+    }
+  }
+  return null
+}
 
 function pickNumber(valeurs: Record<string, FicheValeur>, aliases: readonly string[]): number | null {
   for (const code of aliases) {
@@ -237,14 +302,18 @@ export function validateFiche(input: {
   )
 
   if (!input.typeCode) {
-    errors.push({ code: "V-TYPE", message: "Le type de transaction est obligatoire." })
+    errors.push({ code: "V-TYPE", champ: TYPE_TRANSACTION_CODE, message: "Le type de transaction est obligatoire." })
   }
 
   for (const champ of champs) {
     if (champ.nature !== "SAISISSABLE" || !champ.estObligatoire) continue
     const v = input.valeurs[champ.codeMachine]
     if (v === null || v === undefined || v === "") {
-      errors.push({ code: "V-OBLIG", message: `${champ.nomAffichage} est obligatoire.` })
+      errors.push({
+        code: "V-OBLIG",
+        champ: champ.codeMachine,
+        message: `Le champ « ${champ.nomAffichage} » est obligatoire.`,
+      })
     }
   }
 
@@ -269,16 +338,24 @@ export function validateFiche(input: {
     }
   }
 
+  const cultivee = pickSuperficie(valeursVisibles, SUPERFICIE_ROOTS.superficieCultivee)
+  const boisee = pickSuperficie(valeursVisibles, SUPERFICIE_ROOTS.superficieBoisee)
+  const constructible = pickSuperficie(valeursVisibles, SUPERFICIE_ROOTS.superficieConstructible)
+  const drainee = pickSuperficie(valeursVisibles, SUPERFICIE_ROOTS.superficieDrainee)
+  const acericole = pickSuperficie(valeursVisibles, SUPERFICIE_ROOTS.superficieAcericole)
+
   const surfaceErrors = validateEnrichment({
     superficieTotaleHectare: input.source["superficie_totale_hectare"] ?? null,
-    superficieCultivee: pickNumber(valeursVisibles, SUPERFICIE_ALIASES.superficieCultivee),
-    superficieBoisee: pickNumber(valeursVisibles, SUPERFICIE_ALIASES.superficieBoisee),
-    superficieConstructible: pickNumber(valeursVisibles, SUPERFICIE_ALIASES.superficieConstructible),
-    superficieDrainee: pickNumber(valeursVisibles, SUPERFICIE_ALIASES.superficieDrainee),
-    superficieAcericole: pickNumber(valeursVisibles, SUPERFICIE_ALIASES.superficieAcericole),
+    superficieCultivee: cultivee?.valeur ?? null,
+    superficieBoisee: boisee?.valeur ?? null,
+    superficieConstructible: constructible?.valeur ?? null,
+    superficieDrainee: drainee?.valeur ?? null,
+    superficieAcericole: acericole?.valeur ?? null,
     champsPourcentage,
     valeursNumeriques,
     plages,
+    labels: Object.fromEntries(champs.map((c) => [c.codeMachine, c.nomAffichage])),
+    codes: { drainee: drainee?.code ?? null, acericole: acericole?.code ?? null },
   })
 
   errors.push(...surfaceErrors)

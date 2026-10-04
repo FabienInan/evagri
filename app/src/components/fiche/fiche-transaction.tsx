@@ -8,7 +8,7 @@ import { FieldValue } from "@/components/fiche/field-value"
 import { IndicateursPanel } from "@/components/fiche/indicateurs-panel"
 import { SourceDataPanel } from "@/components/fiche/source-data-panel"
 import { DocumentsPanel } from "@/components/fiche/documents-panel"
-import { saveFiche, setFicheStatut } from "@/server/actions/fiche"
+import { saveFiche, setFicheStatut, type FicheFieldError } from "@/server/actions/fiche"
 import {
   TYPE_TRANSACTION_CODE,
   buildCalculationContext,
@@ -32,7 +32,10 @@ export function FicheTransactionClient({ fiche }: { fiche: SerializedFiche }) {
     return current?.code ?? null
   })
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  // actionError: échec sans détail par champ (panne, données invalides) ; fieldErrors: violations des
+  // règles bloquantes, chacune rattachée à un champ (ou à la fiche quand champ est null).
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<FicheFieldError[]>([])
 
   const viewModel = buildFicheViewModel({
     sections: fiche.sections,
@@ -51,22 +54,41 @@ export function FicheTransactionClient({ fiche }: { fiche: SerializedFiche }) {
 
   function handleFieldChange(codeMachine: string, valeur: FicheValeur) {
     setValeurs((prev) => ({ ...prev, [codeMachine]: valeur }))
+    // The field is being corrected: drop its error instead of leaving a stale message under it.
+    setFieldErrors((prev) => prev.filter((e) => e.champ !== codeMachine))
+  }
+
+  function handleTypeChange(code: string | null) {
+    setTypeCode(code)
+    setFieldErrors((prev) => prev.filter((e) => e.champ !== TYPE_TRANSACTION_CODE))
   }
 
   function handleFieldBlur() {
     setValeurs((prev) => recompute(prev))
   }
 
+  function applyActionError(res: { error: string; errors?: FicheFieldError[] }) {
+    if (res.errors && res.errors.length > 0) setFieldErrors(res.errors)
+    else setActionError(res.error)
+  }
+
   async function persist(): Promise<boolean> {
     setSaving(true)
-    setError(null)
-    const res = await saveFiche({ id: fiche.transaction.id, typeTransactionCode: typeCode, valeurs })
-    setSaving(false)
-    if (!res.ok) {
-      setError(res.error)
+    setActionError(null)
+    setFieldErrors([])
+    try {
+      const res = await saveFiche({ id: fiche.transaction.id, typeTransactionCode: typeCode, valeurs })
+      if (!res.ok) {
+        applyActionError(res)
+        return false
+      }
+      return true
+    } catch {
+      setActionError("Échec de l'enregistrement. Réessayez.")
       return false
+    } finally {
+      setSaving(false)
     }
-    return true
   }
 
   async function handleSave() {
@@ -77,9 +99,25 @@ export function FicheTransactionClient({ fiche }: { fiche: SerializedFiche }) {
     const saved = await persist()
     if (!saved) return
     setSaving(true)
-    const res = await setFicheStatut(fiche.transaction.id, "Analysée")
-    setSaving(false)
-    if (!res.ok) setError(res.error)
+    try {
+      const res = await setFicheStatut(fiche.transaction.id, "Analysée")
+      if (!res.ok) applyActionError(res)
+    } catch {
+      setActionError("Échec du changement de statut. Réessayez.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // First error per champ (the action can return several for one field); the rest go to the banner.
+  const errorsByChamp = new Map<string, string>()
+  const bannerErrors: string[] = []
+  for (const e of fieldErrors) {
+    if (e.champ) {
+      if (!errorsByChamp.has(e.champ)) errorsByChamp.set(e.champ, e.message)
+    } else {
+      bannerErrors.push(e.message)
+    }
   }
 
   return (
@@ -91,8 +129,9 @@ export function FicheTransactionClient({ fiche }: { fiche: SerializedFiche }) {
         typeCode={typeCode}
         statut={fiche.statut}
         saving={saving}
-        error={error}
-        onTypeChange={setTypeCode}
+        errors={actionError ? [actionError, ...bannerErrors] : bannerErrors}
+        typeError={errorsByChamp.get(TYPE_TRANSACTION_CODE) ?? null}
+        onTypeChange={handleTypeChange}
         onSave={handleSave}
         onAnalyse={handleAnalyse}
       />
@@ -118,10 +157,11 @@ export function FicheTransactionClient({ fiche }: { fiche: SerializedFiche }) {
                         onChange={(v) => handleFieldChange(config.codeMachine, v)}
                         onBlur={handleFieldBlur}
                         disabled={saving}
+                        error={errorsByChamp.get(config.codeMachine) ?? null}
                       />
                     ) : (
-                      <div key={config.id} className="space-y-1.5">
-                        <p className="text-sm font-medium">
+                      <div key={config.id} className="grid grid-rows-subgrid row-span-3 gap-1.5">
+                        <p className="text-xs font-medium text-muted-foreground">
                           {config.nomAffichage}
                           {config.unite !== "N/A" ? ` (${config.unite})` : ""}
                         </p>

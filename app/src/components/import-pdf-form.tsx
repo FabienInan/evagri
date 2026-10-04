@@ -20,12 +20,22 @@ type Report = Awaited<ReturnType<typeof importActesPDF>>
 export function ImportPdfForm({ onImported }: { onImported?: () => void }) {
   const router = useRouter()
   const [report, setReport] = useState<Report | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function handleSubmit(formData: FormData) {
-    const res = await importActesPDF(formData)
-    setReport(res)
-    onImported?.()
-    router.refresh()
+    setSubmitting(true)
+    setError(null)
+    try {
+      const res = await importActesPDF(formData)
+      setReport(res)
+      onImported?.()
+      router.refresh()
+    } catch {
+      setError("Échec de l'import des PDF. Réessayez.")
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -53,11 +63,13 @@ export function ImportPdfForm({ onImported }: { onImported?: () => void }) {
               className="block w-full text-sm file:mr-3 file:h-9 file:rounded-md file:border-0 file:bg-muted file:px-3 file:text-sm file:font-medium file:text-foreground hover:file:bg-muted/80"
             />
           </div>
-          <Button type="submit" className="gap-2">
+          <Button type="submit" disabled={submitting} className="gap-2">
             <Upload className="h-4 w-4" />
-            Importer les PDF
+            {submitting ? "Import en cours..." : "Importer les PDF"}
           </Button>
         </form>
+
+        {error && <p className="text-sm text-destructive">{error}</p>}
 
         {report && (
           <div className="rounded-md border border-border bg-muted/30 p-4 space-y-3">

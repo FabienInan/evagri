@@ -174,6 +174,31 @@ describe("buildCalculationContext and recomputeIndicateurs", () => {
     )
     expect(result.taux_global).toBeNull()
   })
+
+  it("feeds a calculated field back so a later rule can reference it", () => {
+    const context = buildCalculationContext({ prixVente: 1000, superficieTotaleHectare: 10 }, {})
+    const result = recomputeIndicateurs(
+      [
+        champ({ id: "a", codeMachine: "taux", nature: "CALCULE", regleCalcul: "prix_vente / superficie_totale_hectare" }),
+        champ({ id: "b", codeMachine: "double_taux", nature: "CALCULE", regleCalcul: "taux * 2" }),
+      ],
+      context
+    )
+    expect(result.taux).toBe(100)
+    expect(result.double_taux).toBe(200)
+  })
+
+  it("resolves a cascade even when the dependency is listed second", () => {
+    const context = buildCalculationContext({ prixVente: 1000, superficieTotaleHectare: 10 }, {})
+    const result = recomputeIndicateurs(
+      [
+        champ({ id: "b", codeMachine: "double_taux", nature: "CALCULE", regleCalcul: "taux * 2" }),
+        champ({ id: "a", codeMachine: "taux", nature: "CALCULE", regleCalcul: "prix_vente / superficie_totale_hectare" }),
+      ],
+      context
+    )
+    expect(result.double_taux).toBe(200)
+  })
 })
 
 describe("toNumericValues", () => {
@@ -195,6 +220,36 @@ describe("toStorageValue", () => {
   it("returns all-null for an empty value", () => {
     expect(toStorageValue("TEXTE", "")).toEqual({ valeurNombre: null, valeurTexte: null, valeurBooleen: null })
     expect(toStorageValue("DECIMAL", null)).toEqual({ valeurNombre: null, valeurTexte: null, valeurBooleen: null })
+  })
+})
+
+describe("formatFicheValue", () => {
+  it("renders an empty value as a dash", () => {
+    expect(formatFicheValue("TEXTE", null)).toBe("—")
+    expect(formatFicheValue("TEXTE", "")).toBe("—")
+  })
+
+  it("renders booleans, including text-encoded falsey values", () => {
+    expect(formatFicheValue("BOOLEAN", true)).toBe("Oui")
+    expect(formatFicheValue("BOOLEAN", false)).toBe("Non")
+    expect(formatFicheValue("BOOLEAN", "false")).toBe("Non")
+    expect(formatFicheValue("BOOLEAN", "0")).toBe("Non")
+  })
+
+  it("renders an invalid date as a dash instead of 'Invalid Date'", () => {
+    expect(formatFicheValue("DATE", "pas-une-date")).toBe("—")
+  })
+
+  it("formats a valid date", () => {
+    expect(formatFicheValue("DATE", "2020-05-01")).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+
+  it("passes a non-numeric value through instead of rendering 'NaN'", () => {
+    expect(formatFicheValue("DECIMAL", "abc")).toBe("abc")
+  })
+
+  it("uses the French decimal separator", () => {
+    expect(formatFicheValue("DECIMAL", 4.2)).toBe("4,2")
   })
 })
 
@@ -231,15 +286,21 @@ describe("validateFiche", () => {
     expect(validateFiche({ ...baseFor(baseChamps), valeurs: { superficie_cultivee: 10, superficie_boisee: 20 } })).toEqual([])
   })
 
-  it("blocks when the type is missing", () => {
+  it("blocks when the type is missing, pointing at the type select", () => {
     const errors = validateFiche({ ...baseFor(baseChamps), typeCode: null, valeurs: {} })
-    expect(errors.some((e) => e.message.includes("type de transaction"))).toBe(true)
+    const typeErr = errors.find((e) => e.code === "V-TYPE")
+    expect(typeErr?.champ).toBe(TYPE_TRANSACTION_CODE)
+    expect(typeErr?.message).toBe("Le type de transaction est obligatoire.")
   })
 
-  it("blocks a mandatory field left empty", () => {
-    const required = champ({ id: "r", codeMachine: "note", estObligatoire: true })
+  it("blocks a mandatory field left empty, naming it", () => {
+    const required = champ({ id: "r", codeMachine: "note", nomAffichage: "Note d'évaluation", estObligatoire: true })
     const errors = validateFiche({ ...baseFor([...baseChamps, required]), valeurs: {} })
-    expect(errors.some((e) => e.code === "V-OBLIG")).toBe(true)
+    expect(errors.find((e) => e.code === "V-OBLIG")).toEqual({
+      code: "V-OBLIG",
+      champ: "note",
+      message: "Le champ « Note d'évaluation » est obligatoire.",
+    })
   })
 
   it("applies V-001 (components exceed the total)", () => {
@@ -249,18 +310,40 @@ describe("validateFiche", () => {
 
   it("applies V-003 (percentage over 100)", () => {
     const errors = validateFiche({ ...baseFor(baseChamps), valeurs: { peuplement_feuillu: 120 } })
-    expect(errors.some((e) => e.code === "V-003")).toBe(true)
+    expect(errors.find((e) => e.code === "V-003")?.champ).toBe("peuplement_feuillu")
   })
 
   it("applies V-006 (negative value)", () => {
     const errors = validateFiche({ ...baseFor(baseChamps), valeurs: { superficie_cultivee: -1 } })
-    expect(errors.some((e) => e.code === "V-006")).toBe(true)
+    expect(errors.find((e) => e.code === "V-006")?.champ).toBe("superficie_cultivee")
   })
 
   it("applies V-007 (out of the configured range)", () => {
     const ranged = champ({ id: "g", codeMachine: "pente", plageMin: 0, plageMax: 20 })
     const errors = validateFiche({ ...baseFor([...baseChamps, ranged]), valeurs: { pente: 45 } })
-    expect(errors.some((e) => e.code === "V-007")).toBe(true)
+    expect(errors.find((e) => e.code === "V-007")?.champ).toBe("pente")
+  })
+
+  it("attaches each rule to the champ to correct", () => {
+    const boiseImporter = champ({ id: "bi", codeMachine: "superficie_boise_ha", unite: "ha" })
+    const acericoleImporter = champ({ id: "ai", codeMachine: "superficie_acricole_ha", unite: "ha" })
+    const cultiveImporter = champ({ id: "ci", codeMachine: "superficie_cultive_ha", unite: "ha" })
+    const draineImporter = champ({ id: "di", codeMachine: "superficie_draine_ha", unite: "ha" })
+    const errors = validateFiche({
+      ...baseFor([...baseChamps, boiseImporter, acericoleImporter, cultiveImporter, draineImporter]),
+      valeurs: {
+        superficie_cultivee: 30,
+        superficie_boisee: 20,
+        superficie_acricole_ha: 30,
+        superficie_draine_ha: 40,
+        peuplement_feuillu: 120,
+      },
+    })
+    const byCode = (code: string) => errors.find((e) => e.code === code)
+    expect(byCode("V-001")?.champ).toBeNull()
+    expect(byCode("V-002")?.champ).toBe("superficie_draine_ha")
+    expect(byCode("V-003")?.champ).toBe("peuplement_feuillu")
+    expect(byCode("V-005")?.champ).toBe("superficie_acricole_ha")
   })
 
   it("applies V-004 (future sale date)", () => {
@@ -300,6 +383,16 @@ describe("validateFiche", () => {
       valeurs: { superficie_cultive_ha: 10, superficie_draine_ha: 15 },
     })
     expect(errors.some((e) => e.code === "V-002")).toBe(true)
+  })
+
+  it("resolves an accented superficie code against the normalized root", () => {
+    const boiseImporter = champ({ id: "bi", codeMachine: "superficie_boise_ha", unite: "ha" })
+    const acericoleAccent = champ({ id: "aa", codeMachine: "superficie_acéricole", unite: "ha" })
+    const errors = validateFiche({
+      ...baseFor([...baseChamps, boiseImporter, acericoleAccent]),
+      valeurs: { superficie_boise_ha: 20, superficie_acéricole: 30 },
+    })
+    expect(errors.some((e) => e.code === "V-005")).toBe(true)
   })
 
   it("does not block on an obligatory champ that is hidden (estAffiche=false)", () => {

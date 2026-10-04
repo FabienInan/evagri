@@ -5,7 +5,7 @@ services:
       - "3000:3000"
     environment:
       - DATABASE_URL=postgresql://evagri:evagri@db:5432/evagri
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-dev-secret-change-me}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required}
       - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
       - DEFAULT_ORGANISATION_ID=${DEFAULT_ORGANISATION_ID}
       - S3_ENDPOINT=${S3_ENDPOINT}
@@ -25,7 +25,7 @@ services:
       target: migrator
     environment:
       - DATABASE_URL=postgresql://evagri:evagri@db:5432/evagri
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-dev-secret-change-me}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required}
       - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
       - DEFAULT_ORGANISATION_ID=${DEFAULT_ORGANISATION_ID}
       - S3_ENDPOINT=${S3_ENDPOINT}

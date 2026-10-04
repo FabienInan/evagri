@@ -6,19 +6,34 @@ import type { FicheChamp } from "@/lib/fiche"
 
 export function IndicateursPanel({ indicateurs }: { indicateurs: FicheChamp[] }) {
   return (
-    <SectionCard title="Indicateurs">
+    <SectionCard
+      title="Indicateurs"
+      headerClassName="bg-primary/5"
+      contentClassName="py-2"
+    >
       {indicateurs.length === 0 ? (
         <p className="text-sm text-muted-foreground">Aucun indicateur.</p>
       ) : (
-        <dl className="space-y-2">
+        <dl className="divide-y divide-border/60">
           {indicateurs.map(({ config, valeur }) => (
-            <div key={config.id} className="flex items-center justify-between gap-3">
-              <dt className="text-sm text-muted-foreground">
+            <div
+              key={config.id}
+              className="flex items-baseline justify-between gap-3 py-2.5 first:pt-1 last:pb-1"
+            >
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 {config.nomAffichage}
-                {config.unite !== "N/A" ? ` (${config.unite})` : ""}
+                {config.unite !== "N/A" && (
+                  <span className="ml-1 normal-case tracking-normal text-muted-foreground/70">
+                    ({config.unite})
+                  </span>
+                )}
               </dt>
               <dd>
-                <FieldValue typeDonnees={config.typeDonnees} valeur={valeur} />
+                <FieldValue
+                  typeDonnees={config.typeDonnees}
+                  valeur={valeur}
+                  className="text-lg font-semibold"
+                />
               </dd>
             </div>
           ))}

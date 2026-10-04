@@ -10,9 +10,17 @@ function distinctNonEmpty(values: (string | null)[]): string[] {
   return unique.sort((a, b) => a.localeCompare(b))
 }
 
-async function findDistinctEnrichmentValues(champEnrichissableId: string): Promise<string[]> {
+/** Scoped through the champ's organisation so values never leak across tenants. */
+async function findDistinctEnrichmentValues(
+  organisationId: string,
+  champEnrichissableId: string
+): Promise<string[]> {
   const rows = await prisma.valeurEnrichissement.findMany({
-    where: { champEnrichissableId, valeurTexte: { not: null } },
+    where: {
+      champEnrichissableId,
+      champEnrichissable: { organisationId },
+      valeurTexte: { not: null },
+    },
     select: { valeurTexte: true },
     distinct: ["valeurTexte"],
   })
@@ -54,7 +62,7 @@ export async function findFiltersByOrganisation(
         if (staticOptions) {
           optionsListe = champ.optionsListe as string[]
         } else if (LIST_TYPE_FILTRES.has(f.typeFiltre)) {
-          optionsListe = await findDistinctEnrichmentValues(champ.id)
+          optionsListe = await findDistinctEnrichmentValues(organisationId, champ.id)
         }
       } else if (LIST_TYPE_FILTRES.has(f.typeFiltre) && isSourceFieldCode(f.codeMachine)) {
         optionsListe = await findDistinctSourceValues(organisationId, f.codeMachine as string)
@@ -114,7 +122,9 @@ export async function createFilter(
   return prisma.filtreRecherche.create({ data })
 }
 
+/** Scoped by organisationId: updateMany skips ids from another tenant instead of updating them. */
 export async function updateFiltersOrder(
+  organisationId: string,
   filters: {
     id: string
     ordreAffichage: number
@@ -125,8 +135,8 @@ export async function updateFiltersOrder(
 ) {
   await prisma.$transaction(
     filters.map((f) =>
-      prisma.filtreRecherche.update({
-        where: { id: f.id },
+      prisma.filtreRecherche.updateMany({
+        where: { id: f.id, organisationId },
         data: {
           ordreAffichage: f.ordreAffichage,
           estActif: f.estActif,
@@ -140,6 +150,7 @@ export async function updateFiltersOrder(
   )
 }
 
-export async function deleteFilter(id: string) {
-  return prisma.filtreRecherche.delete({ where: { id } })
+export async function deleteFilter(organisationId: string, id: string): Promise<boolean> {
+  const result = await prisma.filtreRecherche.deleteMany({ where: { id, organisationId } })
+  return result.count > 0
 }

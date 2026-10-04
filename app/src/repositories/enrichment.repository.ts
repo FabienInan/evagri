@@ -1,16 +1,23 @@
 import { prisma } from "@/lib/prisma"
 import { recommendFilterType } from "@/lib/filters"
+import { buildCodeMachine } from "@/lib/normalization/parsing"
 import { extractNonEmptyEnrichmentHeaders, inferType } from "@/parsers/excel.parser"
+import type { Prisma } from "@prisma/client"
 import type { EnrichmentChamp } from "@/types/import"
 
 export type { EnrichmentChamp }
 
-function buildCodeMachine(header: string): string {
-  return header
-    .toLowerCase()
-    .replace(/\s+/g, "_")
-    .replace(/[^a-z0-9_]/g, "")
-    .replace(/_+/g, "_")
+/** Two spreadsheet headers can collapse to the same codeMachine (accents, spacing, punctuation), so the
+ *  batch is deduplicated before it reaches the unique (organisationId, codeMachine) constraint. */
+function uniqueCodeMachine(base: string, seen: Set<string>): string {
+  const root = base || "champ"
+  let code = root
+  let suffix = 2
+  while (seen.has(code)) {
+    code = `${root}_${suffix++}`
+  }
+  seen.add(code)
+  return code
 }
 
 export async function ensureEnrichmentChamps(
@@ -18,50 +25,54 @@ export async function ensureEnrichmentChamps(
   sheetRows: Record<string, unknown>[]
 ): Promise<EnrichmentChamp[]> {
   const candidates = extractNonEmptyEnrichmentHeaders(sheetRows)
-  const result: EnrichmentChamp[] = []
+  if (candidates.length === 0) return []
 
-  for (const candidate of candidates) {
-    const codeMachine = buildCodeMachine(candidate.header)
+  const seen = new Set<string>()
+  const prepared = candidates.map((candidate) => ({
+    header: candidate.header,
+    codeMachine: uniqueCodeMachine(buildCodeMachine(candidate.header), seen),
+    sample: candidate.sample,
+  }))
 
-    const existing = await prisma.champEnrichissable.findUnique({
-      where: { organisationId_codeMachine: { organisationId, codeMachine } },
-    })
+  // One lookup for the whole batch instead of one per header, then create only the genuinely new ones.
+  const existing = await prisma.champEnrichissable.findMany({
+    where: { organisationId, codeMachine: { in: prepared.map((p) => p.codeMachine) } },
+    select: { id: true, codeMachine: true, typeDonnees: true },
+  })
+  const byCode = new Map(existing.map((c) => [c.codeMachine, c]))
 
-    if (existing) {
-      result.push({
-        id: existing.id,
-        header: candidate.header,
-        codeMachine,
-        typeDonnees: existing.typeDonnees,
-      })
-    } else {
-      const typeDonnees = inferType(candidate.sample)
-      const created = await prisma.champEnrichissable.create({
-        data: {
-          organisationId,
-          codeMachine,
-          nomAffichage: candidate.header,
+  const missing = prepared.filter((p) => !byCode.has(p.codeMachine))
+  if (missing.length > 0) {
+    const data: Prisma.ChampEnrichissableCreateManyInput[] = missing.map((p) => {
+      const typeDonnees = inferType(p.sample)
+      return {
+        organisationId,
+        codeMachine: p.codeMachine,
+        nomAffichage: p.header,
+        typeDonnees,
+        typeFiltreRecommande: recommendFilterType({
+          codeMachine: p.codeMachine,
+          nomAffichage: p.header,
           typeDonnees,
-          typeFiltreRecommande: recommendFilterType({
-            codeMachine,
-            nomAffichage: candidate.header,
-            typeDonnees,
-          }),
-          nature: "SAISISSABLE",
-          unite: "N/A",
-          applicableATypes: [],
-        },
-      })
-      result.push({
-        id: created.id,
-        header: candidate.header,
-        codeMachine,
-        typeDonnees: created.typeDonnees,
-      })
-    }
+        }),
+        nature: "SAISISSABLE",
+        unite: "N/A",
+        applicableATypes: [],
+      }
+    })
+    await prisma.champEnrichissable.createMany({ data })
+
+    const created = await prisma.champEnrichissable.findMany({
+      where: { organisationId, codeMachine: { in: missing.map((p) => p.codeMachine) } },
+      select: { id: true, codeMachine: true, typeDonnees: true },
+    })
+    for (const c of created) byCode.set(c.codeMachine, c)
   }
 
-  return result
+  return prepared.map((p) => {
+    const champ = byCode.get(p.codeMachine)!
+    return { id: champ.id, header: p.header, codeMachine: p.codeMachine, typeDonnees: champ.typeDonnees }
+  })
 }
 
 export async function findChampByCodeMachine(

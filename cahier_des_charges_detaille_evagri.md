@@ -477,6 +477,8 @@ Par défaut : **ET**. Groupes **OU** possibles.
 
 #### 7.5.1 Structure de la fiche (deux zones)
 
+##### A analyser
+
 La fiche transaction est divisée en **deux zones visuelles distinctes** :
 
 1. **Zone principale (gauche/centre)** : contient **uniquement les champs enrichissables de nature `SAISISSABLE`** actifs (`est_affiche = true`). 
@@ -487,6 +489,12 @@ Les données sources brutes (prix, vendeur, acheteur, lots, superficie totale, e
 - **Numéro de lot**
 
 **Important** : Les indicateurs ajustés dans le temps ne sont **pas affichés** sur cette fiche.
+
+##### Analysée
+
+Contient les champs sources en lecture seul et les zones de la fiche à analyser (en lecture seule)
+
+
 
 #### 7.5.2 Affichage des valeurs
 
@@ -794,4 +802,4 @@ L’Administrateur peut désactiver un compte utilisateur. Sur demande, il peut 
 | **Version gamma** | authentification et rôles,<br>écran administrateur gestion des utilisateurs | mi novembre 2026 |
 | **Version RC** | import JLR | fin novembre 2026 |
 
-Phase de test intense la semaine du 19 au 23 décembre (import la fds, test en condition reelle de SImon et correction eventuelle des bugs)
+Phase de test intense la semaine du 19 au 23 décembre (import la fds, test en condition reelle de Simon et correction eventuelle des bugs)

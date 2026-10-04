@@ -3,6 +3,7 @@
 import { Check, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
 import {
   Select,
   SelectContent,
@@ -21,7 +22,8 @@ export function FicheHeader({
   typeCode,
   statut,
   saving,
-  error,
+  errors,
+  typeError,
   onTypeChange,
   onSave,
   onAnalyse,
@@ -32,7 +34,9 @@ export function FicheHeader({
   typeCode: string | null
   statut: string
   saving: boolean
-  error: string | null
+  /** Fiche-wide messages (V-001, V-004, échec générique) — the per-field ones render under their field. */
+  errors: string[]
+  typeError: string | null
   onTypeChange: (code: string | null) => void
   onSave: () => void
   onAnalyse: () => void
@@ -40,20 +44,24 @@ export function FicheHeader({
   const isEdition = mode === "edition"
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
-          <div>
-            <p className="text-xs text-muted-foreground">N° d&apos;inscription</p>
-            <p className="text-sm font-medium text-foreground">{transaction.numeroInscription ?? "—"}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">N° de lot</p>
-            <p className="text-sm font-medium text-foreground">
-              {transaction.lotsCadastraux.length > 0 ? transaction.lotsCadastraux.join(", ") : "—"}
+    <Card className="gap-0 py-0 pb-0">
+      <div className="flex flex-wrap items-start justify-between gap-4 px-5 pt-5">
+        <div className="min-w-0 space-y-2">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            N° d&apos;inscription
+          </p>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <p className="text-2xl font-semibold tracking-tight tabular-nums text-foreground">
+              {transaction.numeroInscription ?? "—"}
             </p>
+            <Badge variant={statut === "Analysée" ? "default" : "warning"}>{statut}</Badge>
           </div>
-          <Badge variant={statut === "Analysée" ? "default" : "warning"}>{statut}</Badge>
+          <p className="text-sm text-muted-foreground">
+            N° de lot :{" "}
+            <span className="font-medium tabular-nums text-foreground">
+              {transaction.lotsCadastraux.length > 0 ? transaction.lotsCadastraux.join(", ") : "—"}
+            </span>
+          </p>
         </div>
 
         {isEdition && (
@@ -70,27 +78,46 @@ export function FicheHeader({
         )}
       </div>
 
-      <div className="flex items-center gap-3">
-        <span className="text-sm font-medium text-foreground">Type de transaction *</span>
-        <Select
-          value={typeCode ?? ""}
-          disabled={!isEdition}
-          onValueChange={(v) => onTypeChange(v || null)}
-        >
-          <SelectTrigger className="h-9 w-64 rounded-lg">
-            <SelectValue placeholder="Sélectionner..." />
-          </SelectTrigger>
-          <SelectContent>
-            {typologies.map((t) => (
-              <SelectItem key={t.id} value={t.code}>
-                {t.nom}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="mt-4 border-t border-border/60 px-5 py-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-sm font-medium text-foreground">
+            Type de transaction <span className="text-destructive">*</span>
+          </span>
+          <Select
+            value={typeCode ?? ""}
+            disabled={!isEdition}
+            onValueChange={(v) => onTypeChange(v || null)}
+          >
+            <SelectTrigger
+              className="h-9 w-64 rounded-lg"
+              aria-invalid={typeError ? true : undefined}
+              aria-describedby={typeError ? "type-transaction-error" : undefined}
+            >
+              <SelectValue placeholder="Sélectionner..." />
+            </SelectTrigger>
+            <SelectContent>
+              {typologies.map((t) => (
+                <SelectItem key={t.id} value={t.code}>
+                  {t.nom}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {typeError && (
+          <p id="type-transaction-error" className="mt-1.5 text-sm text-destructive">
+            {typeError}
+          </p>
+        )}
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
-    </div>
+      {errors.length > 0 && (
+        <ul className="space-y-1 px-5 pb-4 text-sm text-destructive">
+          {errors.map((message, i) => (
+            <li key={i}>{message}</li>
+          ))}
+        </ul>
+      )}
+    </Card>
   )
 }

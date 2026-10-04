@@ -9,11 +9,14 @@ const PAGE_TITLES: Record<string, string> = {
   "/transactions/map": "Carte des transactions",
   "/admin/import": "Gestion des imports",
   "/admin/filters": "Configuration des filtres",
+  "/admin/champs": "Champs enrichissables",
 }
 
 export function Header({ title }: { title: string }) {
   const pathname = usePathname()
-  const resolvedTitle = PAGE_TITLES[pathname] ?? title
+  const resolvedTitle =
+    PAGE_TITLES[pathname] ??
+    (pathname.startsWith("/transactions/") ? "Fiche de transaction" : title)
   const { action } = useHeaderActions()
   const isAdmin = pathname.startsWith("/admin")
 

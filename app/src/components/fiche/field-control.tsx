@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { parseFrenchNumber } from "@/lib/normalization/parsing"
 import type { FicheValeur } from "@/lib/fiche"
 import type { ChampEnrichissableConfig } from "@/types/champ"
 
@@ -24,79 +25,101 @@ export function FieldControl({
   onChange,
   onBlur,
   disabled,
+  error,
 }: {
   champ: ChampEnrichissableConfig
   valeur: FicheValeur
   onChange: (valeur: FicheValeur) => void
   onBlur?: () => void
   disabled?: boolean
+  error?: string | null
 }) {
   const readOnly = disabled || !champ.estModifiable
   const label = `${champ.nomAffichage}${champ.estObligatoire ? " *" : ""}${champ.unite !== "N/A" ? ` (${champ.unite})` : ""}`
+  const errorId = error ? `${champ.codeMachine}-error` : undefined
 
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-sm font-medium">{label}</Label>
-
-      {champ.typeDonnees === "BOOLEAN" ? (
-        <div className="h-10 flex items-center">
-          <Switch
-            checked={Boolean(valeur)}
-            disabled={readOnly}
-            onCheckedChange={(checked) => {
-              onChange(checked)
-              onBlur?.()
-            }}
-          />
-        </div>
-      ) : champ.typeDonnees === "LISTE" ? (
-        <Select
-          value={toInputValue(valeur)}
+  // Le contrôle est un simple enfant de la cellule : l'alignement entre champs d'une même rangée est
+  // assuré par les trois pistes partagées (subgrid) — libellé, contrôle, erreur —, pas par un mt-auto.
+  const control =
+    champ.typeDonnees === "BOOLEAN" ? (
+      <div className="flex h-10 items-center">
+        <Switch
+          checked={Boolean(valeur)}
           disabled={readOnly}
-          onValueChange={(v) => {
-            onChange(v)
+          aria-invalid={error ? true : undefined}
+          aria-describedby={errorId}
+          onCheckedChange={(checked) => {
+            onChange(checked)
             onBlur?.()
           }}
-        >
-          <SelectTrigger className="h-10 w-full rounded-lg">
-            <SelectValue placeholder="Sélectionner..." />
-          </SelectTrigger>
-          <SelectContent>
-            {(champ.optionsListe ?? []).map((option) => (
-              <SelectItem key={option} value={option}>
-                {option}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      ) : champ.typeDonnees === "DATE" ? (
-        <Input
-          type="date"
-          className="h-10"
-          value={toInputValue(valeur)}
-          disabled={readOnly}
-          onChange={(e) => onChange(e.target.value === "" ? null : e.target.value)}
-          onBlur={onBlur}
         />
-      ) : (
-        <Input
-          type={champ.typeDonnees === "DECIMAL" || champ.typeDonnees === "ENTIER" ? "number" : "text"}
-          step={champ.typeDonnees === "DECIMAL" ? "any" : undefined}
-          className="h-10"
-          value={toInputValue(valeur)}
-          disabled={readOnly}
-          onChange={(e) => {
-            if (e.target.value === "") {
-              onChange(null)
-            } else if (champ.typeDonnees === "DECIMAL" || champ.typeDonnees === "ENTIER") {
-              const n = Number(e.target.value)
-              onChange(Number.isNaN(n) ? null : n)
-            } else {
-              onChange(e.target.value)
-            }
-          }}
-          onBlur={onBlur}
-        />
+      </div>
+    ) : champ.typeDonnees === "LISTE" ? (
+      <Select
+        value={toInputValue(valeur)}
+        disabled={readOnly}
+        onValueChange={(v) => {
+          onChange(v)
+          onBlur?.()
+        }}
+      >
+        <SelectTrigger className="h-10 w-full rounded-lg" aria-invalid={error ? true : undefined} aria-describedby={errorId}>
+          <SelectValue placeholder="Sélectionner..." />
+        </SelectTrigger>
+        <SelectContent>
+          {(champ.optionsListe ?? []).map((option) => (
+            <SelectItem key={option} value={option}>
+              {option}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    ) : champ.typeDonnees === "DATE" ? (
+      <Input
+        type="date"
+        className="h-10"
+        value={toInputValue(valeur)}
+        disabled={readOnly}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={errorId}
+        onChange={(e) => onChange(e.target.value === "" ? null : e.target.value)}
+        onBlur={onBlur}
+      />
+    ) : (
+      <Input
+        type={champ.typeDonnees === "DECIMAL" || champ.typeDonnees === "ENTIER" ? "number" : "text"}
+        step={champ.typeDonnees === "DECIMAL" ? "any" : undefined}
+        className="h-10"
+        value={toInputValue(valeur)}
+        disabled={readOnly}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={errorId}
+        onChange={(e) => {
+          if (e.target.value === "") {
+            onChange(null)
+          } else if (champ.typeDonnees === "DECIMAL" || champ.typeDonnees === "ENTIER") {
+            // parseFrenchNumber tolerates a decimal comma and thousands separators, so a value pasted
+            // from a spreadsheet ("1 234,5") is not silently dropped to null.
+            onChange(parseFrenchNumber(e.target.value))
+          } else {
+            onChange(e.target.value)
+          }
+        }}
+        onBlur={onBlur}
+      />
+    )
+
+  // Subgrid sur 3 pistes : libellé, contrôle, erreur. Les pistes sont partagées avec les champs de
+  // la même rangée, donc les contrôles restent alignés qu'un libellé passe sur deux lignes ou qu'une
+  // erreur apparaisse sous un champ (la piste erreur est simplement vide pour les autres).
+  return (
+    <div className="grid grid-rows-subgrid row-span-3 gap-1.5">
+      <Label className="text-sm font-medium">{label}</Label>
+      {control}
+      {error && (
+        <p id={errorId} className="text-sm text-destructive">
+          {error}
+        </p>
       )}
     </div>
   )

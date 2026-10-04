@@ -130,11 +130,13 @@ export async function findExistingTransaction(
 ) {
   if (!numeroInscription) return null
 
+  // Symmetric null handling: an unparsed date must dedup against rows that also have no date, instead of
+  // matching a same-numbered row from another date (which silently dropped a legitimate second sale).
   const where: Prisma.TransactionSourceWhereInput = {
     organisationId,
     numeroInscription,
+    dateVente: dateVente ?? null,
   }
-  if (dateVente) where.dateVente = dateVente
 
   return prisma.transactionSource.findFirst({ where })
 }

@@ -8,18 +8,19 @@ import { cn } from "@/lib/utils"
 export function TransactionViewToggle() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const query = searchParams.toString()
+  const withQuery = (path: string) => (query ? `${path}?${query}` : path)
 
-  const otherHref = pathname === "/transactions"
-    ? `/transactions/map?${searchParams.toString()}`
-    : `/transactions?${searchParams.toString()}`
+  const isListView = pathname === "/transactions"
+  const isMapView = pathname === "/transactions/map"
 
   return (
     <div className="inline-flex items-center rounded-md border border-border bg-card p-1 shadow-sm">
       <Link
-        href={`/transactions?${searchParams.toString()}`}
+        href={withQuery("/transactions")}
         className={cn(
           "flex items-center gap-1.5 rounded px-2.5 py-1 text-sm font-medium transition-colors",
-          pathname === "/transactions"
+          isListView
             ? "bg-primary text-primary-foreground"
             : "text-muted-foreground hover:bg-muted hover:text-foreground"
         )}
@@ -28,10 +29,10 @@ export function TransactionViewToggle() {
         <span className="hidden sm:inline">Liste</span>
       </Link>
       <Link
-        href={otherHref}
+        href={withQuery("/transactions/map")}
         className={cn(
           "flex items-center gap-1.5 rounded px-2.5 py-1 text-sm font-medium transition-colors",
-          pathname === "/transactions/map"
+          isMapView
             ? "bg-primary text-primary-foreground"
             : "text-muted-foreground hover:bg-muted hover:text-foreground"
         )}

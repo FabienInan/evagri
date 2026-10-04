@@ -17,7 +17,10 @@ import { serializeTransaction } from "@/serializers/transaction.serializer"
 import { buildSourceNumbers, buildStorageEntries, resolveTypeTransaction, TYPE_TRANSACTION_CODE, validateFiche } from "@/lib/fiche"
 import { saveActePDF } from "@/lib/file-storage"
 
-export type FicheActionResult = { ok: true } | { ok: false; error: string }
+/** One blocking rule violation; `champ` is the codeMachine to display the message under, or null for a fiche-wide message. */
+export type FicheFieldError = { code: string; message: string; champ: string | null }
+
+export type FicheActionResult = { ok: true } | { ok: false; error: string; errors?: FicheFieldError[] }
 
 const valeurSchema = z.union([z.string(), z.number(), z.boolean(), z.null()])
 
@@ -50,7 +53,7 @@ export async function saveFiche(input: unknown): Promise<FicheActionResult> {
     typeCode: parsed.data.typeTransactionCode,
     dateVente: transaction.dateVente,
   })
-  if (errors.length > 0) return { ok: false, error: errors[0].message }
+  if (errors.length > 0) return { ok: false, error: errors[0].message, errors }
 
   await saveFicheValues(
     record.enrichie.id,
@@ -87,7 +90,7 @@ export async function setFicheStatut(id: string, statut: string): Promise<FicheA
       typeCode,
       dateVente: transaction.dateVente,
     })
-    if (errors.length > 0) return { ok: false, error: errors[0].message }
+    if (errors.length > 0) return { ok: false, error: errors[0].message, errors }
   }
 
   await updateFicheStatut(record.enrichie.id, statut, statut === "Analysée" ? new Date() : record.enrichie.dateStatut ?? null)
@@ -125,7 +128,11 @@ export async function uploadDocument(
 }
 
 export async function deleteDocument(documentId: string): Promise<FicheActionResult> {
-  await deleteDocumentRepo(documentId)
+  const organisationId = getCurrentOrganisationId()
+  const deleted = await deleteDocumentRepo(organisationId, documentId)
+  if (!deleted) {
+    return { ok: false, error: "Document introuvable." }
+  }
   revalidatePath("/transactions")
   return { ok: true }
 }

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest"
 import { readFileSync } from "fs"
 import { join } from "path"
+import * as XLSX from "xlsx"
 import { parseWorkbook, rowToSourceFields, extractNonEmptyEnrichmentHeaders, inferType } from "@/parsers/excel.parser"
 
 const rawFixture = readFileSync(join(__dirname, "../fixtures/minimal.xlsx"))
@@ -66,5 +67,18 @@ describe("excel parser", () => {
     expect(inferType(12)).toBe("ENTIER")
     expect(inferType("texte")).toBe("TEXTE")
     expect(inferType(true)).toBe("BOOLEAN")
+  })
+
+  it("trims surrounding spaces off header keys", () => {
+    const sheet = XLSX.utils.aoa_to_sheet([
+      ["No d'enr.", "Colonne  "],
+      [1, "ABC"],
+    ])
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, sheet, "Terre")
+    const buffer = XLSX.write(workbook, { type: "array", bookType: "xlsx" })
+
+    const parsed = parseWorkbook(buffer)
+    expect(Object.keys(parsed[0].rows[0])).toContain("Colonne")
   })
 })

@@ -6,6 +6,7 @@ import {
   LayoutList,
   Upload,
   SlidersHorizontal,
+  ListTree,
   LogOut,
   PanelLeftClose,
   Sprout,
@@ -17,6 +18,7 @@ const NAV_ITEMS = [
   { href: "/transactions", label: "Liste des transactions", icon: LayoutList },
   { href: "/admin/import", label: "Gestion des imports", icon: Upload },
   { href: "/admin/filters", label: "Configuration des filtres", icon: SlidersHorizontal },
+  { href: "/admin/champs", label: "Champs enrichissables", icon: ListTree },
 ]
 
 export function Sidebar({

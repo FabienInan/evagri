@@ -14,6 +14,7 @@ import {
   updateFiltersOrder,
   type CreateFilterRepositoryInput,
 } from "@/repositories/filters.repository"
+import { findChampForOrganisation } from "@/repositories/champs.repository"
 
 export async function listFilters() {
   const organisationId = getCurrentOrganisationId()
@@ -36,41 +37,55 @@ const createFilterSchema = z.object({
 
 export type CreateFilterInput = z.infer<typeof createFilterSchema>
 
-export async function createFilter(input: CreateFilterInput) {
-  const organisationId = getCurrentOrganisationId()
-  const parsed = createFilterSchema.parse(input)
+/** Server actions return errors instead of throwing them: in production Next.js masks the message of a
+ *  thrown action error, so a validation message would reach the user as a generic error. */
+export type FilterActionResult = { ok: true } | { ok: false; error: string }
 
-  if (parsed.champEnrichissableId) {
+export async function createFilter(input: CreateFilterInput): Promise<FilterActionResult> {
+  const organisationId = getCurrentOrganisationId()
+  const parsed = createFilterSchema.safeParse(input)
+  if (!parsed.success) {
+    return { ok: false, error: "Données invalides." }
+  }
+
+  if (parsed.data.champEnrichissableId) {
+    const champ = await findChampForOrganisation(organisationId, parsed.data.champEnrichissableId)
+    if (!champ) {
+      return { ok: false, error: "Champ introuvable." }
+    }
+
     const existing = await findFilterByChampEnrichissableId(
       organisationId,
-      parsed.champEnrichissableId
+      parsed.data.champEnrichissableId
     )
     if (existing) {
-      throw new Error("Un filtre existe déjà pour ce champ.")
+      return { ok: false, error: "Un filtre existe déjà pour ce champ." }
     }
   }
 
-  if (parsed.codeMachine) {
-    const existing = await findFilterByCodeMachine(organisationId, parsed.codeMachine)
+  if (parsed.data.codeMachine) {
+    const existing = await findFilterByCodeMachine(organisationId, parsed.data.codeMachine)
     if (existing) {
-      throw new Error("Un filtre existe déjà pour ce code virtuel.")
+      return { ok: false, error: "Un filtre existe déjà pour ce code virtuel." }
     }
   }
 
   const data: CreateFilterRepositoryInput = {
     organisation: { connect: { id: organisationId } },
-    nomFiltre: parsed.nomFiltre,
-    typeFiltre: parsed.typeFiltre,
-    champEnrichissable: parsed.champEnrichissableId
-      ? { connect: { id: parsed.champEnrichissableId } }
+    nomFiltre: parsed.data.nomFiltre,
+    typeFiltre: parsed.data.typeFiltre,
+    champEnrichissable: parsed.data.champEnrichissableId
+      ? { connect: { id: parsed.data.champEnrichissableId } }
       : undefined,
-    codeMachine: parsed.codeMachine,
-    operateursDisponibles: parsed.operateurs as CreateFilterRepositoryInput["operateursDisponibles"],
-    ordreAffichage: parsed.ordreAffichage,
+    codeMachine: parsed.data.codeMachine,
+    operateursDisponibles:
+      parsed.data.operateurs as CreateFilterRepositoryInput["operateursDisponibles"],
+    ordreAffichage: parsed.data.ordreAffichage,
   }
 
   await createFilterRepo(data)
   revalidatePath("/admin/filters")
+  return { ok: true }
 }
 
 export async function publishFilters(
@@ -81,12 +96,19 @@ export async function publishFilters(
     typeFiltre?: FilterType
     operateursDisponibles?: FilterOperator[] | null
   }[]
-) {
-  await updateFiltersOrder(filters)
+): Promise<FilterActionResult> {
+  const organisationId = getCurrentOrganisationId()
+  await updateFiltersOrder(organisationId, filters)
   revalidatePath("/admin/filters")
+  return { ok: true }
 }
 
-export async function deleteFilter(id: string) {
-  await deleteFilterRepo(id)
+export async function deleteFilter(id: string): Promise<FilterActionResult> {
+  const organisationId = getCurrentOrganisationId()
+  const deleted = await deleteFilterRepo(organisationId, id)
+  if (!deleted) {
+    return { ok: false, error: "Filtre introuvable." }
+  }
   revalidatePath("/admin/filters")
+  return { ok: true }
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, type FormEvent } from "react"
+import { useEffect, useMemo, useState, type FormEvent } from "react"
 import { Search, RotateCcw, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -102,6 +102,14 @@ export function TransactionFilters({
   const [values, setValues] = useState(initialValues.values)
   const [lotValue, setLotValue] = useState(initialValues.lot)
   const [activeFilters, setActiveFilters] = useState<FilterInput[]>(initialFilters)
+
+  // Resync with the URL-backed filters: a filter applied elsewhere (e.g. a map geo selection) would
+  // otherwise never appear as a chip, because state is only seeded from the prop on first render.
+  useEffect(() => {
+    setValues(initialValues.values)
+    setLotValue(initialValues.lot)
+    setActiveFilters(initialFilters)
+  }, [initialValues, initialFilters])
 
   function buildFilters(
     nextValues: Record<string, { operator: string; value: string }>,

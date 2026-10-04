@@ -5,24 +5,30 @@ import { filterMapParamsSchema } from "@/validators/filter.validator"
 import { NextResponse } from "next/server"
 
 function serializeMapTransaction(t: MapTransaction) {
+  const num = (value: { toString(): string } | null) => (value == null ? null : Number(value))
   return {
     id: t.id,
     numeroInscription: t.numeroInscription ?? null,
     dateVente: t.dateVente ? t.dateVente.toISOString() : null,
-    prixVente: t.prixVente ? Number(t.prixVente) : null,
-    superficieTotaleHectare: t.superficieTotaleHectare ? Number(t.superficieTotaleHectare) : null,
-    latitude: t.latitude ? Number(t.latitude) : null,
-    longitude: t.longitude ? Number(t.longitude) : null,
+    // Explicit null checks (not truthiness): 0 is a legitimate price, area, and coordinate (equator,
+    // prime meridian), and truthiness would turn each of those into a null.
+    prixVente: num(t.prixVente),
+    superficieTotaleHectare: num(t.superficieTotaleHectare),
+    latitude: t.latitude ?? null,
+    longitude: t.longitude ?? null,
     municipalite: t.municipalite ?? null,
   }
 }
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const params = filterMapParamsSchema.parse({
+  const parsed = filterMapParamsSchema.safeParse({
     filters: searchParams.get("filters") ?? "[]",
   })
-  const filters = params.filters
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Paramètres invalides." }, { status: 400 })
+  }
+  const filters = parsed.data.filters
   const geoFilter = findGeoFilter(filters)
   const orgId = getCurrentOrganisationId()
 

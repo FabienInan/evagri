@@ -75,6 +75,16 @@ export function TransactionsPageClient({
     }
   }, [filters])
 
+  // Resync with fresh server data (router.refresh) only while unfiltered: initialData is always the
+  // unfiltered first page, so applying it under an active filter would silently drop that filter.
+  useEffect(() => {
+    if (filters.length) return
+    setTransactions(initialData.transactions)
+    setTotal(initialData.total)
+    setPage(1)
+    setHasMore(initialData.transactions.length < initialData.total)
+  }, [initialData, filters])
+
   useEffect(() => {
     const el = sentinelRef.current
     if (!el) return
@@ -112,7 +122,7 @@ export function TransactionsPageClient({
     setTransactions(res.transactions)
     setTotal(res.total)
     setPage(1)
-    setHasMore(res.transactions.length === PAGE_SIZE && res.transactions.length < res.total)
+    setHasMore(res.transactions.length === PAGE_SIZE && PAGE_SIZE < res.total)
   }
 
   return (
