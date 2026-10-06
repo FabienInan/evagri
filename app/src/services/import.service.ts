@@ -1,6 +1,7 @@
 import Decimal from "decimal.js"
 import { geocodeLotCadastral } from "@/lib/cadastre"
 import { parseBooleanish, parseFrenchNumber } from "@/lib/normalization/parsing"
+import { normalizeEnrichmentText } from "@/lib/normalization/transforms"
 import { ensureChampByCodeMachine, findChampByCodeMachine } from "@/repositories/enrichment.repository"
 import { incrementImportationCounters } from "@/repositories/import.repository"
 import {
@@ -63,7 +64,7 @@ function normalizeText(value: unknown): string | null {
   return normalized || null
 }
 
-function parseEnrichmentValue(
+export function parseEnrichmentValue(
   champ: EnrichmentChamp,
   rawValue: unknown
 ): Omit<EnrichmentValueInput, "champEnrichissableId"> {
@@ -73,8 +74,10 @@ function parseEnrichmentValue(
   if (champ.typeDonnees === "BOOLEAN") {
     return { valeurNombre: null, valeurTexte: null, valeurBooleen: parseBooleanish(rawValue) }
   }
-  if (champ.typeDonnees === "TEXTE") {
-    return { valeurNombre: null, valeurTexte: String(rawValue), valeurBooleen: null }
+  if (champ.typeDonnees === "TEXTE" || champ.typeDonnees === "LISTE" || champ.typeDonnees === "MULTI_SELECT") {
+    // LISTE/MULTI_SELECT values are stored as text too, so a catalogued field (e.g. cptaq -> Oui/Non/Partiel)
+    // still runs its canonicalizer even though its type is no longer TEXTE.
+    return { valeurNombre: null, valeurTexte: normalizeEnrichmentText(champ.codeMachine, rawValue), valeurBooleen: null }
   }
   const n = parseFrenchNumber(rawValue)
   if (n !== null) {

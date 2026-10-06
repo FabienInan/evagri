@@ -1,8 +1,15 @@
 export const NATURE_CHAMP = ["SAISISSABLE", "CALCULE"] as const
 export type NatureChamp = (typeof NATURE_CHAMP)[number]
 
-export const TYPE_DONNEES_CHAMP = ["DECIMAL", "ENTIER", "LISTE", "TEXTE", "BOOLEAN", "DATE"] as const
+export const TYPE_DONNEES_CHAMP = ["DECIMAL", "ENTIER", "LISTE", "MULTI_SELECT", "TEXTE", "BOOLEAN", "DATE"] as const
 export type TypeDonneesChamp = (typeof TYPE_DONNEES_CHAMP)[number]
+
+/** LISTE and MULTI_SELECT both draw their values from `optionsListe`; MULTI_SELECT stores several of them. */
+export const OPTION_TYPES: TypeDonneesChamp[] = ["LISTE", "MULTI_SELECT"]
+
+export function hasOptions(typeDonnees: TypeDonneesChamp): boolean {
+  return OPTION_TYPES.includes(typeDonnees)
+}
 
 /** Mirrors the ChampEnrichissable Prisma model (§6.5 du cahier des charges). */
 export interface ChampEnrichissableConfig {

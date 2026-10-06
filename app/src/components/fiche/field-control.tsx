@@ -11,6 +11,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { parseFrenchNumber } from "@/lib/normalization/parsing"
+import { joinMultiValue, parseMultiValue } from "@/lib/multi-value"
+import { MultiSelect } from "@/components/ui/multi-select"
 import type { FicheValeur } from "@/lib/fiche"
 import type { ChampEnrichissableConfig } from "@/types/champ"
 
@@ -37,6 +39,18 @@ export function FieldControl({
   const readOnly = disabled || !champ.estModifiable
   const label = `${champ.nomAffichage}${champ.estObligatoire ? " *" : ""}${champ.unite !== "N/A" ? ` (${champ.unite})` : ""}`
   const errorId = error ? `${champ.codeMachine}-error` : undefined
+
+  const currentText = toInputValue(valeur)
+  const options = champ.optionsListe ?? []
+  // Tolerant display: a value the options list does not know (a legacy combination, "Friche", ...) is kept
+  // visible as an extra choice rather than rendered blank, so nothing already stored is lost from view.
+  const listOptions =
+    currentText !== "" && !options.includes(currentText) ? [currentText, ...options] : options
+  const multiSelection = parseMultiValue(valeur)
+  const multiOptions = (() => {
+    const extras = multiSelection.filter((v) => !options.includes(v))
+    return extras.length > 0 ? [...extras, ...options] : options
+  })()
 
   // Le contrôle est un simple enfant de la cellule : l'alignement entre champs d'une même rangée est
   // assuré par les trois pistes partagées (subgrid) — libellé, contrôle, erreur —, pas par un mt-auto.
@@ -67,13 +81,25 @@ export function FieldControl({
           <SelectValue placeholder="Sélectionner..." />
         </SelectTrigger>
         <SelectContent>
-          {(champ.optionsListe ?? []).map((option) => (
+          {listOptions.map((option) => (
             <SelectItem key={option} value={option}>
               {option}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
+    ) : champ.typeDonnees === "MULTI_SELECT" ? (
+      <MultiSelect
+        options={multiOptions}
+        selected={multiSelection}
+        disabled={readOnly}
+        invalid={Boolean(error)}
+        describedBy={errorId}
+        onChange={(next) => {
+          onChange(joinMultiValue(next))
+          onBlur?.()
+        }}
+      />
     ) : champ.typeDonnees === "DATE" ? (
       <Input
         type="date"

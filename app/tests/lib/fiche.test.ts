@@ -14,6 +14,7 @@ import {
   toNumericValues,
   toStorageValue,
   validateFiche,
+  withRecomputedIndicateurs,
 } from "@/lib/fiche"
 import type { ChampEnrichissableConfig } from "@/types/champ"
 
@@ -201,6 +202,31 @@ describe("buildCalculationContext and recomputeIndicateurs", () => {
   })
 })
 
+describe("withRecomputedIndicateurs", () => {
+  it("computes the CALCULE indicators from the source columns, keeping the other values", () => {
+    const champs = [
+      champ({ id: "k", codeMachine: "taux_global", nature: "CALCULE", regleCalcul: "prix_vente / superficie_totale_hectare" }),
+      champ({ id: "s", codeMachine: "superficie_boise_ha", nature: "SAISISSABLE" }),
+    ]
+    const valeurs = withRecomputedIndicateurs(
+      champs,
+      { prixVente: 720000, superficieTotaleHectare: 89.61 },
+      { superficie_boise_ha: 12 }
+    )
+    // 720000 / 89.61 = 8034.8... → arrondi à l'entier
+    expect(valeurs.taux_global).toBe(8035)
+    expect(valeurs.superficie_boise_ha).toBe(12)
+  })
+
+  it("leaves the indicator null when an operand is missing", () => {
+    const champs = [
+      champ({ id: "k", codeMachine: "taux_global", nature: "CALCULE", regleCalcul: "prix_vente / superficie_totale_hectare" }),
+    ]
+    const valeurs = withRecomputedIndicateurs(champs, { prixVente: null, superficieTotaleHectare: null }, {})
+    expect(valeurs.taux_global).toBeNull()
+  })
+})
+
 describe("toNumericValues", () => {
   it("keeps numbers, parses numeric strings and drops the rest", () => {
     expect(toNumericValues({ a: 1, b: "2.5", c: "", d: null, e: "x" })).toEqual({ a: 1, b: 2.5 })
@@ -216,6 +242,18 @@ describe("toStorageValue", () => {
   })
   it("routes text and list to valeurTexte", () => {
     expect(toStorageValue("LISTE", "CULTIVEE")).toEqual({ valeurNombre: null, valeurTexte: "CULTIVEE", valeurBooleen: null })
+  })
+  it("stores a multi-selection as a delimited valeurTexte", () => {
+    expect(toStorageValue("MULTI_SELECT", "Prairie, Vigne")).toEqual({
+      valeurNombre: null,
+      valeurTexte: "Prairie, Vigne",
+      valeurBooleen: null,
+    })
+    expect(toStorageValue("MULTI_SELECT", null)).toEqual({
+      valeurNombre: null,
+      valeurTexte: null,
+      valeurBooleen: null,
+    })
   })
   it("returns all-null for an empty value", () => {
     expect(toStorageValue("TEXTE", "")).toEqual({ valeurNombre: null, valeurTexte: null, valeurBooleen: null })
@@ -322,6 +360,13 @@ describe("validateFiche", () => {
     const ranged = champ({ id: "g", codeMachine: "pente", plageMin: 0, plageMax: 20 })
     const errors = validateFiche({ ...baseFor([...baseChamps, ranged]), valeurs: { pente: 45 } })
     expect(errors.find((e) => e.code === "V-007")?.champ).toBe("pente")
+  })
+
+  it("keeps a MULTI_SELECT value out of the numeric rules", () => {
+    const cultures = champ({ id: "mc", codeMachine: "type_de_culture", typeDonnees: "MULTI_SELECT", unite: "N/A" })
+    // "-5" would trip V-006 if a MULTI_SELECT value were coerced to a number.
+    const errors = validateFiche({ ...baseFor([...baseChamps, cultures]), valeurs: { type_de_culture: "-5" } })
+    expect(errors.some((e) => e.champ === "type_de_culture")).toBe(false)
   })
 
   it("attaches each rule to the champ to correct", () => {

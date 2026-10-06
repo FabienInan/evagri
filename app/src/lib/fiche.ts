@@ -3,6 +3,7 @@ import { SOURCE_FIELDS } from "@/lib/transaction-source-fields"
 import { evaluateRule, roundToInteger, type CalculationContext } from "@/lib/calculator"
 import type { TypologieOption } from "@/repositories/typologie.repository"
 import { validateEnrichment, validateSaleDate, type RangeCheck } from "@/lib/validation"
+import { joinMultiValue } from "@/lib/multi-value"
 
 export type FicheMode = "edition" | "consultation"
 export type FicheValeur = string | number | boolean | null
@@ -187,6 +188,18 @@ export function recomputeIndicateurs(
   return result
 }
 
+/** Returns the displayed values with the CALCULE indicators recomputed from the source columns and the
+ *  current enrichment values. Used both when the fiche opens (indicators must show immediately, not only
+ *  after a blur) and whenever a field changes; the computed values are persisted on save like any other. */
+export function withRecomputedIndicateurs(
+  champs: ChampEnrichissableConfig[],
+  transaction: Record<string, unknown>,
+  valeurs: Record<string, FicheValeur>
+): Record<string, FicheValeur> {
+  const context = buildCalculationContext(transaction, toNumericValues(valeurs))
+  return { ...valeurs, ...recomputeIndicateurs(champs, context) }
+}
+
 export function toStorageValue(
   typeDonnees: TypeDonneesChamp,
   valeur: FicheValeur
@@ -203,6 +216,10 @@ export function toStorageValue(
     case "BOOLEAN": {
       const b = typeof valeur === "boolean" ? valeur : valeur === "true"
       return { ...empty, valeurBooleen: b }
+    }
+    case "MULTI_SELECT": {
+      const text = Array.isArray(valeur) ? joinMultiValue(valeur) : String(valeur)
+      return text === null ? empty : { ...empty, valeurTexte: text }
     }
     default:
       return { ...empty, valeurTexte: String(valeur) }
@@ -329,7 +346,7 @@ export function validateFiche(input: {
     if (champ.nature !== "SAISISSABLE") continue
     const value = pickNumber(input.valeurs, [champ.codeMachine])
 
-    if (value !== null && champ.typeDonnees !== "TEXTE" && champ.typeDonnees !== "LISTE" && champ.typeDonnees !== "DATE" && champ.typeDonnees !== "BOOLEAN") {
+    if (value !== null && champ.typeDonnees !== "TEXTE" && champ.typeDonnees !== "LISTE" && champ.typeDonnees !== "MULTI_SELECT" && champ.typeDonnees !== "DATE" && champ.typeDonnees !== "BOOLEAN") {
       if (champ.codeMachine !== "longitude") valeursNumeriques[champ.codeMachine] = value
     }
     if (value !== null && champ.unite === "%") champsPourcentage[champ.codeMachine] = value

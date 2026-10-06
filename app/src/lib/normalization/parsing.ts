@@ -3,6 +3,15 @@ import { cleanText } from "./mappings"
 const TRUE_TEXT = new Set(["true", "1", "oui", "yes", "vrai", "o", "y"])
 const FALSE_TEXT = new Set(["false", "0", "non", "no", "faux", "n", "aucune", "aucun"])
 
+/**
+ * Explicit text tokens that count as an affirmative/negative answer, in a stable order. Unlike
+ * parseBooleanish, no "any other text is true" fallback: a boolean search must not match arbitrary values
+ * (e.g. "Partiel"). Used to match a boolean filter against a value stored as text rather than as a boolean.
+ */
+export function booleanTextMatches(value: boolean): string[] {
+  return Array.from(value ? TRUE_TEXT : FALSE_TEXT)
+}
+
 /** Parses a spreadsheet boolean-ish cell. Real booleans and numbers pass through; text is mapped so a
  *  stored "Non"/"false"/"0" is not coerced to true by a naive `Boolean(value)`. Any other non-empty text
  *  is treated as true (an affirmative remark), empty text as false. */
@@ -41,6 +50,61 @@ export function parseFrenchNumber(value: unknown): number | null {
 
   const n = Number(s)
   return Number.isFinite(n) ? n : null
+}
+
+/** Unit tokens a spreadsheet header may carry between parentheses (a spreadsheet column is often titled
+ *  "Superficie cultivée (ha)"). Compared on a normalized key (case, spaces and ² folded), the original text
+ *  is what gets stored. Anything else in parentheses — "(s)" plural, "(CPTAQ)", "(combiné brute)" — is part
+ *  of the name, never a unit, so it is left untouched. */
+const KNOWN_UNIT_KEYS = new Set([
+  "°",
+  "ha",
+  "hectare",
+  "hectares",
+  "m",
+  "m2",
+  "km2",
+  "pi2",
+  "acre",
+  "acres",
+  "%",
+  "$",
+  "$/ha",
+  "$/pi2",
+  "$/entaille",
+  "entailles/ha",
+  "livre",
+  "livres",
+  "kg",
+  "t",
+  "tonne",
+  "tonnes",
+])
+
+function normalizeUnitKey(unit: string): string {
+  return unit.trim().toLowerCase().replace(/\s+/g, "").replace(/²/g, "2")
+}
+
+/**
+ * Splits a trailing "(unit)" off a champ name so the unit lives in `unite` (§6.5) and never in
+ * `nom_affichage`. Only recognized unit tokens (KNOWN_UNIT_KEYS) are moved; a name that is nothing but a
+ * unit, or whose parentheses are not a unit, is returned unchanged. When `unite` is already set the name
+ * keeps the existing unit (so a name that duplicates it — "Taux unitaire global ($/ha)" + unite "$/ha" —
+ * is de-duplicated without losing the unit).
+ */
+export function splitNameUnit(
+  nom: string,
+  unite: string | null | undefined
+): { nom: string; unite: string } {
+  const current = unite && unite !== "N/A" ? unite : "N/A"
+  const trimmed = nom.trim()
+  const match = trimmed.match(/^(.*?)\s*\(([^()]+)\)\s*$/)
+  const base = match?.[1]?.trim()
+  const inner = match?.[2]?.trim()
+  if (!base || !inner || !KNOWN_UNIT_KEYS.has(normalizeUnitKey(inner))) {
+    return { nom: trimmed, unite: current }
+  }
+  return { nom: base, unite: current !== "N/A" ? current : inner }
 }
 
 /**

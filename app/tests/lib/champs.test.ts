@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { z } from "zod"
-import { deriveEstModifiable, formatChampInputErrors, normalizeChampInput, validateChampConfig } from "@/lib/champs"
+import { deriveEstModifiable, formatChampInputErrors, normalizeChampInput, parseListOptions, validateChampConfig } from "@/lib/champs"
 import type { ChampEnrichissableInput } from "@/types/champ"
 
 function baseInput(overrides: Partial<ChampEnrichissableInput> = {}): ChampEnrichissableInput {
@@ -56,6 +56,29 @@ describe("normalizeChampInput", () => {
   })
 })
 
+describe("parseListOptions", () => {
+  it("splits one option per line and trims each", () => {
+    expect(parseListOptions("  Terres cultivées \nTerres boisées\n  Érablières  ")).toEqual([
+      "Terres cultivées",
+      "Terres boisées",
+      "Érablières",
+    ])
+  })
+
+  it("ignores blank lines", () => {
+    expect(parseListOptions("A\n\n  \nB\n")).toEqual(["A", "B"])
+  })
+
+  it("removes duplicates while keeping first-seen order", () => {
+    expect(parseListOptions("B\nA\nB\nA")).toEqual(["B", "A"])
+  })
+
+  it("returns null when there is nothing to store", () => {
+    expect(parseListOptions("")).toBeNull()
+    expect(parseListOptions("   \n  \n")).toBeNull()
+  })
+})
+
 describe("validateChampConfig", () => {
   const knownFieldCodes = new Set(["prix_vente", "superficie_totale_hectare", "superficie_cultivee"])
 
@@ -98,6 +121,17 @@ describe("validateChampConfig", () => {
   it("accepts a LISTE field with options", () => {
     expect(
       validateChampConfig(baseInput({ typeDonnees: "LISTE", optionsListe: ["A", "B"] }), knownFieldCodes)
+    ).toEqual([])
+  })
+
+  it("requires optionsListe for a MULTI_SELECT field too", () => {
+    const errors = validateChampConfig(
+      baseInput({ typeDonnees: "MULTI_SELECT", optionsListe: [] }),
+      knownFieldCodes
+    )
+    expect(errors.some((e) => e.field === "optionsListe")).toBe(true)
+    expect(
+      validateChampConfig(baseInput({ typeDonnees: "MULTI_SELECT", optionsListe: ["A", "B"] }), knownFieldCodes)
     ).toEqual([])
   })
 

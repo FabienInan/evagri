@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { validateRuleSyntax } from "@/lib/calculator"
 import { isSourceFieldCode } from "@/lib/transaction-source-fields"
-import type { ChampEnrichissableInput, NatureChamp } from "@/types/champ"
+import { hasOptions, type ChampEnrichissableInput, type NatureChamp } from "@/types/champ"
 
 export interface ChampValidationError {
   field: string
@@ -58,6 +58,20 @@ export function deriveEstModifiable(nature: NatureChamp): boolean {
 }
 
 /**
+ * Parses the "une option par ligne" textarea into the `optionsListe` JSONB of a LISTE field:
+ * trims each line, drops blanks, removes duplicates while keeping first-seen order. Returns null when
+ * nothing is left, so an emptied textarea persists as no options rather than an empty array.
+ */
+export function parseListOptions(text: string): string[] | null {
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line !== "")
+  const unique = Array.from(new Set(lines))
+  return unique.length > 0 ? unique : null
+}
+
+/**
  * Applies the nature-dependent invariants from §6.5 before persisting:
  * unite forced to "N/A" for non-numeric types, est_obligatoire ignored for CALCULE fields.
  */
@@ -105,7 +119,7 @@ export function validateChampConfig(
     })
   }
 
-  if (input.typeDonnees === "LISTE" && (!input.optionsListe || input.optionsListe.length === 0)) {
+  if (hasOptions(input.typeDonnees) && (!input.optionsListe || input.optionsListe.length === 0)) {
     errors.push({ field: "optionsListe", message: "Une liste doit contenir au moins une option." })
   }
 

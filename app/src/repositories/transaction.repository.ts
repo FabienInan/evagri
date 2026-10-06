@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import { buildWhereClause, FilterInput, findGeoFilter } from "@/lib/filters"
+import { buildWhereClause, FilterInput, findGeoFilter, findRenteFilter } from "@/lib/filters"
 import type { Prisma } from "@prisma/client"
 import Decimal from "decimal.js"
 import type { CreateImportedTransactionInput } from "@/types/import"
@@ -48,6 +48,47 @@ export function buildTransactionWhere(
   }
 }
 
+/**
+ * Lot numbers sold more than once in the organisation. A cadastral lot appearing in ≥ 2 transactions is, by
+ * definition, involved in a revente (the original sale plus at least one resale). Returned as the distinct lot
+ * values so the caller can constrain `lotsCadastraux` with `hasSome`.
+ */
+export async function findRenteLotNumbers(organisationId: string): Promise<string[]> {
+  const rows = await prisma.$queryRaw<{ lot: string }[]>`
+    SELECT lot
+    FROM transaction_source, unnest(lots_cadastraux) AS lot
+    WHERE id_organisation = ${organisationId}
+      AND lot <> ''
+    GROUP BY lot
+    HAVING count(*) > 1
+  `
+  return rows.map((row) => row.lot)
+}
+
+/** Adds the revente constraint (transactions whose `lotsCadastraux` overlaps the lots sold ≥ 2 times) to an
+ *  already-built where clause. An empty `lots` matches nothing, the correct outcome when nothing was resold. */
+export function withRenteLots(
+  where: Prisma.TransactionSourceWhereInput,
+  lots: string[]
+): Prisma.TransactionSourceWhereInput {
+  const reventeClause: Prisma.TransactionSourceWhereInput = { lotsCadastraux: { hasSome: lots } }
+  const existingAnd = where.AND
+  return {
+    ...where,
+    AND: [...(Array.isArray(existingAnd) ? existingAnd : existingAnd ? [existingAnd] : []), reventeClause],
+  }
+}
+
+/** Adds the revente constraint only when a REVENTE filter is active, computing the duplicated lots in the DB. */
+export async function applyRenteWhere(
+  where: Prisma.TransactionSourceWhereInput,
+  filters: FilterInput[],
+  organisationId: string
+): Promise<Prisma.TransactionSourceWhereInput> {
+  if (!findRenteFilter(filters)) return where
+  return withRenteLots(where, await findRenteLotNumbers(organisationId))
+}
+
 export type MapTransaction = {
   id: string
   numeroInscription: string | null
@@ -78,7 +119,7 @@ export async function findTransactionsForMap(
   filters: FilterInput[],
   organisationId: string
 ): Promise<MapTransaction[]> {
-  const filterWhere = buildWhereClause(filters)
+  const filterWhere = await applyRenteWhere(buildWhereClause(filters), filters, organisationId)
 
   const rows = await prisma.transactionSource.findMany({
     where: {

@@ -24,6 +24,7 @@ export const FILTER_TYPES = [
   "TYPE_TRANSACTION",
   "STATUT",
   "ZONE_GEO",
+  "REVENTE",
 ] as const
 
 export type FilterType = (typeof FILTER_TYPES)[number]

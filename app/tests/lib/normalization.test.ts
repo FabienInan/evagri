@@ -8,9 +8,10 @@ import {
   normalizeTypeSol,
   normalizeDensitePlantation,
   discretizeProportion,
+  normalizeEnrichmentText,
 } from "@/lib/normalization/transforms"
 import { createReport, incrementCounter } from "@/lib/normalization/report"
-import { buildCodeMachine, parseBooleanish, parseFrenchNumber } from "@/lib/normalization/parsing"
+import { buildCodeMachine, parseBooleanish, parseFrenchNumber, splitNameUnit } from "@/lib/normalization/parsing"
 
 describe("cleanText", () => {
   it("trims, removes extra spaces, strips trailing punctuation, and removes accents", () => {
@@ -66,6 +67,22 @@ describe("normalizeZoneAgricoleCptaq", () => {
     expect(normalizeZoneAgricoleCptaq("0.5").zone).toBe("Partiel")
     expect(normalizeZoneAgricoleCptaq("en partie").zone).toBe("Partiel")
     expect(normalizeZoneAgricoleCptaq("non").zone).toBe("Non")
+  })
+})
+
+describe("normalizeEnrichmentText", () => {
+  it("canonicalizes the cptaq zone answers to Oui / Non / Partiel", () => {
+    expect(normalizeEnrichmentText("cptaq", "oui")).toBe("Oui")
+    expect(normalizeEnrichmentText("cptaq", "Oui")).toBe("Oui")
+    expect(normalizeEnrichmentText("cptaq", "non")).toBe("Non")
+    expect(normalizeEnrichmentText("cptaq", "Non")).toBe("Non")
+    expect(normalizeEnrichmentText("cptaq", "Partiel")).toBe("Partiel")
+    expect(normalizeEnrichmentText("cptaq", "en partie")).toBe("Partiel")
+  })
+
+  it("leaves other fields and unrecognized values untouched", () => {
+    expect(normalizeEnrichmentText("observations", "Texte libre")).toBe("Texte libre")
+    expect(normalizeEnrichmentText("cptaq", "valeur inconnue")).toBe("valeur inconnue")
   })
 })
 
@@ -164,5 +181,43 @@ describe("buildCodeMachine", () => {
 
   it("returns an empty string when nothing usable remains", () => {
     expect(buildCodeMachine("###")).toBe("")
+  })
+})
+
+describe("splitNameUnit", () => {
+  it("moves a recognized trailing unit out of the name", () => {
+    expect(splitNameUnit("Superficie cultivée (ha)", "N/A")).toEqual({
+      nom: "Superficie cultivée",
+      unite: "ha",
+    })
+    expect(splitNameUnit("Prix de vente redressé au temps ($)", "N/A")).toEqual({
+      nom: "Prix de vente redressé au temps",
+      unite: "$",
+    })
+    expect(splitNameUnit("Superficie terrain résidentiel (m²)", "N/A").unite).toBe("m²")
+  })
+
+  it("de-duplicates a name that already repeats its stored unit", () => {
+    expect(splitNameUnit("Taux unitaire global ($/ha)", "$/ha")).toEqual({
+      nom: "Taux unitaire global",
+      unite: "$/ha",
+    })
+  })
+
+  it("keeps a stored unit even when the name carries no unit", () => {
+    expect(splitNameUnit("Taux global", "$/ha")).toEqual({ nom: "Taux global", unite: "$/ha" })
+  })
+
+  it("leaves non-unit parentheses and unit-only names untouched", () => {
+    expect(splitNameUnit("Maison(s)", "N/A")).toEqual({ nom: "Maison(s)", unite: "N/A" })
+    expect(splitNameUnit("Zone agricole (CPTAQ)", "N/A")).toEqual({
+      nom: "Zone agricole (CPTAQ)",
+      unite: "N/A",
+    })
+    expect(splitNameUnit("Topographie (combiné brute)", "N/A")).toEqual({
+      nom: "Topographie (combiné brute)",
+      unite: "N/A",
+    })
+    expect(splitNameUnit("(ha)", "N/A")).toEqual({ nom: "(ha)", unite: "N/A" })
   })
 })

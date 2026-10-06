@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { recommendFilterType } from "@/lib/filters"
-import { buildCodeMachine } from "@/lib/normalization/parsing"
+import { enrichmentChampDef } from "@/lib/enrichment-champ-catalog"
+import { buildCodeMachine, splitNameUnit } from "@/lib/normalization/parsing"
 import { extractNonEmptyEnrichmentHeaders, inferType } from "@/parsers/excel.parser"
 import type { Prisma } from "@prisma/client"
 import type { EnrichmentChamp } from "@/types/import"
@@ -44,20 +45,28 @@ export async function ensureEnrichmentChamps(
   const missing = prepared.filter((p) => !byCode.has(p.codeMachine))
   if (missing.length > 0) {
     const data: Prisma.ChampEnrichissableCreateManyInput[] = missing.map((p) => {
-      const typeDonnees = inferType(p.sample)
+      // A catalogued champ (closed vocabulary or known numeric field) gets its canonical type/options; the
+      // rest fall back to value-shape inference, which can never yield LISTE/MULTI_SELECT.
+      const def = enrichmentChampDef(p.codeMachine)
+      const typeDonnees = def?.typeDonnees ?? inferType(p.sample)
+      // A numeric spreadsheet header often carries its unit in the label ("Superficie cultivée (ha)");
+      // store it in `unite` and keep the name free of it (§6.5). Non-numeric types keep unite = "N/A".
+      const numeric = typeDonnees === "DECIMAL" || typeDonnees === "ENTIER"
+      const named = numeric ? splitNameUnit(p.header, "N/A") : { nom: p.header, unite: "N/A" }
       return {
         organisationId,
         codeMachine: p.codeMachine,
-        nomAffichage: p.header,
+        nomAffichage: named.nom,
         typeDonnees,
         typeFiltreRecommande: recommendFilterType({
           codeMachine: p.codeMachine,
-          nomAffichage: p.header,
+          nomAffichage: named.nom,
           typeDonnees,
         }),
         nature: "SAISISSABLE",
-        unite: "N/A",
+        unite: named.unite,
         applicableATypes: [],
+        ...(def?.optionsListe ? { optionsListe: def.optionsListe } : {}),
       }
     })
     await prisma.champEnrichissable.createMany({ data })

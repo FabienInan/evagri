@@ -96,3 +96,84 @@ describe("column preference storage", () => {
     expect(loadColumnPreference()).toBeNull()
   })
 })
+
+import {
+  clampColumnWidth,
+  loadColumnWidths,
+  saveColumnWidths,
+  clearColumnWidths,
+  MIN_COLUMN_WIDTH,
+} from "@/lib/responsive-columns"
+
+describe("clampColumnWidth", () => {
+  it("rounds to the nearest pixel", () => {
+    expect(clampColumnWidth(123.4)).toBe(123)
+  })
+
+  it("enforces the minimum width", () => {
+    expect(clampColumnWidth(10)).toBe(MIN_COLUMN_WIDTH)
+    expect(clampColumnWidth(-50)).toBe(MIN_COLUMN_WIDTH)
+  })
+
+  it("enforces the maximum width", () => {
+    expect(clampColumnWidth(999999)).toBe(2000)
+  })
+
+  it("falls back to the minimum for a non-finite value", () => {
+    expect(clampColumnWidth(Number.NaN)).toBe(MIN_COLUMN_WIDTH)
+    expect(clampColumnWidth(Number.POSITIVE_INFINITY)).toBe(MIN_COLUMN_WIDTH)
+  })
+})
+
+describe("column width storage", () => {
+  let storage: Record<string, string> = {}
+
+  beforeEach(() => {
+    storage = {}
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => storage[key] ?? null,
+      setItem: (key: string, value: string) => {
+        storage[key] = value
+      },
+      removeItem: (key: string) => {
+        delete storage[key]
+      },
+    })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  const key = "evagri:transaction-table:column-widths"
+
+  it("returns null when nothing is saved", () => {
+    expect(loadColumnWidths()).toBeNull()
+  })
+
+  it("loads a saved width map", () => {
+    storage[key] = JSON.stringify({ a: 120, b: 200 })
+    expect(loadColumnWidths()).toEqual({ a: 120, b: 200 })
+  })
+
+  it("ignores a corrupted or non-numeric stored value", () => {
+    storage[key] = "not-json"
+    expect(loadColumnWidths()).toBeNull()
+    storage[key] = JSON.stringify({ a: "wide" })
+    expect(loadColumnWidths()).toBeNull()
+    storage[key] = JSON.stringify(["a"])
+    expect(loadColumnWidths()).toBeNull()
+  })
+
+  it("saves and clears a width map", () => {
+    saveColumnWidths({ a: 150 })
+    expect(storage[key]).toBe(JSON.stringify({ a: 150 }))
+    clearColumnWidths()
+    expect(storage[key]).toBeUndefined()
+  })
+
+  it("returns null on server where localStorage is missing", () => {
+    vi.stubGlobal("localStorage", undefined)
+    expect(loadColumnWidths()).toBeNull()
+  })
+})

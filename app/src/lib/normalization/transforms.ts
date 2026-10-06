@@ -19,6 +19,9 @@ const TOPOGRAPHY_MAP: Record<string, string> = {
   "tres forte pente": "Forte déclivité",
 }
 
+/** Canonical closed list for the topographie champ, derived from the alias map so the two cannot drift. */
+export const TOPOGRAPHY_OPTIONS = Array.from(new Set(Object.values(TOPOGRAPHY_MAP)))
+
 export function normalizeTopography(value: unknown) {
   const raw = cleanText(value) ?? ""
   const lower = raw.toLowerCase()
@@ -41,6 +44,9 @@ const FR_MAP: Record<string, string> = {
   mr: "Mixte",
   mixte: "Mixte",
 }
+
+/** Canonical closed list for the feuillusrsineux champ, derived from the alias map. */
+export const FEUILLUS_RESINEUX_OPTIONS = Array.from(new Set(Object.values(FR_MAP)))
 
 export function normalizeFeuillusResineux(value: unknown, proportionFeuillus: number | null): string | null {
   if (proportionFeuillus !== null && !isNaN(proportionFeuillus)) {
@@ -68,6 +74,9 @@ const PARTIEL_VALUES = new Set([
 
 const NON_VALUES = new Set(["non", "non dispo", "aucune", "0"])
 
+/** Canonical closed list for the Oui/Non/Partiel authorization answers (cptaq, zone_agricole_cptaq). */
+export const CPTAQ_ZONE_OPTIONS = ["Oui", "Non", "Partiel"]
+
 const AUTH_REGEX = /\b\d{5,6}\b/g
 
 export function normalizeZoneAgricoleCptaq(value: unknown) {
@@ -88,6 +97,24 @@ export function normalizeZoneAgricoleCptaq(value: unknown) {
   if (OUI_VALUES.has(remaining)) return { zone: "Oui", autorisations: autorisations.length ? autorisations : null }
   if (PARTIEL_VALUES.has(remaining)) return { zone: "Partiel", autorisations: autorisations.length ? autorisations : null }
   return { zone: null, autorisations: autorisations.length ? autorisations : null }
+}
+
+/**
+ * Per-codeMachine normalizers applied to a TEXTE enrichment value at import time, so the live import stores
+ * the same canonical form as the offline `scripts/normalize-excel.ts`. `cptaq` collapses its free-text
+ * answers (oui / Non / partiel / en partie ...) to the canonical Oui / Non / Partiel.
+ */
+const TEXT_NORMALIZERS: Record<string, (value: unknown) => string | null> = {
+  cptaq: (value) => normalizeZoneAgricoleCptaq(value).zone,
+}
+
+/** Canonicalizes a text enrichment value by its field code. Unknown codes, and values a normalizer cannot
+ *  recognize, are returned raw so nothing is silently dropped. */
+export function normalizeEnrichmentText(codeMachine: string, value: unknown): string {
+  const raw = String(value)
+  const normalizer = TEXT_NORMALIZERS[codeMachine]
+  if (!normalizer) return raw
+  return normalizer(value) ?? raw
 }
 
 const CULTURE_MAP: Record<string, string> = {
@@ -111,6 +138,9 @@ const CULTURE_MAP: Record<string, string> = {
   horticulture: "Horticulture",
 }
 
+/** Canonical closed list for the type_de_culture champ plus the "Autres" fallback the normalizer emits. */
+export const CULTURE_OPTIONS = Array.from(new Set([...Object.values(CULTURE_MAP), "Autres"]))
+
 export function normalizeTypeCulture(value: unknown): string | null {
   const raw = cleanText(value) ?? ""
   if (!raw) return null
@@ -132,6 +162,9 @@ const SOL_MAP: Record<string, string> = {
   graveleux: "Graveleux",
   "terre noire": "Terre noire (organique)",
 }
+
+/** Canonical closed list for the type_de_sol champ, derived from the alias map. */
+export const SOL_OPTIONS = Array.from(new Set(Object.values(SOL_MAP)))
 
 export function normalizeTypeSol(value: unknown): string | null {
   const raw = cleanText(value) ?? ""

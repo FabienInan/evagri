@@ -1,9 +1,17 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
-import { ChevronDown, ChevronUp, Loader2, Settings2 } from "lucide-react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { ChevronDown, ChevronUp, Loader2, MoveHorizontal, Settings2 } from "lucide-react"
 import { useResponsiveColumns } from "@/hooks/use-responsive-columns"
-import { loadColumnOrder, saveColumnOrder, clearColumnOrder } from "@/lib/responsive-columns"
+import {
+  loadColumnOrder,
+  saveColumnOrder,
+  clearColumnOrder,
+  loadColumnWidths,
+  saveColumnWidths,
+  clearColumnWidths,
+  clampColumnWidth,
+} from "@/lib/responsive-columns"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -114,12 +122,78 @@ function ColumnMenu<T>({
   )
 }
 
+/**
+ * Drag handle pinned to the right edge of a header cell. During the drag it reports each candidate width to
+ * the parent (live preview); the parent persists on pointer up. Pointer capture keeps the move/up events on
+ * the handle even when the cursor leaves it, and every handler stops propagation so a resize never sorts or
+ * reorders the column.
+ */
+function ColumnResizeHandle({
+  columnKey,
+  width,
+  onResize,
+  onResizeEnd,
+}: {
+  columnKey: string
+  width: number | undefined
+  onResize: (key: string, width: number) => void
+  onResizeEnd: () => void
+}) {
+  const startRef = useRef<{ x: number; w: number } | null>(null)
+
+  return (
+    <span
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Redimensionner la colonne"
+      className="group absolute right-0 top-0 z-10 flex h-full w-3 cursor-col-resize touch-none select-none items-center justify-center"
+      onClick={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+      }}
+      onPointerDown={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        const header = e.currentTarget.parentElement as HTMLElement | null
+        const startWidth = width ?? header?.getBoundingClientRect().width ?? 120
+        startRef.current = { x: e.clientX, w: startWidth || 120 }
+        e.currentTarget.setPointerCapture?.(e.pointerId)
+      }}
+      onPointerMove={(e) => {
+        const start = startRef.current
+        if (!start) return
+        onResize(columnKey, clampColumnWidth(start.w + (e.clientX - start.x)))
+      }}
+      onPointerUp={(e) => {
+        e.stopPropagation()
+        if (!startRef.current) return
+        startRef.current = null
+        e.currentTarget.releasePointerCapture?.(e.pointerId)
+        onResizeEnd()
+      }}
+      onPointerCancel={() => {
+        startRef.current = null
+      }}
+      onDragStart={(e) => e.preventDefault()}
+    >
+      {/* Visible affordance: without it a thin invisible edge is impossible to discover. */}
+      <MoveHorizontal
+        aria-hidden="true"
+        className="pointer-events-none h-3 w-3 text-muted-foreground/50 transition-colors group-hover:text-primary"
+      />
+    </span>
+  )
+}
+
 function DataTableHeader<T>({
   visible,
   sortField,
   sortOrder,
   onSort,
   onReorderColumn,
+  columnWidths,
+  onColumnResize,
+  onColumnResizeEnd,
   sticky = false,
 }: {
   visible: DataTableColumn<T>[]
@@ -127,6 +201,9 @@ function DataTableHeader<T>({
   sortOrder?: "asc" | "desc"
   onSort?: (field: string) => void
   onReorderColumn: (fromKey: string, toKey: string) => void
+  columnWidths: Record<string, number>
+  onColumnResize: (key: string, width: number) => void
+  onColumnResizeEnd: () => void
   /** Keeps the header pinned to the top of the scrolling body (fill-height mode). */
   sticky?: boolean
 }) {
@@ -143,6 +220,7 @@ function DataTableHeader<T>({
       <TableRow>
         {visible.map((col) => {
           const draggable = !col.locked
+          const width = columnWidths[col.key]
           return (
             <TableHead
               key={col.key}
@@ -169,7 +247,8 @@ function DataTableHeader<T>({
                 setDraggedKey(null)
                 setDragOverKey(null)
               }}
-              className={`py-2 select-none ${col.numeric ? "text-right" : ""} ${draggable ? "cursor-grab active:cursor-grabbing" : ""} ${draggedKey === col.key ? "opacity-40" : ""} ${dragOverKey === col.key ? "bg-primary/10" : ""}`}
+              style={width ? { width, minWidth: width, maxWidth: width } : undefined}
+              className={`relative py-2 select-none ${col.numeric ? "text-right" : ""} ${draggable ? "cursor-grab active:cursor-grabbing" : ""} ${draggedKey === col.key ? "opacity-40" : ""} ${dragOverKey === col.key ? "bg-primary/10" : ""} ${width ? "overflow-hidden" : ""}`}
               onClick={() => col.sortable && onSort?.(col.key)}
             >
               {col.sortable ? (
@@ -185,6 +264,12 @@ function DataTableHeader<T>({
               ) : (
                 <span className="font-semibold">{col.label}</span>
               )}
+              <ColumnResizeHandle
+                columnKey={col.key}
+                width={width}
+                onResize={onColumnResize}
+                onResizeEnd={onColumnResizeEnd}
+              />
             </TableHead>
           )
         })}
@@ -238,6 +323,7 @@ export function DataTable<T>({
 }: DataTableProps<T>) {
   const visibleStorageKey = `evagri:${storageKey}:visible-columns`
   const orderStorageKey = `evagri:${storageKey}:column-order`
+  const widthsStorageKey = `evagri:${storageKey}:column-widths`
 
   const requiredKeys = useMemo(() => columns.filter((c) => c.locked).map((c) => c.key), [columns])
   const initialVisible = useMemo(
@@ -265,6 +351,29 @@ export function DataTable<T>({
     setColumnOrder(loadColumnOrder(orderStorageKey))
   }, [orderStorageKey])
 
+  // User-chosen column widths, keyed by column. Persisted per table, like visibility and order.
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({})
+  const widthsLoadedRef = useRef(false)
+  useEffect(() => {
+    if (widthsLoadedRef.current) return
+    widthsLoadedRef.current = true
+    setColumnWidths(loadColumnWidths(widthsStorageKey) ?? {})
+  }, [widthsStorageKey])
+
+  // Mirror of the latest widths so the pointer-up commit reads them without a stale closure.
+  const widthsRef = useRef(columnWidths)
+  useEffect(() => {
+    widthsRef.current = columnWidths
+  }, [columnWidths])
+
+  const handleColumnResize = useCallback((key: string, width: number) => {
+    setColumnWidths((prev) => ({ ...prev, [key]: width }))
+  }, [])
+
+  const handleColumnResizeEnd = useCallback(() => {
+    saveColumnWidths(widthsRef.current, widthsStorageKey)
+  }, [widthsStorageKey])
+
   const orderedColumns = useMemo(() => applySavedOrder(columns, columnOrder), [columns, columnOrder])
   const visible = useMemo(
     () => orderedColumns.filter((c) => visibleColumns.has(c.key)),
@@ -281,6 +390,8 @@ export function DataTable<T>({
     resetColumns()
     clearColumnOrder(orderStorageKey)
     setColumnOrder(null)
+    clearColumnWidths(widthsStorageKey)
+    setColumnWidths({})
   }
 
   const Wrapper = variant === "bare" ? "div" : Card
@@ -324,6 +435,9 @@ export function DataTable<T>({
             sortOrder={sortOrder}
             onSort={onSort}
             onReorderColumn={handleReorderColumn}
+            columnWidths={columnWidths}
+            onColumnResize={handleColumnResize}
+            onColumnResizeEnd={handleColumnResizeEnd}
             sticky={fillHeight}
           />
           <TableBody>
@@ -345,11 +459,18 @@ export function DataTable<T>({
                     )}
                     onClick={() => onRowClick?.(row)}
                   >
-                    {visible.map((col) => (
-                      <TableCell key={col.key} className={`py-2 ${col.numeric ? "text-right" : ""}`}>
-                        {col.render(row)}
-                      </TableCell>
-                    ))}
+                    {visible.map((col) => {
+                      const width = columnWidths[col.key]
+                      return (
+                        <TableCell
+                          key={col.key}
+                          style={width ? { width, minWidth: width, maxWidth: width } : undefined}
+                          className={`py-2 ${col.numeric ? "text-right" : ""} ${width ? "overflow-hidden text-ellipsis" : ""}`}
+                        >
+                          {col.render(row)}
+                        </TableCell>
+                      )
+                    })}
                   </TableRow>
                 )
               })

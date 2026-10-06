@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { filterSearchParamsSchema } from "@/validators/filter.validator"
+import { filterSearchParamsSchema, parseFilterArray } from "@/validators/filter.validator"
 
 describe("filterSearchParamsSchema", () => {
   it("applies the defaults when nothing is provided", () => {
@@ -28,5 +28,15 @@ describe("filterSearchParamsSchema", () => {
 
   it("rejects a non-positive page", () => {
     expect(filterSearchParamsSchema.safeParse({ page: "0" }).success).toBe(false)
+  })
+})
+
+describe("parseFilterArray", () => {
+  it("accepts a REVENTE filter", () => {
+    const filters = parseFilterArray([
+      { id: "revente", typeFiltre: "REVENTE", field: "revente", operator: "=", value: "true" },
+    ])
+    expect(filters).toHaveLength(1)
+    expect(filters[0].typeFiltre).toBe("REVENTE")
   })
 })

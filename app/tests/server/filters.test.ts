@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { findFiltersByOrganisation } from "@/repositories/filters.repository"
+import { withRenteLots } from "@/repositories/transaction.repository"
 
 describe("findFiltersByOrganisation", () => {
   let orgId: string
@@ -89,5 +90,22 @@ describe("findFiltersByOrganisation", () => {
     const filters = await findFiltersByOrganisation(orgId, { includeChamp: true })
     const filter = filters.find((f) => f.champEnrichissable?.id === champ.id)
     expect(filter?.optionsListe).toEqual(["Plat", "Vallonné"])
+  })
+})
+
+describe("withRenteLots", () => {
+  it("adds the duplicated-lot constraint, preserving any existing AND clauses", () => {
+    const where = { organisationId: "org", AND: [{ mrc: { in: ["Drummond"] } }] }
+    expect(withRenteLots(where as never, ["L1", "L2"])).toEqual({
+      organisationId: "org",
+      AND: [{ mrc: { in: ["Drummond"] } }, { lotsCadastraux: { hasSome: ["L1", "L2"] } }],
+    })
+  })
+
+  it("matches nothing when no lot was ever resold", () => {
+    expect(withRenteLots({ organisationId: "org" } as never, [])).toEqual({
+      organisationId: "org",
+      AND: [{ lotsCadastraux: { hasSome: [] } }],
+    })
   })
 })

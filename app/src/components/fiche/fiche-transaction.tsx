@@ -11,11 +11,9 @@ import { DocumentsPanel } from "@/components/fiche/documents-panel"
 import { saveFiche, setFicheStatut, type FicheFieldError } from "@/server/actions/fiche"
 import {
   TYPE_TRANSACTION_CODE,
-  buildCalculationContext,
   buildFicheViewModel,
   resolveTypeTransaction,
-  recomputeIndicateurs,
-  toNumericValues,
+  withRecomputedIndicateurs,
   type FicheValeur,
 } from "@/lib/fiche"
 import type { SerializedFiche } from "@/serializers/fiche.serializer"
@@ -24,9 +22,13 @@ export function FicheTransactionClient({ fiche }: { fiche: SerializedFiche }) {
   const mode = fiche.mode
   const isEdition = mode === "edition"
 
-  const [valeurs, setValeurs] = useState<Record<string, FicheValeur>>(() => ({
-    ...fiche.transaction.enrichment,
-  }))
+  const [valeurs, setValeurs] = useState<Record<string, FicheValeur>>(() =>
+    withRecomputedIndicateurs(
+      fiche.champs,
+      fiche.transaction as unknown as Record<string, unknown>,
+      fiche.transaction.enrichment
+    )
+  )
   const [typeCode, setTypeCode] = useState<string | null>(() => {
     const current = resolveTypeTransaction(fiche.transaction.enrichment[TYPE_TRANSACTION_CODE], fiche.typologies)
     return current?.code ?? null
@@ -45,11 +47,11 @@ export function FicheTransactionClient({ fiche }: { fiche: SerializedFiche }) {
   })
 
   function recompute(nextValeurs: Record<string, FicheValeur>) {
-    const context = buildCalculationContext(
+    return withRecomputedIndicateurs(
+      fiche.champs,
       fiche.transaction as unknown as Record<string, unknown>,
-      toNumericValues(nextValeurs)
+      nextValeurs
     )
-    return { ...nextValeurs, ...recomputeIndicateurs(fiche.champs, context) }
   }
 
   function handleFieldChange(codeMachine: string, valeur: FicheValeur) {

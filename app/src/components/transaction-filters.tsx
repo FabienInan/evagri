@@ -11,8 +11,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { MultiSelect } from "@/components/ui/multi-select"
+import { Switch } from "@/components/ui/switch"
 import type { FilterConfig, FilterInput } from "@/types/filter"
 import { isSourceFieldCode } from "@/lib/transaction-source-fields"
+import { parseMultiValue } from "@/lib/multi-value"
 import { cn } from "@/lib/utils"
 
 type VirtualOption = { label: string; value: string }
@@ -30,14 +33,15 @@ const VIRTUAL_FILTER_OPERATORS: Record<string, string[]> = {
 
 function filterLabel(f: FilterInput, config?: FilterConfig): string {
   if (f.id === "zone-geo") return "Zone géographique"
-  if (f.id === "lot") return `Lot ${f.value}`
+  if (f.id === "revente") return "Reventes"
   if (config) return config.nomFiltre
   return f.field || f.id
 }
 
 function filterDisplayValue(f: FilterInput, config?: FilterConfig): string {
   if (f.id === "zone-geo") return "polygone"
-  if (f.id === "lot") return f.value
+  if (f.id === "revente") return "lots vendus 2 fois"
+  if (f.typeFiltre === "BOOLEEN") return f.value === "true" ? "Oui" : "Non"
   if (config?.codeMachine && VIRTUAL_FILTER_OPTIONS[config.codeMachine]) {
     const option = VIRTUAL_FILTER_OPTIONS[config.codeMachine].find((o) => o.value === f.value)
     return option?.label ?? f.value
@@ -88,10 +92,10 @@ export function TransactionFilters({
 
   const initialValues = useMemo(() => {
     const values: Record<string, { operator: string; value: string }> = {}
-    let lot = ""
+    let revente = false
     for (const f of initialFilters) {
-      if (f.id === "lot") {
-        lot = f.value
+      if (f.id === "revente") {
+        revente = true
       } else {
         const config = filtersConfig.find((c) => c.id === f.id)
         const displayValue =
@@ -101,24 +105,24 @@ export function TransactionFilters({
         values[f.id] = { operator: f.operator || defaultOperator(defaultTypeFiltre(config)), value: displayValue }
       }
     }
-    return { values, lot }
+    return { values, revente }
   }, [initialFilters, filtersConfig])
 
   const [values, setValues] = useState(initialValues.values)
-  const [lotValue, setLotValue] = useState(initialValues.lot)
+  const [revente, setRevente] = useState(initialValues.revente)
   const [activeFilters, setActiveFilters] = useState<FilterInput[]>(initialFilters)
 
   // Resync with the URL-backed filters: a filter applied elsewhere (e.g. a map geo selection) would
   // otherwise never appear as a chip, because state is only seeded from the prop on first render.
   useEffect(() => {
     setValues(initialValues.values)
-    setLotValue(initialValues.lot)
+    setRevente(initialValues.revente)
     setActiveFilters(initialFilters)
   }, [initialValues, initialFilters])
 
   function buildFilters(
     nextValues: Record<string, { operator: string; value: string }>,
-    nextLot: string,
+    nextRevente: boolean,
     preserveGeo: FilterInput[] = []
   ): FilterInput[] {
     const active: FilterInput[] = Object.entries(nextValues)
@@ -138,14 +142,13 @@ export function TransactionFilters({
         }
       })
 
-    const lot = nextLot.trim()
-    if (lot) {
+    if (nextRevente) {
       active.push({
-        id: "lot",
-        typeFiltre: "NUMERO_LOT",
-        field: "lots_cadastraux",
-        operator: "has",
-        value: lot,
+        id: "revente",
+        typeFiltre: "REVENTE",
+        field: "revente",
+        operator: "=",
+        value: "true",
       })
     }
 
@@ -154,7 +157,7 @@ export function TransactionFilters({
 
   function handleSearch() {
     const geoFilters = activeFilters.filter((f) => f.id === "zone-geo")
-    const next = buildFilters(values, lotValue, geoFilters)
+    const next = buildFilters(values, revente, geoFilters)
     setActiveFilters(next)
     onSearch(next)
   }
@@ -163,8 +166,8 @@ export function TransactionFilters({
     const nextActive = activeFilters.filter((f) => f.id !== id)
     setActiveFilters(nextActive)
 
-    if (id === "lot") {
-      setLotValue("")
+    if (id === "revente") {
+      setRevente(false)
     } else if (id === "zone-geo") {
       // geo filter is already removed above
     } else {
@@ -176,16 +179,16 @@ export function TransactionFilters({
 
     const geoFilters = nextActive.filter((f) => f.id === "zone-geo")
     const nextValues =
-      id === "lot"
+      id === "revente"
         ? values
         : { ...values, [id]: { operator: values[id]?.operator || defaultOperator(defaultTypeFiltre(filtersConfig.find((c) => c.id === id))), value: "" } }
-    const next = buildFilters(nextValues, id === "lot" ? "" : lotValue, geoFilters)
+    const next = buildFilters(nextValues, id === "revente" ? false : revente, geoFilters)
     onSearch(next)
   }
 
   function handleReset() {
     setValues({})
-    setLotValue("")
+    setRevente(false)
     setActiveFilters([])
     onSearch([])
   }
@@ -255,50 +258,47 @@ export function TransactionFilters({
             // Seuls les filtres de type MULTI_SELECT acceptent plusieurs valeurs (jointes par des
             // virgules) ; un filtre LISTE reste mono-valeur même avec l'opérateur « in ».
             const isMultiple = f.typeFiltre === "MULTI_SELECT" && rawOptions.length > 0
+            const isBoolean = f.typeFiltre === "BOOLEEN"
             return (
               <div key={f.id} className="space-y-1.5">
                 <Label className="text-xs font-medium text-muted-foreground">{f.nomFiltre}</Label>
                 <div className="flex min-w-0 gap-2">
-                  <select
-                    className="h-9 w-16 shrink-0 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    value={currentOperator}
-                    onChange={(e) => {
-                      const nextOperator = e.target.value
-                      setValues((prev) => {
-                        const previous = prev[f.id] ?? { operator: nextOperator, value: "" }
-                        // En quittant « in », on ne garde que la première valeur pour ne pas envoyer
-                        // "a,b" comme valeur unique d'un opérateur mono-valeur.
-                        const value =
-                          nextOperator === "in"
-                            ? previous.value
-                            : previous.value.split(",")[0] ?? ""
-                        return { ...prev, [f.id]: { operator: nextOperator, value } }
-                      })
-                    }}
-                  >
-                    {operators.map((op) => (
-                      <option key={op} value={op}>{op}</option>
-                    ))}
-                  </select>
+                  {!isBoolean && (
+                    <select
+                      className="h-9 w-16 shrink-0 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      value={currentOperator}
+                      onChange={(e) => {
+                        const nextOperator = e.target.value
+                        setValues((prev) => {
+                          const previous = prev[f.id] ?? { operator: nextOperator, value: "" }
+                          // En quittant « in », on ne garde que la première valeur pour ne pas envoyer
+                          // "a,b" comme valeur unique d'un opérateur mono-valeur.
+                          const value =
+                            nextOperator === "in"
+                              ? previous.value
+                              : previous.value.split(",")[0] ?? ""
+                          return { ...prev, [f.id]: { operator: nextOperator, value } }
+                        })
+                      }}
+                    >
+                      {operators.map((op) => (
+                        <option key={op} value={op}>{op}</option>
+                      ))}
+                    </select>
+                  )}
                   {rawOptions.length > 0 ? (
                     isMultiple ? (
-                      <select
-                        multiple
-                        size={Math.min(Math.max(rawOptions.length, 4), 8)}
-                        className="min-h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        value={values[f.id]?.value ? values[f.id].value.split(",") : []}
-                        onChange={(e) => {
-                          const selected = Array.from(e.target.selectedOptions).map((o) => o.value)
+                      <MultiSelect
+                        className="h-9 min-w-0 flex-1"
+                        options={rawOptions.map((option) => option.label)}
+                        selected={parseMultiValue(values[f.id]?.value)}
+                        onChange={(selected) =>
                           setValues((prev) => ({
                             ...prev,
                             [f.id]: { ...(prev[f.id] || { operator: currentOperator }), value: selected.join(",") },
                           }))
-                        }}
-                      >
-                        {rawOptions.map((option) => (
-                          <option key={option.value} value={option.label}>{option.label}</option>
-                        ))}
-                      </select>
+                        }
+                      />
                     ) : (
                       <select
                         className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -316,6 +316,21 @@ export function TransactionFilters({
                         ))}
                       </select>
                     )
+                  ) : isBoolean ? (
+                    <select
+                      className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      value={values[f.id]?.value || ""}
+                      onChange={(e) =>
+                        setValues((prev) => ({
+                          ...prev,
+                          [f.id]: { ...(prev[f.id] || { operator: defaultOperator(f.typeFiltre) }), value: e.target.value },
+                        }))
+                      }
+                    >
+                      <option value="">Tous</option>
+                      <option value="true">Oui</option>
+                      <option value="false">Non</option>
+                    </select>
                   ) : (
                     <Input
                       className="min-w-0 flex-1 text-sm"
@@ -334,13 +349,14 @@ export function TransactionFilters({
             )
           })}
 
-        <div className="space-y-1.5">
-          <Label className="text-xs font-medium text-muted-foreground">N° de lot (revente)</Label>
-          <Input
-            placeholder="ex: 123"
-            value={lotValue}
-            onChange={(e) => setLotValue(e.target.value)}
-          />
+        <div className="flex items-center justify-between gap-2">
+          <Label
+            htmlFor="filtre-revente"
+            className="text-xs font-medium text-muted-foreground"
+          >
+            Reventes (lots vendus 2 fois)
+          </Label>
+          <Switch id="filtre-revente" checked={revente} onCheckedChange={setRevente} />
         </div>
       </div>
 

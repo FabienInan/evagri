@@ -5,14 +5,18 @@ import { Search, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createChamp, updateChamp, toggleChampActif } from "@/server/actions/champs"
 import type { ChampInput } from "@/server/actions/champs"
+import { parseListOptions } from "@/lib/champs"
+import { buildCodeMachine } from "@/lib/normalization/parsing"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import type { ChampEnrichissableConfig, NatureChamp, TypeDonneesChamp } from "@/types/champ"
+import { hasOptions } from "@/types/champ"
 import type { TypologieOption } from "@/repositories/typologie.repository"
 
 const NATURE_LABELS: Record<NatureChamp, string> = {
@@ -24,6 +28,7 @@ const TYPE_DONNEES_LABELS: Record<TypeDonneesChamp, string> = {
   DECIMAL: "Décimal",
   ENTIER: "Entier",
   LISTE: "Liste",
+  MULTI_SELECT: "Liste (choix multiple)",
   TEXTE: "Texte",
   BOOLEAN: "Booléen",
   DATE: "Date",
@@ -83,10 +88,14 @@ export function ChampsAdmin({
   const [search, setSearch] = useState("")
   const [selectedId, setSelectedId] = useState<string | null>(champs[0]?.id ?? null)
   const [draft, setDraft] = useState<ChampInput>(emptyDraft())
+  // Une option par ligne : gardé en texte brut pour ne pas casser la saisie (retour à la ligne,
+  // doublons en cours) ; converti via parseListOptions à l'enregistrement.
+  const [createOptionsText, setCreateOptionsText] = useState("")
   const [createError, setCreateError] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState<ChampInput | null>(
     champs[0] ? toDraft(champs[0]) : null
   )
+  const [editOptionsText, setEditOptionsText] = useState(champs[0]?.optionsListe?.join("\n") ?? "")
   const [editError, setEditError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -102,9 +111,13 @@ export function ChampsAdmin({
 
   const selected = useMemo(() => items.find((c) => c.id === selectedId) ?? null, [items, selectedId])
 
+  // Code machine dérivé du nom affiché (norme buildCodeMachine) : jamais saisi, toujours aligné.
+  const derivedCodeMachine = useMemo(() => buildCodeMachine(draft.nomAffichage), [draft.nomAffichage])
+
   function selectChamp(champ: ChampEnrichissableConfig) {
     setSelectedId(champ.id)
     setEditDraft(toDraft(champ))
+    setEditOptionsText(champ.optionsListe?.join("\n") ?? "")
     setEditError(null)
   }
 
@@ -113,7 +126,11 @@ export function ChampsAdmin({
     setCreateError(null)
     setCreating(true)
     try {
-      const result = await createChamp(draft)
+      const result = await createChamp({
+        ...draft,
+        codeMachine: derivedCodeMachine,
+        optionsListe: parseListOptions(createOptionsText),
+      })
       if (!result.ok) {
         setCreateError(result.error)
         return
@@ -131,12 +148,14 @@ export function ChampsAdmin({
     setEditError(null)
     setSaving(true)
     try {
-      const result = await updateChamp(selected.id, editDraft)
+      const payload = { ...editDraft, optionsListe: parseListOptions(editOptionsText) }
+      const result = await updateChamp(selected.id, payload)
       if (!result.ok) {
         setEditError(result.error)
         return
       }
-      setItems((prev) => prev.map((c) => (c.id === selected.id ? { ...c, ...editDraft, id: c.id, actif: c.actif, estModifiable: editDraft.nature === "SAISISSABLE" } : c)))
+      setEditDraft(payload)
+      setItems((prev) => prev.map((c) => (c.id === selected.id ? { ...c, ...payload, id: c.id, actif: c.actif, estModifiable: payload.nature === "SAISISSABLE" } : c)))
       setLastSaved(selected.id)
       setTimeout(() => setLastSaved((current) => (current === selected.id ? null : current)), 1500)
     } catch (err) {
@@ -165,6 +184,66 @@ export function ChampsAdmin({
     }
   }
 
+  // Les trois champs de la 2ᵉ rangée (Règle de calcul / Types de transaction / Options de liste) sont
+  // définis une fois et placés par la suite : sur la même ligne, chacun occupe une largeur identique.
+  const createUniteField = (
+    <div className="space-y-1.5 md:col-start-1">
+      <Label className="text-sm font-medium">Unité</Label>
+      <Input
+        placeholder="ha"
+        value={draft.unite}
+        onChange={(e) => setDraft((d) => ({ ...d, unite: e.target.value }))}
+      />
+    </div>
+  )
+
+  const createRegleField = (
+    <div className="space-y-1.5">
+      <Label className="text-sm font-medium">
+        Règle de calcul {draft.nature === "CALCULE" ? "(obligatoire)" : "(optionnelle)"}
+      </Label>
+      <Input
+        placeholder="prix_vente / superficie_totale_hectare"
+        value={draft.regleCalcul ?? ""}
+        onChange={(e) => setDraft((d) => ({ ...d, regleCalcul: e.target.value }))}
+      />
+    </div>
+  )
+
+  const createTypesField = (
+    <div className="space-y-1.5">
+      <Label className="text-sm font-medium">Types de transaction applicables</Label>
+      <Select
+        value={draft.applicableATypes[0] ?? ""}
+        onValueChange={(v) => setDraft((d) => ({ ...d, applicableATypes: v ? [v] : [] }))}
+      >
+        <SelectTrigger className="h-10 w-full rounded-lg">
+          <SelectValue placeholder="Sélectionner..." />
+        </SelectTrigger>
+        <SelectContent>
+          {typologies.map((t) => (
+            <SelectItem key={t.id} value={t.code}>
+              {t.nom}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  )
+
+  const createOptionsField = (
+    <div className="space-y-1.5">
+      <Label className="text-sm font-medium">Options de liste</Label>
+      <Textarea
+        placeholder={"Une option par ligne\nTerres cultivées\nTerres boisées"}
+        className="min-h-24"
+        value={createOptionsText}
+        onChange={(e) => setCreateOptionsText(e.target.value)}
+      />
+      <p className="text-xs text-muted-foreground">Une option par ligne.</p>
+    </div>
+  )
+
   return (
     <div className="flex h-full flex-col gap-4 overflow-hidden">
       <Card className="shrink-0 border-border shadow-sm">
@@ -172,24 +251,20 @@ export function ChampsAdmin({
           <CardTitle className="text-base font-semibold">Nouveau champ enrichissable</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-            {/* Ligne 1 */}
-            <div className="space-y-1.5 md:col-start-1">
-              <Label className="text-sm font-medium">Code machine</Label>
-              <Input
-                placeholder="superficie_cultivee"
-                value={draft.codeMachine}
-                onChange={(e) => setDraft((d) => ({ ...d, codeMachine: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-1.5 md:col-start-2">
+          <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-3">
+            {/* Ligne 1 : le code machine n'est plus saisi — il est dérivé du nom affiché (norme
+                buildCodeMachine) et affiché en lecture seule à titre indicatif. */}
+            <div className="space-y-1.5">
               <Label className="text-sm font-medium">Nom affiché</Label>
               <Input
                 value={draft.nomAffichage}
                 onChange={(e) => setDraft((d) => ({ ...d, nomAffichage: e.target.value }))}
               />
+              <p className="text-xs text-muted-foreground">
+                Code machine : <span className="font-mono">{derivedCodeMachine || "—"}</span>
+              </p>
             </div>
-            <div className="space-y-1.5 md:col-start-3">
+            <div className="space-y-1.5">
               <Label className="text-sm font-medium">Nature</Label>
               <Select
                 value={draft.nature}
@@ -204,7 +279,7 @@ export function ChampsAdmin({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5 md:col-start-4">
+            <div className="space-y-1.5">
               <Label className="text-sm font-medium">Type de données</Label>
               <Select
                 value={draft.typeDonnees}
@@ -223,52 +298,27 @@ export function ChampsAdmin({
               </Select>
             </div>
 
-            {/* Ligne 2 */}
-            {isNumericType(draft.typeDonnees) && (
-              <div className="space-y-1.5 md:col-start-1">
-                <Label className="text-sm font-medium">Unité</Label>
-                <Input
-                  placeholder="ha"
-                  value={draft.unite}
-                  onChange={(e) => setDraft((d) => ({ ...d, unite: e.target.value }))}
-                />
+            {/* Ligne 2 : pour une liste / multi-sélection, Règle de calcul, Types de transaction et
+                Options de liste partagent la ligne à largeur égale ; sinon Unité (si numérique), Règle de
+                calcul et Types de transaction. */}
+            {hasOptions(draft.typeDonnees) ? (
+              <div className="grid grid-cols-1 gap-3 md:col-span-3 md:grid-cols-3">
+                {createRegleField}
+                {createTypesField}
+                {createOptionsField}
               </div>
+            ) : isNumericType(draft.typeDonnees) ? (
+              <>
+                {createUniteField}
+                {createRegleField}
+                {createTypesField}
+              </>
+            ) : (
+              <>
+                <div className="md:col-span-2">{createRegleField}</div>
+                {createTypesField}
+              </>
             )}
-            <div
-              className={cn(
-                "space-y-1.5",
-                isNumericType(draft.typeDonnees)
-                  ? "md:col-span-2 md:col-start-2"
-                  : "md:col-span-2 md:col-start-1"
-              )}
-            >
-              <Label className="text-sm font-medium">
-                Règle de calcul {draft.nature === "CALCULE" ? "(obligatoire)" : "(optionnelle)"}
-              </Label>
-              <Input
-                placeholder="prix_vente / superficie_totale_hectare"
-                value={draft.regleCalcul ?? ""}
-                onChange={(e) => setDraft((d) => ({ ...d, regleCalcul: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-1.5 md:col-start-4">
-              <Label className="text-sm font-medium">Types de transaction applicables</Label>
-              <Select
-                value={draft.applicableATypes[0] ?? ""}
-                onValueChange={(v) => setDraft((d) => ({ ...d, applicableATypes: v ? [v] : [] }))}
-              >
-                <SelectTrigger className="h-10 w-full rounded-lg">
-                  <SelectValue placeholder="Sélectionner..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {typologies.map((t) => (
-                    <SelectItem key={t.id} value={t.code}>
-                      {t.nom}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
           <div className="mt-3 flex items-center gap-4">
@@ -438,6 +488,19 @@ export function ChampsAdmin({
                   </SelectContent>
                 </Select>
               </div>
+
+              {hasOptions(editDraft.typeDonnees) && (
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Options de liste</Label>
+                  <Textarea
+                    placeholder="Une option par ligne"
+                    className="min-h-24"
+                    value={editOptionsText}
+                    onChange={(e) => setEditOptionsText(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">Une option par ligne.</p>
+                </div>
+              )}
 
               <div className="flex items-center justify-between rounded-lg border border-border p-3">
                 <Label className="text-sm font-medium">Affiché sur la fiche</Label>

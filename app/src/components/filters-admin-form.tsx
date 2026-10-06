@@ -19,19 +19,10 @@ import {
 } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { getFilterIcon, getFilterIconColor } from "@/lib/filter-icons"
-import { recommendFilterType, DEFAULT_OPERATEURS, moveItemToIndex } from "@/lib/filters"
+import { recommendFilterType, recommendedTypeForField, DEFAULT_OPERATEURS, moveItemToIndex } from "@/lib/filters"
 import { SOURCE_FIELDS, SOURCE_FIELD_BY_CODE, isSourceFieldCode } from "@/lib/transaction-source-fields"
 import type { FilterConfig, FilterType } from "@/types/filter"
 import type { CreateFilterInput } from "@/server/actions/filters"
-
-const FILTER_TYPES: { value: FilterType; label: string }[] = [
-  { value: "PLAGE_NUMERIQUE", label: "Plage de valeurs" },
-  { value: "PLAGE_DATE", label: "Plage de dates" },
-  { value: "LISTE", label: "Liste" },
-  { value: "MULTI_SELECT", label: "Multi-sélection" },
-  { value: "RECHERCHE_TEXTE", label: "Recherche texte" },
-  { value: "BOOLEEN", label: "Booléen" },
-]
 
 const FILTER_TYPE_LABELS: Record<FilterType, string> = {
   PLAGE_NUMERIQUE: "Plage de valeurs",
@@ -44,7 +35,26 @@ const FILTER_TYPE_LABELS: Record<FilterType, string> = {
   TYPE_TRANSACTION: "Type de transaction",
   STATUT: "Statut",
   ZONE_GEO: "Zone géographique",
+  // Type virtuel piloté par l'interrupteur « Reventes » du panneau de filtres, pas par un filtre configurable.
+  REVENTE: "Reventes (lots vendus 2 fois)",
 }
+
+// Dérivé des libellés : la liste déroulante et les libellés ne peuvent plus diverger, et tous les types
+// (y compris ceux recommandés pour les sources : NUMERO_LOT, ZONE_GEO, ...) restent sélectionnables.
+const FILTER_TYPES: { value: FilterType; label: string }[] = (
+  [
+    "PLAGE_NUMERIQUE",
+    "PLAGE_DATE",
+    "LISTE",
+    "MULTI_SELECT",
+    "RECHERCHE_TEXTE",
+    "BOOLEEN",
+    "NUMERO_LOT",
+    "TYPE_TRANSACTION",
+    "STATUT",
+    "ZONE_GEO",
+  ] as FilterType[]
+).map((value) => ({ value, label: FILTER_TYPE_LABELS[value] }))
 
 const DATA_TYPE_LABELS: Record<string, string> = {
   TEXTE: "Texte",
@@ -107,7 +117,9 @@ export function FiltersAdminForm({
       : items.some((f) => f.champEnrichissable?.id === newChampId)
   const recommendedTypeForNew = useMemo<FilterType | null>(() => {
     if (isSourceSelection) return SOURCE_FIELD_BY_CODE[sourceCode ?? ""]?.typeFiltreRecommande ?? null
-    if (isVirtualSelection) return null
+    if (isVirtualSelection) {
+      return VIRTUAL_FILTERS.find((v) => v.codeMachine === selectedVirtualCode)?.typeFiltre ?? null
+    }
     const champ = champs.find((c) => c.id === newChampId)
     if (!champ) return null
     return recommendFilterType({
@@ -115,7 +127,7 @@ export function FiltersAdminForm({
       nomAffichage: champ.nomAffichage,
       typeDonnees: champ.typeDonnees,
     })
-  }, [newChampId, isSourceSelection, sourceCode, isVirtualSelection, champs])
+  }, [newChampId, isSourceSelection, sourceCode, isVirtualSelection, selectedVirtualCode, champs])
   const { setAction, clearAction } = useHeaderActions()
   // The header button is set once per (publishing, lastSaved) change, so a bare `onClick={handlePublish}`
   // would freeze an `items` snapshot: a pure reorder doesn't change those deps and would publish the old
@@ -139,6 +151,13 @@ export function FiltersAdminForm({
   const selected = useMemo(
     () => (items.find((f) => f.id === selectedId) as Filter | undefined) ?? null,
     [items, selectedId]
+  )
+
+  // Recomputed from the target rather than the stored `type_filtre_recommande` column, so the badge and the
+  // "Type recommandé" panel stay in sync with the create form and also cover source filters.
+  const selectedRecommended = useMemo(
+    () => (selected ? recommendedTypeForField(selected) : null),
+    [selected]
   )
 
   const filtered = useMemo(() => {
@@ -336,7 +355,12 @@ export function FiltersAdminForm({
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">Type de filtre</Label>
-              <TypeSelect name="typeFiltre" recommendedType={recommendedTypeForNew} />
+              {/* key = cible : le Select (non contrôlé) repart sur la recommandation quand la cible change. */}
+              <TypeSelect
+                key={newChampId}
+                name="typeFiltre"
+                recommendedType={recommendedTypeForNew}
+              />
             </div>
             <Button type="submit" disabled={isNewChampUsed} className="h-10 gap-2 rounded-lg">
               <Plus className="h-4 w-4" />
@@ -492,7 +516,7 @@ export function FiltersAdminForm({
                         <SelectItem key={t.value} value={t.value}>
                           <span className="flex items-center gap-2">
                             {t.label}
-                            {t.value === selected.champEnrichissable?.typeFiltreRecommande && (
+                            {t.value === selectedRecommended && (
                               <Badge variant="outline" className="text-xs">
                                 Recommandé
                               </Badge>
@@ -504,32 +528,23 @@ export function FiltersAdminForm({
                   </Select>
                 </div>
 
-                {selected.champEnrichissable?.typeFiltreRecommande &&
-                  selected.champEnrichissable.typeFiltreRecommande !== selected.typeFiltre && (
-                    <div className="flex items-center justify-between rounded-lg border border-border p-3">
-                      <div className="space-y-0.5">
-                        <p className="text-sm font-medium">Type recommandé</p>
-                        <p className="text-xs text-muted-foreground">
-                          {
-                            FILTER_TYPE_LABELS[
-                              selected.champEnrichissable.typeFiltreRecommande as FilterType
-                            ]
-                          }
-                        </p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          handleTypeChange(
-                            selected.champEnrichissable!.typeFiltreRecommande as FilterType
-                          )
-                        }
-                      >
-                        Appliquer
-                      </Button>
+                {selectedRecommended && selectedRecommended !== selected.typeFiltre && (
+                  <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                    <div className="space-y-0.5">
+                      <p className="text-sm font-medium">Type recommandé</p>
+                      <p className="text-xs text-muted-foreground">
+                        {FILTER_TYPE_LABELS[selectedRecommended]}
+                      </p>
                     </div>
-                  )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleTypeChange(selectedRecommended)}
+                    >
+                      Appliquer
+                    </Button>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between rounded-lg border border-border p-3">
                   <div className="space-y-0.5">
