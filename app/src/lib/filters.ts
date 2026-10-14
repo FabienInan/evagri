@@ -2,54 +2,36 @@ import { Prisma } from "@prisma/client"
 import { parsePolygon, pointInPolygon } from "./geo"
 import { booleanTextMatches } from "./normalization/parsing"
 import type { FilterInput, FilterOperator, FilterType } from "@/types/filter"
-import { isSourceFieldCode, sourceColumnOf, SOURCE_FIELD_BY_CODE } from "./transaction-source-fields"
 
 export type { FilterInput }
 
-/** Prisma column key for a source field code. The catalogue bounds the value, so it doubles as a whitelist. */
-function sourceColumnKey(field: string): keyof Prisma.TransactionSourceWhereInput | null {
-  const column = sourceColumnOf(field)
-  return column ? (column as keyof Prisma.TransactionSourceWhereInput) : null
-}
-
-function buildEnrichmentWhereClause(
+function buildFieldWhereClause(
   field: string,
   typeFiltre: FilterType,
   operator: FilterOperator,
   value: string
-): Prisma.TransactionSourceWhereInput {
-  let valeurClause: Prisma.ValeurEnrichissementWhereInput = { champEnrichissable: { codeMachine: field } }
+): Prisma.TransactionWhereInput {
+  let valeurClause: Prisma.ValeurChampWhereInput = { champ: { codeMachine: field } }
 
   switch (typeFiltre) {
     case "RECHERCHE_TEXTE":
-      valeurClause = {
-        ...valeurClause,
-        valeurTexte: { contains: value, mode: "insensitive" },
-      }
+      valeurClause = { ...valeurClause, valeurTexte: { contains: value, mode: "insensitive" } }
       break
     case "PLAGE_NUMERIQUE":
       if (operator === "entre") {
         const [min, max] = value.split("-").map(Number)
         valeurClause = { ...valeurClause, valeurNombre: { gte: min, lte: max } }
-      } else if (operator === "+") {
-        valeurClause = { ...valeurClause, valeurNombre: { gte: Number(value) } }
-      } else if (operator === "-") {
-        valeurClause = { ...valeurClause, valeurNombre: { lte: Number(value) } }
-      } else {
-        valeurClause = { ...valeurClause, valeurNombre: { equals: Number(value) } }
-      }
+      } else if (operator === "+") valeurClause = { ...valeurClause, valeurNombre: { gte: Number(value) } }
+      else if (operator === "-") valeurClause = { ...valeurClause, valeurNombre: { lte: Number(value) } }
+      else valeurClause = { ...valeurClause, valeurNombre: { equals: Number(value) } }
       break
     case "PLAGE_DATE":
       if (operator === "entre") {
         const [start, end] = value.split(",").map((s) => new Date(s.trim()))
-        valeurClause = { ...valeurClause, valeurTexte: { gte: start.toISOString(), lte: end.toISOString() } }
-      } else if (operator === "+") {
-        valeurClause = { ...valeurClause, valeurTexte: { gte: new Date(value).toISOString() } }
-      } else if (operator === "-") {
-        valeurClause = { ...valeurClause, valeurTexte: { lte: new Date(value).toISOString() } }
-      } else {
-        valeurClause = { ...valeurClause, valeurTexte: { equals: new Date(value).toISOString() } }
-      }
+        valeurClause = { ...valeurClause, valeurDate: { gte: start, lte: end } }
+      } else if (operator === "+") valeurClause = { ...valeurClause, valeurDate: { gte: new Date(value) } }
+      else if (operator === "-") valeurClause = { ...valeurClause, valeurDate: { lte: new Date(value) } }
+      else valeurClause = { ...valeurClause, valeurDate: { equals: new Date(value) } }
       break
     case "LISTE":
     case "MULTI_SELECT":
@@ -70,125 +52,45 @@ function buildEnrichmentWhereClause(
       break
     }
     case "NUMERO_LOT":
-      valeurClause = { ...valeurClause, valeurTexte: { contains: value, mode: "insensitive" } }
+      valeurClause = { ...valeurClause, valeurTexteMultiple: { has: value } }
       break
     default:
       valeurClause = { ...valeurClause, valeurTexte: { contains: value, mode: "insensitive" } }
   }
 
-  return {
-    enrichie: {
-      valeurs: {
-        some: valeurClause,
-      },
-    },
-  }
+  return { valeurs: { some: valeurClause } }
 }
 
-export function buildWhereClause(filters: FilterInput[]): Prisma.TransactionSourceWhereInput {
-  const andClauses: Prisma.TransactionSourceWhereInput[] = []
+export function buildWhereClause(filters: FilterInput[]): Prisma.TransactionWhereInput {
+  const andClauses: Prisma.TransactionWhereInput[] = []
 
   for (const f of filters) {
     if (!f.value && f.value !== "0") continue
-
-    const field = f.field
-    const isSource = isSourceFieldCode(field)
-    const column = isSource ? sourceColumnKey(field) : null
-    let clause: Prisma.TransactionSourceWhereInput = {}
+    let clause: Prisma.TransactionWhereInput = {}
 
     switch (f.typeFiltre as FilterType) {
       case "RECHERCHE_TEXTE":
-        if (column) {
-          clause = { [column]: { contains: f.value, mode: "insensitive" } } as Prisma.TransactionSourceWhereInput
-        } else if (!isSource) {
-          clause = buildEnrichmentWhereClause(field, "RECHERCHE_TEXTE", f.operator as FilterOperator, f.value)
-        }
-        break
       case "PLAGE_NUMERIQUE":
-        if (column) {
-          if (f.operator === "entre") {
-            const [min, max] = f.value.split("-").map(Number)
-            clause = { [column]: { gte: min, lte: max } }
-          } else if (f.operator === "+") {
-            clause = { [column]: { gte: Number(f.value) } }
-          } else if (f.operator === "-") {
-            clause = { [column]: { lte: Number(f.value) } }
-          } else {
-            clause = { [column]: { equals: Number(f.value) } }
-          }
-        } else if (!isSource) {
-          clause = buildEnrichmentWhereClause(field, "PLAGE_NUMERIQUE", f.operator as FilterOperator, f.value)
-        }
-        break
       case "PLAGE_DATE":
-        if (column) {
-          if (f.operator === "entre") {
-            const [start, end] = f.value.split(",").map((s) => new Date(s.trim()))
-            clause = { [column]: { gte: start, lte: end } }
-          } else if (f.operator === "+") {
-            clause = { [column]: { gte: new Date(f.value) } }
-          } else if (f.operator === "-") {
-            clause = { [column]: { lte: new Date(f.value) } }
-          } else {
-            clause = { [column]: { equals: new Date(f.value) } }
-          }
-        } else if (!isSource) {
-          clause = buildEnrichmentWhereClause(field, "PLAGE_DATE", f.operator as FilterOperator, f.value)
-        }
-        break
       case "LISTE":
       case "MULTI_SELECT":
-        if (column) {
-          clause = { [column]: { in: f.value.split(","), mode: "insensitive" } } as Prisma.TransactionSourceWhereInput
-        } else if (!isSource) {
-          clause = buildEnrichmentWhereClause(field, f.typeFiltre as FilterType, "in", f.value)
-        }
-        break
       case "BOOLEEN":
-        if (column) {
-          clause = { [column]: f.value === "true" }
-        } else if (!isSource) {
-          clause = buildEnrichmentWhereClause(field, "BOOLEEN", "=", f.value)
-        }
-        break
       case "NUMERO_LOT":
-        if (column && SOURCE_FIELD_BY_CODE[field]?.array) {
-          clause = { [column]: { has: f.value } }
-        } else {
-          clause = buildEnrichmentWhereClause(field, "NUMERO_LOT", "has", f.value)
-        }
+        clause = buildFieldWhereClause(f.field, f.typeFiltre as FilterType, f.operator as FilterOperator, f.value)
         break
       case "TYPE_TRANSACTION":
-        clause = {
-          enrichie: {
-            valeurs: {
-              some: {
-                champEnrichissable: { codeMachine: "typeTransaction" },
-                valeurTexte: { in: f.value.split(",") },
-              },
-            },
-          },
-        }
+        clause = { valeurs: { some: { champ: { codeMachine: "typeTransaction" }, valeurTexte: { in: f.value.split(",") } } } }
         break
       case "STATUT":
-        clause = {
-          enrichie: {
-            statut: f.operator === "=" ? f.value : { in: f.value.split(",") },
-          },
-        }
+        clause = { statut: f.operator === "=" ? (f.value as never) : { in: f.value.split(",") as never } }
         break
       case "ZONE_GEO":
-        // Filtre géographique appliqué de manière applicative après la requête Prisma
-        break
       case "REVENTE":
-        // Cible un ensemble de lots calculé en amont (findRenteLotNumbers) : la clause est ajoutée par
-        // l'appelant, qui seul a accès à la base. Ici on ne produit aucune clause directe.
+        // appliqués de manière applicative après la requête
         break
     }
 
-    if (Object.keys(clause).length > 0) {
-      andClauses.push(clause)
-    }
+    if (Object.keys(clause).length > 0) andClauses.push(clause)
   }
 
   return andClauses.length > 0 ? { AND: andClauses } : {}
@@ -415,8 +317,7 @@ export function recommendFilterType(champ: RecommendFilterTypeInput): FilterType
 }
 
 export interface RecommendFilterTypeForFieldInput {
-  codeMachine?: string | null
-  champEnrichissable?: {
+  champ?: {
     codeMachine: string
     nomAffichage: string
     typeDonnees: string
@@ -424,16 +325,10 @@ export interface RecommendFilterTypeForFieldInput {
 }
 
 /**
- * Recommends a filter type for a configured filter's target, matching the create form's behaviour: a source
- * code uses the catalogue's `typeFiltreRecommande`, an enrichment field uses the heuristic. Returns null for
- * virtual filters (statut, ...) and unknown targets so callers can fall back to their own default.
+ * Recommends a filter type for a configured filter's target, applying the heuristic to its champ. Returns
+ * null for virtual filters (statut, ...) and unknown targets so callers can fall back to their own default.
  */
 export function recommendedTypeForField(input: RecommendFilterTypeForFieldInput): FilterType | null {
-  if (input.codeMachine && isSourceFieldCode(input.codeMachine)) {
-    return SOURCE_FIELD_BY_CODE[input.codeMachine]?.typeFiltreRecommande ?? null
-  }
-  if (input.champEnrichissable) {
-    return recommendFilterType(input.champEnrichissable)
-  }
+  if (input.champ) return recommendFilterType(input.champ)
   return null
 }

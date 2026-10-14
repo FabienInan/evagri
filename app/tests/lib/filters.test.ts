@@ -93,29 +93,23 @@ describe("recommendFilterType", () => {
 })
 
 describe("recommendedTypeForField", () => {
-  it("uses the source catalogue recommendation for a source code", () => {
-    expect(recommendedTypeForField({ codeMachine: "mrc" })).toBe("LISTE")
-    expect(recommendedTypeForField({ codeMachine: "prix_vente" })).toBe("PLAGE_NUMERIQUE")
-    expect(recommendedTypeForField({ codeMachine: "lots_cadastraux" })).toBe("NUMERO_LOT")
-  })
-
-  it("prefers the source code over an enrichment champ when both are present", () => {
-    const result = recommendedTypeForField({
-      codeMachine: "mrc",
-      champEnrichissable: { codeMachine: "topographie", nomAffichage: "Topographie", typeDonnees: "TEXTE" },
-    })
-    expect(result).toBe("LISTE")
+  it("recomputes the recommendation from a champ", () => {
+    expect(
+      recommendedTypeForField({
+        champ: { codeMachine: "mrc", nomAffichage: "MRC", typeDonnees: "TEXTE" },
+      })
+    ).toBe("RECHERCHE_TEXTE")
   })
 
   it("recomputes the enrichment recommendation for an enrichment champ", () => {
     const result = recommendedTypeForField({
-      champEnrichissable: { codeMachine: "topographie", nomAffichage: "Topographie", typeDonnees: "TEXTE" },
+      champ: { codeMachine: "topographie", nomAffichage: "Topographie", typeDonnees: "TEXTE" },
     })
     expect(result).toBe("LISTE")
   })
 
   it("returns null for a virtual filter or an unknown target", () => {
-    expect(recommendedTypeForField({ codeMachine: "statut" })).toBeNull()
+    expect(recommendedTypeForField({ champ: null })).toBeNull()
     expect(recommendedTypeForField({})).toBeNull()
   })
 })
@@ -143,36 +137,64 @@ describe("DEFAULT_OPERATEURS", () => {
 })
 
 describe("buildWhereClause", () => {
-  it("maps a source LISTE filter to its TransactionSource column", () => {
+  it("maps a LISTE filter to a ValeurChamp clause whatever the nature", () => {
     const filters: FilterInput[] = [
       { id: "f1", typeFiltre: "LISTE", field: "mrc", operator: "in", value: "Drummond" },
     ]
     expect(buildWhereClause(filters)).toEqual({
-      AND: [{ mrc: { in: ["Drummond"], mode: "insensitive" } }],
+      AND: [
+        {
+          valeurs: {
+            some: { champ: { codeMachine: "mrc" }, valeurTexte: { in: ["Drummond"], mode: "insensitive" } },
+          },
+        },
+      ],
     })
   })
 
-  it("narrows a source text search to its own column", () => {
+  it("maps a text search to a ValeurChamp clause whatever the nature", () => {
     const filters: FilterInput[] = [
       { id: "f1", typeFiltre: "RECHERCHE_TEXTE", field: "vendeur", operator: "contient", value: "Gagnon" },
     ]
     expect(buildWhereClause(filters)).toEqual({
-      AND: [{ vendeur: { contains: "Gagnon", mode: "insensitive" } }],
+      AND: [
+        {
+          valeurs: {
+            some: { champ: { codeMachine: "vendeur" }, valeurTexte: { contains: "Gagnon", mode: "insensitive" } },
+          },
+        },
+      ],
     })
   })
 
-  it("maps a source PLAGE_NUMERIQUE filter to its column", () => {
+  it("maps a numeric range filter to valeurNombre", () => {
     const filters: FilterInput[] = [
       { id: "f1", typeFiltre: "PLAGE_NUMERIQUE", field: "prix_vente", operator: "+", value: "100000" },
     ]
-    expect(buildWhereClause(filters)).toEqual({ AND: [{ prixVente: { gte: 100000 } }] })
+    expect(buildWhereClause(filters)).toEqual({
+      AND: [
+        {
+          valeurs: {
+            some: { champ: { codeMachine: "prix_vente" }, valeurNombre: { gte: 100000 } },
+          },
+        },
+      ],
+    })
   })
 
-  it("maps a source NUMERO_LOT filter to the lotsCadastraux array column", () => {
+  it("maps a NUMERO_LOT filter to the multiple-value column", () => {
     const filters: FilterInput[] = [
       { id: "f1", typeFiltre: "NUMERO_LOT", field: "lots_cadastraux", operator: "has", value: "123" },
     ]
-    expect(buildWhereClause(filters)).toEqual({ AND: [{ lotsCadastraux: { has: "123" } }] })
+    expect(buildWhereClause(filters)).toEqual({
+      AND: [
+        {
+          valeurs: {
+            some: { champ: { codeMachine: "lots_cadastraux" }, valeurTexteMultiple: { has: "123" } },
+          },
+        },
+      ],
+    })
   })
 
   it("produces no clause for a REVENTE filter, which the caller applies after a duplicate-lot lookup", () => {
@@ -188,46 +210,45 @@ describe("buildWhereClause", () => {
       { id: "f1", typeFiltre: "LISTE", field: "mrc", operator: "in", value: "Drummond" },
     ]
     expect(buildWhereClause(filters)).toEqual({
-      AND: [{ mrc: { in: ["Drummond"], mode: "insensitive" } }],
+      AND: [
+        {
+          valeurs: {
+            some: { champ: { codeMachine: "mrc" }, valeurTexte: { in: ["Drummond"], mode: "insensitive" } },
+          },
+        },
+      ],
     })
   })
 
-  it("keeps enrichment filters on the valeur_enrichissement relation", () => {
+  it("maps a text filter to the unified valeur_champ relation whatever the nature", () => {
     const filters: FilterInput[] = [
       { id: "f1", typeFiltre: "RECHERCHE_TEXTE", field: "topographie", operator: "contient", value: "plat" },
     ]
     expect(buildWhereClause(filters)).toEqual({
       AND: [
         {
-          enrichie: {
-            valeurs: {
-              some: {
-                champEnrichissable: { codeMachine: "topographie" },
-                valeurTexte: { contains: "plat", mode: "insensitive" },
-              },
-            },
+          valeurs: {
+            some: { champ: { codeMachine: "topographie" }, valeurTexte: { contains: "plat", mode: "insensitive" } },
           },
         },
       ],
     })
   })
 
-  it("matches a boolean enrichment for a true BOOLEEN filter, whether stored as boolean or as 'oui' text", () => {
+  it("maps a true boolean filter to the boolean OR text match, whatever the nature", () => {
     const filters: FilterInput[] = [
       { id: "f1", typeFiltre: "BOOLEEN", field: "cptaq", operator: "=", value: "true" },
     ]
     expect(buildWhereClause(filters)).toEqual({
       AND: [
         {
-          enrichie: {
-            valeurs: {
-              some: {
-                champEnrichissable: { codeMachine: "cptaq" },
-                OR: [
-                  { valeurBooleen: true },
-                  { valeurTexte: { in: ["true", "1", "oui", "yes", "vrai", "o", "y"], mode: "insensitive" } },
-                ],
-              },
+          valeurs: {
+            some: {
+              champ: { codeMachine: "cptaq" },
+              OR: [
+                { valeurBooleen: true },
+                { valeurTexte: { in: ["true", "1", "oui", "yes", "vrai", "o", "y"], mode: "insensitive" } },
+              ],
             },
           },
         },
@@ -235,27 +256,32 @@ describe("buildWhereClause", () => {
     })
   })
 
-  it("matches 'non'-like text for a false BOOLEEN filter", () => {
+  it("matches 'non'-like text for a false boolean filter", () => {
     const filters: FilterInput[] = [
       { id: "f1", typeFiltre: "BOOLEEN", field: "cptaq", operator: "=", value: "false" },
     ]
     expect(buildWhereClause(filters)).toEqual({
       AND: [
         {
-          enrichie: {
-            valeurs: {
-              some: {
-                champEnrichissable: { codeMachine: "cptaq" },
-                OR: [
-                  { valeurBooleen: false },
-                  { valeurTexte: { in: ["false", "0", "non", "no", "faux", "n", "aucune", "aucun"], mode: "insensitive" } },
-                ],
-              },
+          valeurs: {
+            some: {
+              champ: { codeMachine: "cptaq" },
+              OR: [
+                { valeurBooleen: false },
+                { valeurTexte: { in: ["false", "0", "non", "no", "faux", "n", "aucune", "aucun"], mode: "insensitive" } },
+              ],
             },
           },
         },
       ],
     })
+  })
+
+  it("maps a STATUT filter to the enum on the transaction", () => {
+    const filters: FilterInput[] = [
+      { id: "s", typeFiltre: "STATUT", field: "statut", operator: "=", value: "ANALYSEE" },
+    ]
+    expect(buildWhereClause(filters)).toEqual({ AND: [{ statut: "ANALYSEE" }] })
   })
 })
 
