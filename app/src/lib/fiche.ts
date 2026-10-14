@@ -5,7 +5,7 @@ import { validateEnrichment, validateSaleDate, type RangeCheck } from "@/lib/val
 import { joinMultiValue, parseMultiValue } from "@/lib/multi-value"
 
 export type FicheMode = "edition" | "consultation"
-export type FicheValeur = string | number | boolean | null
+export type FicheValeur = string | number | boolean | string[] | null
 
 /** codeMachine of the champ that carries the transaction type (§7.5.3). Rendered in the header, not in a section. */
 export const TYPE_TRANSACTION_CODE = "typeTransaction"

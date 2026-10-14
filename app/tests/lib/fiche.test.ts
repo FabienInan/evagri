@@ -289,6 +289,23 @@ describe("toStorageValue", () => {
       valeurDate: null,
     })
   })
+  it("routes a valid date to valeurDate as a Date", () => {
+    const result = toStorageValue("DATE", "2020-05-01")
+    expect(result.valeurDate).toBeInstanceOf(Date)
+    expect(result.valeurNombre).toBeNull()
+    expect(result.valeurTexte).toBeNull()
+    expect(result.valeurTexteMultiple).toEqual([])
+    expect(result.valeurBooleen).toBeNull()
+  })
+  it("returns all-null for an invalid date string", () => {
+    expect(toStorageValue("DATE", "pas-une-date")).toEqual({
+      valeurNombre: null,
+      valeurTexte: null,
+      valeurTexteMultiple: [],
+      valeurBooleen: null,
+      valeurDate: null,
+    })
+  })
   it("returns all-null for an empty value", () => {
     expect(toStorageValue("TEXTE", "")).toEqual({
       valeurNombre: null,
