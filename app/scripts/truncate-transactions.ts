@@ -2,27 +2,24 @@ import { prisma } from "@/lib/prisma"
 
 async function main() {
   await prisma.$transaction([
-    prisma.valeurEnrichissement.deleteMany({}),
-    prisma.transactionEnrichie.deleteMany({}),
+    prisma.valeurChamp.deleteMany({}),
+    prisma.transaction.deleteMany({}),
     prisma.documentActe.deleteMany({}),
-    prisma.transactionSource.deleteMany({}),
     prisma.importation.deleteMany({}),
   ])
 
   const counts = await prisma.$transaction([
-    prisma.valeurEnrichissement.count(),
-    prisma.transactionEnrichie.count(),
+    prisma.valeurChamp.count(),
+    prisma.transaction.count(),
     prisma.documentActe.count(),
-    prisma.transactionSource.count(),
     prisma.importation.count(),
   ])
 
   console.log("Remaining:", {
-    valeurEnrichissement: counts[0],
-    transactionEnrichie: counts[1],
+    valeurChamp: counts[0],
+    transaction: counts[1],
     documentActe: counts[2],
-    transactionSource: counts[3],
-    importation: counts[4],
+    importation: counts[3],
   })
 }
 

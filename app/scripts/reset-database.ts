@@ -2,13 +2,12 @@ import { prisma } from "../src/lib/prisma"
 
 async function main() {
   await prisma.$transaction([
-    prisma.valeurEnrichissement.deleteMany({}),
-    prisma.transactionEnrichie.deleteMany({}),
+    prisma.valeurChamp.deleteMany({}),
     prisma.documentActe.deleteMany({}),
-    prisma.transactionSource.deleteMany({}),
+    prisma.transaction.deleteMany({}),
     prisma.importation.deleteMany({}),
     prisma.filtreRecherche.deleteMany({}),
-    prisma.champEnrichissable.deleteMany({}),
+    prisma.champ.deleteMany({}),
     prisma.vueFicheEvaluation.deleteMany({}),
     prisma.parametresAnalyseTransaction.deleteMany({}),
     prisma.indicateursAjustes.deleteMany({}),
@@ -24,25 +23,23 @@ async function main() {
   ])
 
   const counts = await prisma.$transaction([
-    prisma.valeurEnrichissement.count(),
-    prisma.transactionEnrichie.count(),
+    prisma.valeurChamp.count(),
     prisma.documentActe.count(),
-    prisma.transactionSource.count(),
+    prisma.transaction.count(),
     prisma.importation.count(),
     prisma.filtreRecherche.count(),
-    prisma.champEnrichissable.count(),
+    prisma.champ.count(),
     prisma.organisation.count(),
   ])
 
   console.log("Remaining:", {
-    valeurEnrichissement: counts[0],
-    transactionEnrichie: counts[1],
-    documentActe: counts[2],
-    transactionSource: counts[3],
-    importation: counts[4],
-    filtreRecherche: counts[5],
-    champEnrichissable: counts[6],
-    organisation: counts[7],
+    valeurChamp: counts[0],
+    documentActe: counts[1],
+    transaction: counts[2],
+    importation: counts[3],
+    filtreRecherche: counts[4],
+    champ: counts[5],
+    organisation: counts[6],
   })
 }
 
