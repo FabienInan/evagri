@@ -28,6 +28,40 @@ describe("findFiltersByOrganisation", () => {
     expect(filters[0].champ?.codeMachine).toBe("mrc")
     expect(filters[0].optionsListe).toEqual(["Arthabaska", "Drummond"])
   })
+
+  it("prefers a champ's static optionsListe over conflicting distinct ValeurChamp values", async () => {
+    const champ = await prisma.champ.create({
+      data: {
+        organisationId: orgId,
+        codeMachine: "relief",
+        nomAffichage: "Relief",
+        typeDonnees: "TEXTE",
+        nature: "IMPORTE",
+        optionsListe: ["Plat", "Vallonné"],
+      },
+    })
+    const filter = await prisma.filtreRecherche.create({
+      data: { organisationId: orgId, nomFiltre: "Relief", typeFiltre: "LISTE", champId: champ.id, ordreAffichage: 1 },
+    })
+    const tx = await prisma.transaction.create({
+      data: {
+        organisationId: orgId,
+        systemeSource: "EXISTANT_EVAGRI",
+        valeurs: { create: [{ champId: champ.id, valeurTexte: "Montagneux" }] },
+      },
+    })
+    try {
+      const filters = await findFiltersByOrganisation(orgId)
+      const found = filters.find((f) => f.champ?.id === champ.id)
+      expect(found).toBeDefined()
+      expect(found?.optionsListe).toEqual(["Plat", "Vallonné"])
+    } finally {
+      await prisma.filtreRecherche.deleteMany({ where: { id: filter.id } })
+      await prisma.valeurChamp.deleteMany({ where: { transactionId: tx.id } })
+      await prisma.transaction.deleteMany({ where: { id: tx.id } })
+      await prisma.champ.deleteMany({ where: { id: champ.id } })
+    }
+  })
 })
 
 describe("withRenteLots", () => {

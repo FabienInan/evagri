@@ -20,7 +20,7 @@ export async function findDistinctFieldValues(
   })
   const values = new Set<string>()
   for (const r of rows) {
-    if (r.valeurTexte) values.add(r.valeurTexte)
+    if (r.valeurTexte && r.valeurTexte.trim() !== "") values.add(r.valeurTexte)
     for (const v of r.valeurTexteMultiple) values.add(v)
   }
   return Array.from(values).sort((a, b) => a.localeCompare(b, "fr"))
