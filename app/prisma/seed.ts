@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client"
+import { IMPORTED_FIELDS } from "../src/lib/imported-fields"
 
 const prisma = new PrismaClient()
 
@@ -43,20 +44,30 @@ async function main() {
     })
   }
 
-  const geoChamps = [
-    { codeMachine: "latitude", nomAffichage: "Latitude", typeDonnees: "DECIMAL", unite: "°" },
-    { codeMachine: "longitude", nomAffichage: "Longitude", typeDonnees: "DECIMAL", unite: "°" },
-  ]
-
-  for (const c of geoChamps) {
-    await prisma.champEnrichissable.upsert({
-      where: { organisationId_codeMachine: { organisationId: org.id, codeMachine: c.codeMachine } },
-      update: {},
-      create: { organisationId: org.id, ...c, nature: "SAISISSABLE", applicableATypes: [] },
+  const importedChampIds: string[] = []
+  for (const [index, f] of IMPORTED_FIELDS.entries()) {
+    const champ = await prisma.champ.upsert({
+      where: { organisationId_codeMachine: { organisationId: org.id, codeMachine: f.code } },
+      update: { nature: "IMPORTE", estLectureSeule: true, typeFiltreRecommande: f.typeFiltreRecommande, entetesImport: f.entetesImport },
+      create: {
+        organisationId: org.id,
+        codeMachine: f.code,
+        nomAffichage: f.label,
+        typeDonnees: f.typeDonnees,
+        typeFiltreRecommande: f.typeFiltreRecommande,
+        nature: "IMPORTE",
+        unite: f.numeric ? (f.code.startsWith("superficie") ? "ha" : f.code === "prix_vente" ? "$" : "°") : "N/A",
+        entetesImport: f.entetesImport,
+        applicableATypes: [],
+        ordreAffichage: index,
+        estAffiche: true,
+        estLectureSeule: true,
+      },
     })
+    importedChampIds.push(champ.id)
   }
 
-  const typeTransaction = await prisma.champEnrichissable.upsert({
+  const typeTransaction = await prisma.champ.upsert({
     where: { organisationId_codeMachine: { organisationId: org.id, codeMachine: "typeTransaction" } },
     update: {
       optionsListe: [
@@ -75,6 +86,7 @@ async function main() {
       nature: "SAISISSABLE",
       unite: "N/A",
       applicableATypes: [],
+      estLectureSeule: false,
       optionsListe: [
         "Terres cultivées",
         "Terres boisées",
@@ -118,7 +130,7 @@ async function main() {
   ]
 
   for (const c of indicateurs) {
-    await prisma.champEnrichissable.upsert({
+    await prisma.champ.upsert({
       where: { organisationId_codeMachine: { organisationId: org.id, codeMachine: c.codeMachine } },
       update: { regleCalcul: c.regleCalcul, applicableATypes: c.applicableATypes },
       create: {
@@ -131,7 +143,6 @@ async function main() {
         regleCalcul: c.regleCalcul,
         applicableATypes: c.applicableATypes,
         ordreAffichage: c.ordreAffichage,
-        estModifiable: false,
       },
     })
   }
@@ -151,7 +162,7 @@ async function main() {
   ]
 
   for (const c of champsIndicateurs) {
-    await prisma.champEnrichissable.upsert({
+    await prisma.champ.upsert({
       where: { organisationId_codeMachine: { organisationId: org.id, codeMachine: c.codeMachine } },
       update: {},
       create: {
@@ -160,6 +171,7 @@ async function main() {
         typeDonnees: "DECIMAL",
         nature: "SAISISSABLE",
         applicableATypes: tousTypes,
+        estLectureSeule: false,
       },
     })
   }
@@ -176,7 +188,7 @@ async function main() {
     create: {
       id: "00000000-0000-0000-0000-000000000001",
       organisationId: org.id,
-      champEnrichissableId: typeTransaction.id,
+      champId: typeTransaction.id,
       nomFiltre: "Type de transaction",
       typeFiltre: "LISTE",
       operateursDisponibles: ["="],
@@ -205,6 +217,19 @@ async function main() {
       ordreAffichage: 1,
       estActif: true,
       applicableATypes: [],
+    },
+  })
+
+  await prisma.vueFicheEvaluation.deleteMany({ where: { organisationId: org.id, typeVue: "FICHE_TRANSACTION" } })
+  await prisma.vueFicheEvaluation.create({
+    data: {
+      organisationId: org.id,
+      typeVue: "FICHE_TRANSACTION",
+      contenu: {
+        sections: [
+          { id: "00000000-0000-0000-0000-0000000000a1", nom: "Données de l'acte", ordre: 0, champs: importedChampIds },
+        ],
+      },
     },
   })
 
