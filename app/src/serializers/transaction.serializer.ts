@@ -1,40 +1,19 @@
 import { Prisma } from "@prisma/client"
 import Decimal from "decimal.js"
 
-export type EnrichmentValues = Record<string, string | number | boolean | null>
-
+export type SerializedValue = string | number | boolean | string[] | null
 export type SerializedTransaction = {
   id: string
-  numeroInscription: string | null
-  dateVente: string | null
-  prixVente: number | null
-  superficieTotaleHectare: number | null
+  statut: string
+  fields: Record<string, SerializedValue>
   latitude: number | null
   longitude: number | null
-  vendeur: string | null
-  acheteur: string | null
-  lotsCadastraux: string[]
-  mrc: string | null
-  municipalite: string | null
-  adresse: string | null
   importationId: string | null
   createdAt: string
-  enrichment: EnrichmentValues
-  enrichie: { statut: string } | null
 }
 
-type TransactionWithEnrichie = Prisma.TransactionSourceGetPayload<{
-  include: {
-    enrichie: {
-      include: {
-        valeurs: {
-          include: {
-            champEnrichissable: true
-          }
-        }
-      }
-    }
-  }
+type TransactionWithValeurs = Prisma.TransactionGetPayload<{
+  include: { valeurs: { include: { champ: true } } }
 }>
 
 function decimalToNumber(value: Prisma.Decimal | null | undefined): number | null {
@@ -42,52 +21,26 @@ function decimalToNumber(value: Prisma.Decimal | null | undefined): number | nul
   return new Decimal(value.toString()).toNumber()
 }
 
-function extractEnrichmentValues(
-  transaction: TransactionWithEnrichie
-): EnrichmentValues {
-  const enrichment: EnrichmentValues = {}
+export function serializeTransaction(transaction: TransactionWithValeurs): SerializedTransaction {
+  const fields: Record<string, SerializedValue> = {}
 
-  for (const v of transaction.enrichie?.valeurs ?? []) {
-    const code = v.champEnrichissable?.codeMachine
+  for (const v of transaction.valeurs) {
+    const code = v.champ?.codeMachine
     if (!code) continue
-
-    if (v.valeurNombre !== null && v.valeurNombre !== undefined) {
-      enrichment[code] = decimalToNumber(v.valeurNombre)
-    } else if (v.valeurBooleen !== null && v.valeurBooleen !== undefined) {
-      enrichment[code] = v.valeurBooleen
-    } else {
-      enrichment[code] = v.valeurTexte ?? null
-    }
+    if (v.valeurNombre !== null && v.valeurNombre !== undefined) fields[code] = decimalToNumber(v.valeurNombre)
+    else if (v.valeurBooleen !== null && v.valeurBooleen !== undefined) fields[code] = v.valeurBooleen
+    else if (v.valeurTexteMultiple.length > 0) fields[code] = v.valeurTexteMultiple
+    else if (v.valeurDate !== null && v.valeurDate !== undefined) fields[code] = v.valeurDate.toISOString()
+    else fields[code] = v.valeurTexte ?? null
   }
 
-  return enrichment
-}
-
-export function serializeTransaction(
-  transaction: TransactionWithEnrichie
-): SerializedTransaction {
-  const enrichment = extractEnrichmentValues(transaction)
   return {
     id: transaction.id,
-    numeroInscription: transaction.numeroInscription ?? null,
-    dateVente: transaction.dateVente ? transaction.dateVente.toISOString() : null,
-    prixVente: decimalToNumber(transaction.prixVente),
-    superficieTotaleHectare: decimalToNumber(transaction.superficieTotaleHectare),
-    latitude: (enrichment.latitude as number | undefined) ?? null,
-    longitude: (enrichment.longitude as number | undefined) ?? null,
-    vendeur: transaction.vendeur ?? null,
-    acheteur: transaction.acheteur ?? null,
-    lotsCadastraux: transaction.lotsCadastraux ?? [],
-    mrc: transaction.mrc ?? null,
-    municipalite: transaction.municipalite ?? null,
-    adresse: transaction.adresse ?? null,
+    statut: transaction.statut,
+    fields,
+    latitude: typeof fields.latitude === "number" ? fields.latitude : null,
+    longitude: typeof fields.longitude === "number" ? fields.longitude : null,
     importationId: transaction.importationId ?? null,
     createdAt: transaction.createdAt.toISOString(),
-    enrichment,
-    enrichie: transaction.enrichie
-      ? {
-          statut: transaction.enrichie.statut,
-        }
-      : null,
   }
 }

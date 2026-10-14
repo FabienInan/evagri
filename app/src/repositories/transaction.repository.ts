@@ -1,46 +1,39 @@
 import { prisma } from "@/lib/prisma"
-import { buildWhereClause, FilterInput, findGeoFilter, findRenteFilter } from "@/lib/filters"
-import type { Prisma } from "@prisma/client"
+import { buildWhereClause, FilterInput, findRenteFilter } from "@/lib/filters"
+import type { Prisma, StatutTransaction } from "@prisma/client"
 import Decimal from "decimal.js"
 import type { CreateImportedTransactionInput } from "@/types/import"
 
 export const TRANSACTION_INCLUDE = {
-  enrichie: {
-    include: {
-      valeurs: {
-        include: {
-          champEnrichissable: true,
-        },
-      },
-    },
-  },
+  valeurs: { include: { champ: true } },
 } as const
 
+// Kept under the historical name to limit churn; it now aliases the unified Transaction order-by input.
 export type TransactionSourceOrderByInput =
-  Prisma.TransactionSourceOrderByWithRelationInput
+  Prisma.TransactionOrderByWithRelationInput
 
 type FindManyArgs = {
-  where?: Prisma.TransactionSourceWhereInput
+  where?: Prisma.TransactionWhereInput
   orderBy?: TransactionSourceOrderByInput
   skip?: number
   take?: number
 }
 
 export async function findTransactions(args: FindManyArgs) {
-  return prisma.transactionSource.findMany({
+  return prisma.transaction.findMany({
     ...args,
     include: TRANSACTION_INCLUDE,
   })
 }
 
-export async function countTransactions(where?: Prisma.TransactionSourceWhereInput) {
-  return prisma.transactionSource.count({ where })
+export async function countTransactions(where?: Prisma.TransactionWhereInput) {
+  return prisma.transaction.count({ where })
 }
 
 export function buildTransactionWhere(
   filters: FilterInput[],
   organisationId: string
-): Prisma.TransactionSourceWhereInput {
+): Prisma.TransactionWhereInput {
   const filterWhere = buildWhereClause(filters)
   return {
     organisationId,
@@ -51,13 +44,17 @@ export function buildTransactionWhere(
 /**
  * Lot numbers sold more than once in the organisation. A cadastral lot appearing in ≥ 2 transactions is, by
  * definition, involved in a revente (the original sale plus at least one resale). Returned as the distinct lot
- * values so the caller can constrain `lotsCadastraux` with `hasSome`.
+ * values so the caller can constrain `lots_cadastraux` with `hasSome`.
  */
 export async function findRenteLotNumbers(organisationId: string): Promise<string[]> {
   const rows = await prisma.$queryRaw<{ lot: string }[]>`
     SELECT lot
-    FROM transaction_source, unnest(lots_cadastraux) AS lot
-    WHERE id_organisation = ${organisationId}
+    FROM valeur_champ vc
+    JOIN champ c ON c.id = vc.id_champ
+    JOIN transaction t ON t.id = vc.id_transaction
+    CROSS JOIN unnest(vc.valeur_texte_multiple) AS lot
+    WHERE t.id_organisation = ${organisationId}
+      AND c.code_machine = 'lots_cadastraux'
       AND lot <> ''
     GROUP BY lot
     HAVING count(*) > 1
@@ -65,48 +62,42 @@ export async function findRenteLotNumbers(organisationId: string): Promise<strin
   return rows.map((row) => row.lot)
 }
 
-/** Adds the revente constraint (transactions whose `lotsCadastraux` overlaps the lots sold ≥ 2 times) to an
+/** Adds the revente constraint (transactions whose `lots_cadastraux` overlaps the lots sold ≥ 2 times) to an
  *  already-built where clause. An empty `lots` matches nothing, the correct outcome when nothing was resold. */
 export function withRenteLots(
-  where: Prisma.TransactionSourceWhereInput,
+  where: Prisma.TransactionWhereInput,
   lots: string[]
-): Prisma.TransactionSourceWhereInput {
-  const reventeClause: Prisma.TransactionSourceWhereInput = { lotsCadastraux: { hasSome: lots } }
-  const existingAnd = where.AND
-  return {
-    ...where,
-    AND: [...(Array.isArray(existingAnd) ? existingAnd : existingAnd ? [existingAnd] : []), reventeClause],
+): Prisma.TransactionWhereInput {
+  const reventeClause: Prisma.TransactionWhereInput = {
+    valeurs: { some: { champ: { codeMachine: "lots_cadastraux" }, valeurTexteMultiple: { hasSome: lots } } },
   }
+  const existingAnd = where.AND
+  return { ...where, AND: [...(Array.isArray(existingAnd) ? existingAnd : existingAnd ? [existingAnd] : []), reventeClause] }
 }
 
 /** Adds the revente constraint only when a REVENTE filter is active, computing the duplicated lots in the DB. */
 export async function applyRenteWhere(
-  where: Prisma.TransactionSourceWhereInput,
+  where: Prisma.TransactionWhereInput,
   filters: FilterInput[],
   organisationId: string
-): Promise<Prisma.TransactionSourceWhereInput> {
+): Promise<Prisma.TransactionWhereInput> {
   if (!findRenteFilter(filters)) return where
   return withRenteLots(where, await findRenteLotNumbers(organisationId))
 }
 
 export type MapTransaction = {
   id: string
-  numeroInscription: string | null
-  dateVente: Date | null
-  prixVente: Prisma.Decimal | null
-  superficieTotaleHectare: Prisma.Decimal | null
   latitude: number | null
   longitude: number | null
-  municipalite: string | null
 }
 
 function extractCoordinate(
-  values: { valeurNombre: Prisma.Decimal | null; champEnrichissable: { codeMachine: string } | null }[]
+  values: { valeurNombre: Prisma.Decimal | null; champ: { codeMachine: string } | null }[]
 ): { latitude: number | null; longitude: number | null } {
   let latitude: number | null = null
   let longitude: number | null = null
   for (const v of values) {
-    const code = v.champEnrichissable?.codeMachine
+    const code = v.champ?.codeMachine
     if (!code || v.valeurNombre === null || v.valeurNombre === undefined) continue
     const n = new Decimal(v.valeurNombre.toString()).toNumber()
     if (code === "latitude") latitude = n
@@ -121,31 +112,22 @@ export async function findTransactionsForMap(
 ): Promise<MapTransaction[]> {
   const filterWhere = await applyRenteWhere(buildWhereClause(filters), filters, organisationId)
 
-  const rows = await prisma.transactionSource.findMany({
+  const rows = await prisma.transaction.findMany({
     where: {
       organisationId,
       ...filterWhere,
     },
     select: {
       id: true,
-      numeroInscription: true,
-      dateVente: true,
-      prixVente: true,
-      superficieTotaleHectare: true,
-      municipalite: true,
-      enrichie: {
+      valeurs: {
+        // Only coordinate values: avoids loading every field value per transaction.
+        where: {
+          champ: { codeMachine: { in: ["latitude", "longitude"] } },
+        },
         select: {
-          valeurs: {
-            // Only coordinate values: avoids loading every enrichment value per transaction.
-            where: {
-              champEnrichissable: { codeMachine: { in: ["latitude", "longitude"] } },
-            },
-            select: {
-              valeurNombre: true,
-              champEnrichissable: {
-                select: { codeMachine: true },
-              },
-            },
+          valeurNombre: true,
+          champ: {
+            select: { codeMachine: true },
           },
         },
       },
@@ -154,12 +136,8 @@ export async function findTransactionsForMap(
 
   return rows
     .map((row) => {
-      const { latitude, longitude } = extractCoordinate(row.enrichie?.valeurs ?? [])
-      return {
-        ...row,
-        latitude,
-        longitude,
-      }
+      const { latitude, longitude } = extractCoordinate(row.valeurs)
+      return { id: row.id, latitude, longitude }
     })
     .filter((row) => row.latitude !== null && row.longitude !== null) as MapTransaction[]
 }
@@ -170,83 +148,58 @@ export async function findExistingTransaction(
   dateVente: Date | null | undefined
 ) {
   if (!numeroInscription) return null
-
-  // Symmetric null handling: an unparsed date must dedup against rows that also have no date, instead of
-  // matching a same-numbered row from another date (which silently dropped a legitimate second sale).
-  const where: Prisma.TransactionSourceWhereInput = {
-    organisationId,
-    numeroInscription,
-    dateVente: dateVente ?? null,
-  }
-
-  return prisma.transactionSource.findFirst({ where })
+  return prisma.transaction.findFirst({
+    where: {
+      organisationId,
+      AND: [
+        { valeurs: { some: { champ: { codeMachine: "numero_inscription" }, valeurTexte: numeroInscription } } },
+        dateVente
+          ? { valeurs: { some: { champ: { codeMachine: "date_vente" }, valeurDate: dateVente } } }
+          : { NOT: { valeurs: { some: { champ: { codeMachine: "date_vente" }, valeurDate: { not: null } } } } },
+      ],
+    },
+  })
 }
 
 export async function createImportedTransaction(
   input: CreateImportedTransactionInput
 ) {
   return prisma.$transaction(async (tx) => {
-    const txSource = await tx.transactionSource.create({
-      data: {
-        organisation: { connect: { id: input.organisationId } },
-        ...(input.importationId
-          ? { importation: { connect: { id: input.importationId } } }
-          : {}),
-        systemeSource: input.systemeSource,
-        ...(input.numeroInscription ? { numeroInscription: input.numeroInscription } : {}),
-        ...(input.dateVente ? { dateVente: input.dateVente } : {}),
-        prixVente: input.prixVente !== null && input.prixVente !== undefined
-          ? new Decimal(input.prixVente)
-          : null,
-        vendeur: input.vendeur ?? null,
-        acheteur: input.acheteur ?? null,
-        lotsCadastraux: input.lotsCadastraux,
-        adresse: input.adresse ?? null,
-        municipalite: input.municipalite ?? null,
-        mrc: input.mrc ?? null,
-        superficieTotaleHectare:
-          input.superficieTotaleHectare !== null && input.superficieTotaleHectare !== undefined
-            ? new Decimal(input.superficieTotaleHectare)
-            : null,
-      },
-    })
-
-    const enrichie = await tx.transactionEnrichie.create({
+    const transaction = await tx.transaction.create({
       data: {
         organisationId: input.organisationId,
-        transactionSourceId: txSource.id,
-        statut: input.statut,
+        importationId: input.importationId ?? null,
+        systemeSource: input.systemeSource,
+        statut: input.statut as StatutTransaction,
       },
     })
 
-    const valuesToCreate = input.enrichmentValues.filter(
-      (v) =>
-        v.valeurNombre !== null ||
-        v.valeurTexte !== null ||
-        v.valeurBooleen !== null
-    )
+    const values = input.enrichmentValues.map((v) => ({
+      transactionId: transaction.id,
+      champId: v.champId,
+      valeurNombre: v.valeurNombre ?? null,
+      valeurTexte: v.valeurTexte ?? null,
+      valeurTexteMultiple: v.valeurTexteMultiple ?? [],
+      valeurBooleen: v.valeurBooleen ?? null,
+      valeurDate: v.valeurDate ?? null,
+    }))
 
     if (input.typologieValue) {
-      valuesToCreate.push({
-        champEnrichissableId: input.typologieValue.champEnrichissableId,
+      values.push({
+        transactionId: transaction.id,
+        champId: input.typologieValue.champId,
         valeurNombre: null,
         valeurTexte: input.typologieValue.valeurTexte,
+        valeurTexteMultiple: [],
         valeurBooleen: null,
+        valeurDate: null,
       })
     }
 
-    if (valuesToCreate.length > 0) {
-      await tx.valeurEnrichissement.createMany({
-        data: valuesToCreate.map((v) => ({
-          transactionEnrichieId: enrichie.id,
-          champEnrichissableId: v.champEnrichissableId,
-          valeurNombre: v.valeurNombre ?? null,
-          valeurTexte: v.valeurTexte ?? null,
-          valeurBooleen: v.valeurBooleen ?? null,
-        })),
-      })
+    if (values.length > 0) {
+      await tx.valeurChamp.createMany({ data: values })
     }
 
-    return { transactionSourceId: txSource.id, transactionEnrichieId: enrichie.id }
+    return { transactionId: transaction.id }
   })
 }

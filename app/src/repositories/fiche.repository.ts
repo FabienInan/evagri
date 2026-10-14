@@ -1,11 +1,11 @@
 import { prisma } from "@/lib/prisma"
-import type { Prisma } from "@prisma/client"
+import type { Prisma, StatutTransaction } from "@prisma/client"
 
 const ficheInclude = {
-  enrichie: { include: { valeurs: { include: { champEnrichissable: true } } } },
-} satisfies Prisma.TransactionSourceInclude
+  valeurs: { include: { champ: true } },
+} satisfies Prisma.TransactionInclude
 
-export type FicheTransactionRecord = Prisma.TransactionSourceGetPayload<{
+export type FicheTransactionRecord = Prisma.TransactionGetPayload<{
   include: typeof ficheInclude
 }>
 
@@ -13,41 +13,43 @@ export async function findTransactionFiche(
   organisationId: string,
   id: string
 ): Promise<FicheTransactionRecord | null> {
-  return prisma.transactionSource.findFirst({
+  return prisma.transaction.findFirst({
     where: { id, organisationId },
     include: ficheInclude,
   })
 }
 
 export interface StorageValueEntry {
-  champEnrichissableId: string
+  champId: string
   valeurNombre: number | null
   valeurTexte: string | null
+  valeurTexteMultiple: string[]
   valeurBooleen: boolean | null
+  valeurDate: Date | null
 }
 
 /** Remplace toutes les valeurs de la transaction en une seule fois : plus simple que des upserts
- *  et garantit trivialement la contrainte unique [transactionEnrichieId, champEnrichissableId]. */
+ *  et garantit trivialement la contrainte unique [transactionId, champId]. */
 export async function saveFicheValues(
-  transactionEnrichieId: string,
+  transactionId: string,
   entries: StorageValueEntry[]
 ): Promise<void> {
   await prisma.$transaction([
-    prisma.valeurEnrichissement.deleteMany({ where: { transactionEnrichieId } }),
-    prisma.valeurEnrichissement.createMany({
-      data: entries.map((e) => ({ transactionEnrichieId, ...e })),
+    prisma.valeurChamp.deleteMany({ where: { transactionId } }),
+    prisma.valeurChamp.createMany({
+      data: entries.map((e) => ({ transactionId, ...e })),
     }),
   ])
 }
 
 export async function updateFicheStatut(
-  transactionEnrichieId: string,
+  transactionId: string,
   statut: string,
   dateStatut: Date | null
 ): Promise<void> {
-  await prisma.transactionEnrichie.update({
-    where: { id: transactionEnrichieId },
-    data: { statut, dateStatut },
+  await prisma.transaction.update({
+    where: { id: transactionId },
+    data: { statut: statut as StatutTransaction, dateStatut },
   })
 }
 
@@ -57,16 +59,16 @@ export interface DocumentRecord {
   dateUpload: Date
 }
 
-export async function listDocuments(transactionSourceId: string): Promise<DocumentRecord[]> {
+export async function listDocuments(transactionId: string): Promise<DocumentRecord[]> {
   return prisma.documentActe.findMany({
-    where: { transactionSourceId },
+    where: { transactionId },
     orderBy: { dateUpload: "desc" },
     select: { id: true, nomFichier: true, dateUpload: true },
   })
 }
 
 export async function createDocument(data: {
-  transactionSourceId: string
+  transactionId: string
   nomFichier: string
   cheminStockage: string
 }): Promise<void> {
@@ -76,7 +78,7 @@ export async function createDocument(data: {
 /** Scoped through the owning transaction so a document id from another tenant matches nothing. */
 export async function deleteDocument(organisationId: string, id: string): Promise<boolean> {
   const result = await prisma.documentActe.deleteMany({
-    where: { id, transactionSource: { organisationId } },
+    where: { id, transaction: { organisationId } },
   })
   return result.count > 0
 }
