@@ -8,13 +8,13 @@ describe("filterSearchParamsSchema", () => {
     if (result.success) {
       expect(result.data.page).toBe(1)
       expect(result.data.pageSize).toBe(25)
-      expect(result.data.sortField).toBe("dateVente")
+      expect(result.data.sortField).toBe("date_vente")
       expect(result.data.sortOrder).toBe("desc")
     }
   })
 
   it("accepts a sortable source column", () => {
-    expect(filterSearchParamsSchema.safeParse({ sortField: "prixVente" }).success).toBe(true)
+    expect(filterSearchParamsSchema.safeParse({ sortField: "prix_vente" }).success).toBe(true)
   })
 
   it("rejects a sortField that is not a sortable column", () => {

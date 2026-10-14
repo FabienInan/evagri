@@ -1,10 +1,11 @@
 import { z } from "zod"
 import { FILTER_OPERATORS, FILTER_TYPES } from "@/types/filter"
-import { TRANSACTION_SOURCE_FIELDS } from "@/lib/transaction-source-fields"
+import { IMPORTED_FIELDS } from "@/lib/imported-fields"
 
 /** Only columns flagged sortable in the table are accepted: an arbitrary field name would otherwise reach
- *  Prisma's orderBy and fail (or sort on an unexpected relation) at query time. */
-const SORTABLE_FIELDS = TRANSACTION_SOURCE_FIELDS.filter((f) => f.sortable).map((f) => f.key)
+ *  Prisma's orderBy and fail (or sort on an unexpected relation) at query time. Derived from the imported
+ *  field catalogue so the sort keys (snake_case `code_machine`) stay in sync with the table. */
+const SORTABLE_FIELDS = IMPORTED_FIELDS.filter((f) => f.display.sortable).map((f) => f.code)
 
 export const filterInputSchema = z.object({
   id: z.string().min(1),
@@ -25,7 +26,7 @@ export const filterSearchParamsSchema = z.object({
   sortField: z
     .string()
     .refine((value) => SORTABLE_FIELDS.includes(value), { message: "Champ de tri invalide." })
-    .default("dateVente"),
+    .default("date_vente"),
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
   filters: z
     .string()

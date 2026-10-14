@@ -1,8 +1,9 @@
 import Decimal from "decimal.js"
 import { geocodeLotCadastral } from "@/lib/cadastre"
+import { IMPORTED_FIELDS } from "@/lib/imported-fields"
 import { parseBooleanish, parseFrenchNumber } from "@/lib/normalization/parsing"
 import { normalizeEnrichmentText } from "@/lib/normalization/transforms"
-import { ensureChampByCodeMachine, findChampByCodeMachine } from "@/repositories/enrichment.repository"
+import { findChampByCodeMachine } from "@/repositories/enrichment.repository"
 import { incrementImportationCounters } from "@/repositories/import.repository"
 import {
   createImportedTransaction,
@@ -15,18 +16,18 @@ import type {
   ParsedRow,
 } from "@/types/import"
 
-const SOURCE_FIELDS: (keyof ParsedRow)[] = [
-  "numeroInscription",
-  "dateVente",
+const BUSINESS_FIELD_CODES = [
+  "numero_inscription",
+  "date_vente",
   "vendeur",
   "acheteur",
-  "lotsCadastraux",
-  "prixVente",
+  "lots_cadastraux",
+  "prix_vente",
   "mrc",
   "municipalite",
   "adresse",
-  "superficieTotaleHectare",
-]
+  "superficie_totale_hectare",
+] as const
 
 function parseDate(value: unknown): Date | null {
   if (value instanceof Date) return value
@@ -45,6 +46,7 @@ function parseNumber(value: unknown): number | null {
 }
 
 function parseLots(value: unknown): string[] {
+  if (value === null || value === undefined || value === "") return []
   if (Array.isArray(value)) return value.map(String)
   if (typeof value === "number") return [String(value)]
   if (typeof value === "string") return value.split(/[,;]/).map((s) => s.trim()).filter(Boolean)
@@ -57,42 +59,69 @@ function normalizeNumeroInscription(value: unknown): string | null {
   return normalized || null
 }
 
-function normalizeText(value: unknown): string | null {
-  if (value === null || value === undefined || value === "") return null
-  if (typeof value === "number" && value === 0) return null
-  const normalized = String(value).trim()
-  return normalized || null
+function isBlank(value: unknown): boolean {
+  return (
+    value === null ||
+    value === undefined ||
+    value === "" ||
+    (Array.isArray(value) && value.length === 0)
+  )
 }
 
-export function parseEnrichmentValue(
-  champ: EnrichmentChamp,
-  rawValue: unknown
-): Omit<EnrichmentValueInput, "champEnrichissableId"> {
-  if (rawValue === null || rawValue === undefined || rawValue === "") {
-    return { valeurNombre: null, valeurTexte: null, valeurBooleen: null }
-  }
-  if (champ.typeDonnees === "BOOLEAN") {
-    return { valeurNombre: null, valeurTexte: null, valeurBooleen: parseBooleanish(rawValue) }
-  }
-  if (champ.typeDonnees === "TEXTE" || champ.typeDonnees === "LISTE" || champ.typeDonnees === "MULTI_SELECT") {
-    // LISTE/MULTI_SELECT values are stored as text too, so a catalogued field (e.g. cptaq -> Oui/Non/Partiel)
-    // still runs its canonicalizer even though its type is no longer TEXTE.
-    return { valeurNombre: null, valeurTexte: normalizeEnrichmentText(champ.codeMachine, rawValue), valeurBooleen: null }
-  }
-  const n = parseFrenchNumber(rawValue)
-  if (n !== null) {
-    return { valeurNombre: new Decimal(n), valeurTexte: null, valeurBooleen: null }
-  }
-  return { valeurNombre: null, valeurTexte: String(rawValue), valeurBooleen: null }
+type ParsedFieldValue = Omit<EnrichmentValueInput, "champId">
+
+const EMPTY_FIELD_VALUE: ParsedFieldValue = {
+  valeurNombre: null,
+  valeurTexte: null,
+  valeurTexteMultiple: [],
+  valeurBooleen: null,
+  valeurDate: null,
 }
 
-function hasSourceValue(raw: ParsedRow, field: keyof ParsedRow): boolean {
-  const v = raw[field]
+/** Routes a raw spreadsheet cell to the single typed `ValeurChamp` column matching the field's data type. */
+export function parseFieldValue(champ: EnrichmentChamp, rawValue: unknown): ParsedFieldValue {
+  if (isBlank(rawValue)) return { ...EMPTY_FIELD_VALUE }
+
+  switch (champ.typeDonnees) {
+    case "DATE":
+      return { ...EMPTY_FIELD_VALUE, valeurDate: parseDate(rawValue) }
+    case "BOOLEAN":
+      return { ...EMPTY_FIELD_VALUE, valeurBooleen: parseBooleanish(rawValue) }
+    case "TEXTE_MULTIPLE":
+      return { ...EMPTY_FIELD_VALUE, valeurTexteMultiple: parseLots(rawValue) }
+    case "TEXTE":
+    case "LISTE":
+    case "MULTI_SELECT":
+      // LISTE/MULTI_SELECT values are stored as text too, so a catalogued field (e.g. cptaq -> Oui/Non/Partiel)
+      // still runs its canonicalizer even though its type is no longer TEXTE.
+      return { ...EMPTY_FIELD_VALUE, valeurTexte: normalizeEnrichmentText(champ.codeMachine, rawValue) }
+    case "DECIMAL":
+    case "ENTIER":
+    default: {
+      const n = parseFrenchNumber(rawValue)
+      if (n !== null) return { ...EMPTY_FIELD_VALUE, valeurNombre: new Decimal(n) }
+      return { ...EMPTY_FIELD_VALUE, valeurTexte: String(rawValue) }
+    }
+  }
+}
+
+function hasParsedValue(parsed: ParsedFieldValue): boolean {
+  return (
+    (parsed.valeurNombre !== undefined && parsed.valeurNombre !== null) ||
+    (parsed.valeurTexte !== undefined && parsed.valeurTexte !== null && parsed.valeurTexte !== "") ||
+    (parsed.valeurTexteMultiple !== undefined && parsed.valeurTexteMultiple.length > 0) ||
+    (parsed.valeurBooleen !== undefined && parsed.valeurBooleen !== null) ||
+    (parsed.valeurDate !== undefined && parsed.valeurDate !== null)
+  )
+}
+
+function hasSourceValue(raw: ParsedRow, field: string): boolean {
+  const v = (raw as Record<string, unknown>)[field]
   return v !== undefined && v !== null && v !== "" && !(Array.isArray(v) && v.length === 0)
 }
 
 function hasAnySourceValue(raw: ParsedRow): boolean {
-  return SOURCE_FIELDS.some((field) => hasSourceValue(raw, field))
+  return IMPORTED_FIELDS.some((field) => hasSourceValue(raw, field.code))
 }
 
 function isVenteAAnalyser(
@@ -102,31 +131,8 @@ function isVenteAAnalyser(
   coords: ResolvedCoordinates,
   typologieCode: string
 ): boolean {
-  const terreRequiredSource: (keyof ParsedRow)[] = [
-    "numeroInscription",
-    "dateVente",
-    "vendeur",
-    "acheteur",
-    "lotsCadastraux",
-    "prixVente",
-    "mrc",
-    "municipalite",
-    "adresse",
-    "superficieTotaleHectare",
-  ]
-
-  const boisRequiredSource: (keyof ParsedRow)[] = [
-    "numeroInscription",
-    "dateVente",
-    "vendeur",
-    "acheteur",
-    "lotsCadastraux",
-    "prixVente",
-    "mrc",
-    "municipalite",
-    "adresse",
-    "superficieTotaleHectare",
-  ]
+  const terreRequiredSource: readonly string[] = BUSINESS_FIELD_CODES
+  const boisRequiredSource: readonly string[] = BUSINESS_FIELD_CODES
 
   const requiredSource = typologieCode === "TERRES_CULTIVEES" ? terreRequiredSource : boisRequiredSource
   const missingSourceField = requiredSource.some((field) => !hasSourceValue(raw, field))
@@ -161,28 +167,6 @@ function isVenteAAnalyser(
   return missingSourceField || missingEnrichmentField || missingCoords
 }
 
-function findCoordinateHeader(enrichmentChamps: EnrichmentChamp[], codes: string[]): string | undefined {
-  for (const code of codes) {
-    const champ = enrichmentChamps.find((c: EnrichmentChamp) => c.codeMachine.toLowerCase() === code)
-    if (champ) return champ.header
-  }
-  return undefined
-}
-
-function extractFileCoordinates(
-  rawRow: Record<string, unknown>,
-  enrichmentChamps: EnrichmentChamp[]
-): { latitude: number; longitude: number } | null {
-  const latHeader = findCoordinateHeader(enrichmentChamps, ["latitude", "lat"])
-  const lngHeader = findCoordinateHeader(enrichmentChamps, ["longitude", "long", "lng"])
-  if (!latHeader || !lngHeader) return null
-
-  const lat = parseNumber(rawRow[latHeader])
-  const lng = parseNumber(rawRow[lngHeader])
-  if (lat === null || lng === null) return null
-  return { latitude: lat, longitude: lng }
-}
-
 export interface ImportSheetInput {
   organisationId: string
   rows: ParsedRow[]
@@ -204,18 +188,17 @@ async function geocodeFromLots(lots: string[]): Promise<{ latitude: number; long
   return { latitude: sum.lat / found.length, longitude: sum.lon / found.length }
 }
 
-async function resolveCoordinates(
-  raw: ParsedRow,
-  rawRow: Record<string, unknown>,
-  enrichmentChamps: EnrichmentChamp[]
-): Promise<ResolvedCoordinates> {
-  const fileCoords = extractFileCoordinates(rawRow, enrichmentChamps)
-  if (fileCoords) {
-    return { ...fileCoords, fromFile: true }
+/** Coordinates already present in the file (now imported `latitude`/`longitude` fields), else geocoded from
+ *  the cadastral lots. The write of the resolved values happens in `importSheet`, against the imported fields. */
+async function resolveCoordinates(raw: ParsedRow): Promise<ResolvedCoordinates> {
+  const latitude = parseNumber(raw.latitude)
+  const longitude = parseNumber(raw.longitude)
+  if (latitude !== null && longitude !== null) {
+    return { latitude, longitude, fromFile: true }
   }
 
   // parseLots: raw rows may hold the unparsed Excel cell (string/number), not string[]
-  const lots = parseLots(raw.lotsCadastraux)
+  const lots = parseLots(raw.lots_cadastraux)
   const lotCoords = lots.length ? await geocodeFromLots(lots) : null
   if (!lotCoords) return null
   return { ...lotCoords, fromFile: false }
@@ -223,8 +206,6 @@ async function resolveCoordinates(
 
 async function resolveCoordinatesBatch(
   rows: ParsedRow[],
-  rawRows: Record<string, unknown>[],
-  enrichmentChamps: EnrichmentChamp[],
   concurrency = 10
 ): Promise<ResolvedCoordinates[]> {
   const results: ResolvedCoordinates[] = new Array(rows.length).fill(null)
@@ -233,7 +214,7 @@ async function resolveCoordinatesBatch(
   async function worker() {
     while (index < rows.length) {
       const current = index++
-      results[current] = await resolveCoordinates(rows[current], rawRows[current], enrichmentChamps)
+      results[current] = await resolveCoordinates(rows[current])
     }
   }
 
@@ -270,12 +251,18 @@ export async function importSheet(
   }
 
   const typeChamp = await findChampByCodeMachine(organisationId, "typeTransaction")
-  const [latitudeChamp, longitudeChamp] = await Promise.all([
-    ensureChampByCodeMachine(organisationId, "latitude", "Latitude", "DECIMAL", "°"),
-    ensureChampByCodeMachine(organisationId, "longitude", "Longitude", "DECIMAL", "°"),
-  ])
 
-  const resolvedCoordinates = await resolveCoordinatesBatch(rows, rawRows, enrichmentChamps, 10)
+  // Imported fields are seeded per organisation (nature IMPORTE); resolve their `champId` by `code_machine`
+  // once for the whole sheet, rather than per row.
+  const importedChampIds = new Map<string, string>()
+  await Promise.all(
+    IMPORTED_FIELDS.map(async (field) => {
+      const champ = await findChampByCodeMachine(organisationId, field.code)
+      if (champ) importedChampIds.set(field.code, champ.id)
+    })
+  )
+
+  const resolvedCoordinates = await resolveCoordinatesBatch(rows, 10)
 
   for (let i = 0; i < rows.length; i++) {
     const raw = rows[i]
@@ -283,7 +270,7 @@ export async function importSheet(
     const coords = resolvedCoordinates[i]
 
     try {
-      const numeroInscription = normalizeNumeroInscription(raw.numeroInscription)
+      const numeroInscription = normalizeNumeroInscription(raw.numero_inscription)
       const hasNumero = numeroInscription !== null
       const hasAnySource = hasAnySourceValue(raw)
 
@@ -291,28 +278,21 @@ export async function importSheet(
       const siaValue = siaChamp ? rawRow?.[siaChamp.header] : undefined
       const hasSia = siaValue !== undefined && siaValue !== null && siaValue !== ""
 
-      if (!hasNumero && !raw.dateVente && !hasAnySource && !hasSia) {
+      if (!hasNumero && !raw.date_vente && !hasAnySource && !hasSia) {
         ignored++
         continue
       }
 
       if (!hasNumero && !hasSia) {
-        const context = SOURCE_FIELDS.map((field) => {
-          const value = raw[field]
-          return `${field}=${
-            value === undefined || value === null || value === ""
-              ? "(empty)"
-              : String(value).slice(0, 50)
-          }`
+        const context = IMPORTED_FIELDS.map((field) => {
+          const value = (raw as Record<string, unknown>)[field.code]
+          return `${field.code}=${isBlank(value) ? "(empty)" : String(value).slice(0, 50)}`
         }).join(", ")
-        throw new Error(`Missing numeroInscription or SIA [${context}]`)
+        throw new Error(`Missing numero_inscription or SIA [${context}]`)
       }
 
-      const dateVente = raw.dateVente ? parseDate(raw.dateVente) : null
-      if (raw.dateVente && !dateVente) throw new Error(`Invalid date: ${raw.dateVente}`)
-      const lots = parseLots(raw.lotsCadastraux)
-      const prixVente = parseNumber(raw.prixVente)
-      const superficieTotaleHectare = parseNumber(raw.superficieTotaleHectare)
+      const dateVente = raw.date_vente ? parseDate(raw.date_vente) : null
+      if (raw.date_vente && !dateVente) throw new Error(`Invalid date: ${raw.date_vente}`)
 
       if (dateVente && dateVente > new Date()) {
         throw new Error("V-004: date de vente postérieure à aujourd'hui")
@@ -328,49 +308,45 @@ export async function importSheet(
 
       const statut =
         systemeSource === "EXISTANT_EVAGRI" && isVenteAAnalyser(raw, rawRow, enrichmentChamps, coords, input.typologieCode || "")
-          ? "A analyser"
-          : "Analysée"
+          ? "NON_ANALYSEE"
+          : "ANALYSEE"
 
-      const enrichmentValues: EnrichmentValueInput[] = enrichmentChamps
-        .map((champ: EnrichmentChamp) => {
-          const parsed = parseEnrichmentValue(champ, rawRow?.[champ.header])
-          if (
-            parsed.valeurNombre !== null ||
-            parsed.valeurTexte !== null ||
-            parsed.valeurBooleen !== null
-          ) {
-            return { champEnrichissableId: champ.id, ...parsed }
-          }
-          return null
-        })
-        .filter(Boolean) as EnrichmentValueInput[]
+      const enrichmentValues: EnrichmentValueInput[] = []
 
-      if (coords && !coords.fromFile) {
-        enrichmentValues.push(
-          { champEnrichissableId: latitudeChamp.id, valeurNombre: new Decimal(coords.latitude), valeurTexte: null, valeurBooleen: null },
-          { champEnrichissableId: longitudeChamp.id, valeurNombre: new Decimal(coords.longitude), valeurTexte: null, valeurBooleen: null }
+      // One ValeurChamp per imported field present and non-empty (never an all-null row).
+      for (const field of IMPORTED_FIELDS) {
+        const champId = importedChampIds.get(field.code)
+        if (!champId) continue
+        const parsed = parseFieldValue(
+          { id: champId, header: field.code, codeMachine: field.code, typeDonnees: field.typeDonnees },
+          (raw as Record<string, unknown>)[field.code]
         )
+        if (hasParsedValue(parsed)) enrichmentValues.push({ champId, ...parsed })
+      }
+
+      // Ad-hoc columns created from unrecognised headers (SAISISSABLE champs) keep their own ids.
+      for (const champ of enrichmentChamps) {
+        const parsed = parseFieldValue(champ, rawRow?.[champ.header])
+        if (hasParsedValue(parsed)) enrichmentValues.push({ champId: champ.id, ...parsed })
+      }
+
+      // Geocoded coordinates (not read from the file) are written as values of the imported latitude/longitude.
+      if (coords && !coords.fromFile) {
+        const latitudeChampId = importedChampIds.get("latitude")
+        const longitudeChampId = importedChampIds.get("longitude")
+        if (latitudeChampId) enrichmentValues.push({ champId: latitudeChampId, valeurNombre: new Decimal(coords.latitude) })
+        if (longitudeChampId) enrichmentValues.push({ champId: longitudeChampId, valeurNombre: new Decimal(coords.longitude) })
       }
 
       await createImportedTransaction({
         organisationId,
         importationId,
         systemeSource,
-        numeroInscription,
-        dateVente,
-        prixVente,
-        vendeur: normalizeText(raw.vendeur),
-        acheteur: normalizeText(raw.acheteur),
-        lotsCadastraux: lots,
-        adresse: normalizeText(raw.adresse),
-        municipalite: normalizeText(raw.municipalite),
-        mrc: normalizeText(raw.mrc),
-        superficieTotaleHectare,
         statut,
         enrichmentValues,
         typologieValue:
           typeChamp && typologieNom
-            ? { champEnrichissableId: typeChamp.id, valeurTexte: typologieNom }
+            ? { champId: typeChamp.id, valeurTexte: typologieNom }
             : null,
       })
 

@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx"
+import { IMPORTED_FIELDS } from "@/lib/imported-fields"
 
 export const SHEET_MAPPING: Record<string, { typologieCode: string }> = {
   Terre: { typologieCode: "TERRES_CULTIVEES" },
@@ -6,19 +7,6 @@ export const SHEET_MAPPING: Record<string, { typologieCode: string }> = {
   "Ventes erablière": { typologieCode: "ERABLIERES" },
   "Ventes erabliere": { typologieCode: "ERABLIERES" },
 }
-
-export const SOURCE_COLUMNS = [
-  { headerKeys: ["No d'enregistrement", "No d'enr."], field: "numeroInscription" },
-  { headerKeys: ["Date de L'acte", "Date de l'acte ou de l'avant contrat"], field: "dateVente" },
-  { headerKeys: ["Vendeur"], field: "vendeur" },
-  { headerKeys: ["Acheteur"], field: "acheteur" },
-  { headerKeys: ["Lots"], field: "lotsCadastraux" },
-  { headerKeys: ["Prix de vente", "Prix de vente ($)", "Prixdevente($)"], field: "prixVente" },
-  { headerKeys: ["MRC"], field: "mrc" },
-  { headerKeys: ["Ville/Municipalité"], field: "municipalite" },
-  { headerKeys: ["Adresse complete", "Adresse complète", "Adresse complette"], field: "adresse" },
-  { headerKeys: ["Superficie Totale (ha)", "Superficie totale (ha)"], field: "superficieTotaleHectare" },
-]
 
 export interface ParsedSheet {
   sheet: string
@@ -64,37 +52,33 @@ function normalizeHeader(header: string): string {
     .trim()
 }
 
-export function findHeaderIndex(headers: (string | null)[], headerKeys: string[]): number {
-  const normalizedHeaders = headers.map((h) => (h ? normalizeHeader(h) : null))
-  for (const key of headerKeys) {
-    const normalizedKey = normalizeHeader(key)
-    const idx = normalizedHeaders.findIndex((h) => h === normalizedKey)
-    if (idx !== -1) return idx
-  }
-  return -1
-}
-
-export function rowToSourceFields(row: Record<string, unknown>): Record<string, unknown> {
-  const headers = Object.keys(row).map((h) => (h ? h.trim() : null))
-  const result: Record<string, unknown> = {}
-
-  for (const col of SOURCE_COLUMNS) {
-    const idx = findHeaderIndex(headers, col.headerKeys)
-    if (idx !== -1) {
-      const rawKey = Object.keys(row)[idx]
-      result[col.field] = row[rawKey]
+/** Normalized spreadsheet header → `code_machine` of the imported field it feeds, built from the shared
+ *  catalogue so the parser and the seeded `Champ.entetesImport` cannot drift. A header shared by several
+ *  systems (JLR + EXISTANT_EVAGRI) resolves to the same field code. */
+export const IMPORTED_HEADER_TO_CODE: Record<string, string> = (() => {
+  const map: Record<string, string> = {}
+  for (const field of IMPORTED_FIELDS) {
+    for (const header of [...field.entetesImport.JLR, ...field.entetesImport.EXISTANT_EVAGRI]) {
+      map[normalizeHeader(header)] = field.code
     }
   }
+  return map
+})()
 
+export function rowToSourceFields(row: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {}
+  for (const [header, value] of Object.entries(row)) {
+    if (!header) continue
+    const code = IMPORTED_HEADER_TO_CODE[normalizeHeader(header)]
+    if (code !== undefined) result[code] = value
+  }
   return result
 }
 
-const SOURCE_HEADER_SET = new Set(
-  SOURCE_COLUMNS.flatMap((c) => c.headerKeys.map((h) => normalizeHeader(h)))
-)
+const IMPORTED_HEADER_SET = new Set(Object.keys(IMPORTED_HEADER_TO_CODE))
 
-export function isSourceHeader(header: string): boolean {
-  return SOURCE_HEADER_SET.has(normalizeHeader(header))
+export function isImportedHeader(header: string): boolean {
+  return IMPORTED_HEADER_SET.has(normalizeHeader(header))
 }
 
 function isIgnoredHeader(header: string): boolean {
@@ -115,7 +99,7 @@ export function extractNonEmptyEnrichmentHeaders(
   const candidates: EnrichmentHeaderCandidate[] = []
 
   for (const header of allHeaders) {
-    if (isSourceHeader(header) || isIgnoredHeader(header)) continue
+    if (isImportedHeader(header) || isIgnoredHeader(header)) continue
     const trimmedHeader = header.trim()
     const firstNonEmpty = rows
       .map((r) => r[trimmedHeader])

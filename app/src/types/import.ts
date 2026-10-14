@@ -1,16 +1,18 @@
 import type Decimal from "decimal.js"
 
 export interface ParsedRow {
-  numeroInscription?: string
-  dateVente?: string
+  numero_inscription?: string
+  date_vente?: string
   vendeur?: string
   acheteur?: string
-  lotsCadastraux?: string[]
-  prixVente?: number
+  lots_cadastraux?: string[]
+  prix_vente?: number
   mrc?: string
   municipalite?: string
   adresse?: string
-  superficieTotaleHectare?: number
+  superficie_totale_hectare?: number
+  latitude?: number
+  longitude?: number
 }
 
 export interface EnrichmentChamp {
@@ -21,29 +23,21 @@ export interface EnrichmentChamp {
 }
 
 export interface EnrichmentValueInput {
-  champEnrichissableId: string
+  champId: string
   valeurNombre?: Decimal | null
   valeurTexte?: string | null
+  valeurTexteMultiple?: string[]
   valeurBooleen?: boolean | null
+  valeurDate?: Date | null
 }
 
 export interface CreateImportedTransactionInput {
   organisationId: string
   importationId?: string
   systemeSource: string
-  numeroInscription?: string | null
-  dateVente?: Date | null
-  prixVente?: number | null
-  vendeur?: string | null
-  acheteur?: string | null
-  lotsCadastraux: string[]
-  adresse?: string | null
-  municipalite?: string | null
-  mrc?: string | null
-  superficieTotaleHectare?: number | null
   statut: string
   enrichmentValues: EnrichmentValueInput[]
-  typologieValue?: { champEnrichissableId: string; valeurTexte: string } | null
+  typologieValue?: { champId: string; valeurTexte: string } | null
 }
 
 export interface ImportSheetResult {

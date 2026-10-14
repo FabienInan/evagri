@@ -15,14 +15,14 @@ describe("excel parser", () => {
     expect(parsed[0].rows.length).toBe(1)
   })
 
-  it("maps a row to source fields and treats coordinates as enrichment", () => {
+  it("maps a row to snake_case imported fields and treats coordinates as imported", () => {
     const row = {
       "No d'enr.": 22309676,
       "Date de l'acte ou de l'avant contrat": 42507,
       Vendeur: "Vendeur A",
       Acheteur: "Acheteur B",
       Lots: 5433069,
-      "Prixdevente($)": 36000,
+      "Prix de vente ($)": 36000,
       MRC: "Nicolet-Yamaska",
       "Ville/Municipalité": "Baie-du-Febvre",
       "Adresse complète": "Route Marie-Victorin",
@@ -32,23 +32,24 @@ describe("excel parser", () => {
       "Usage prédominant": "Cultures annuelles",
     }
     const mapped = rowToSourceFields(row)
-    expect(mapped.numeroInscription).toBe(22309676)
-    expect(mapped.dateVente).toBe(42507)
+    expect(mapped.numero_inscription).toBe(22309676)
+    expect(mapped.date_vente).toBe(42507)
     expect(mapped.vendeur).toBe("Vendeur A")
     expect(mapped.acheteur).toBe("Acheteur B")
-    expect(mapped.lotsCadastraux).toBe(5433069)
-    expect(mapped.prixVente).toBe(36000)
+    expect(mapped.lots_cadastraux).toBe(5433069)
+    expect(mapped.prix_vente).toBe(36000)
     expect(mapped.mrc).toBe("Nicolet-Yamaska")
     expect(mapped.municipalite).toBe("Baie-du-Febvre")
     expect(mapped.adresse).toBe("Route Marie-Victorin")
-    expect(mapped.latitude).toBeUndefined()
-    expect(mapped.longitude).toBeUndefined()
-    expect(mapped.superficieTotaleHectare).toBe(6.25)
+    expect(mapped.latitude).toBe("46.154336")
+    expect(mapped.longitude).toBe("-72.706115")
+    expect(mapped.superficie_totale_hectare).toBe(6.25)
 
     const candidates = extractNonEmptyEnrichmentHeaders([row])
     const headers = candidates.map((c) => c.header)
-    expect(headers).toContain("Latitude")
-    expect(headers).toContain("Longitude")
+    expect(headers).not.toContain("Latitude")
+    expect(headers).not.toContain("Longitude")
+    expect(headers).toContain("Usage prédominant")
   })
 
   it("ignores source headers but keeps all enrichment columns", () => {
