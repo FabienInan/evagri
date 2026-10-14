@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { validateRuleSyntax } from "@/lib/calculator"
-import { isSourceFieldCode } from "@/lib/transaction-source-fields"
 import { hasOptions, type ChampEnrichissableInput, type NatureChamp } from "@/types/champ"
 
 export interface ChampValidationError {
@@ -52,9 +51,9 @@ export function formatChampInputErrors(error: z.ZodError): string {
     .join(" ")
 }
 
-/** est_modifiable is never client-supplied: it is entirely derived from nature (§6.5). */
-export function deriveEstModifiable(nature: NatureChamp): boolean {
-  return nature === "SAISISSABLE"
+/** est_lecture_seule is never client-supplied: it is entirely derived from nature (§6.5). */
+export function deriveEstLectureSeule(nature: NatureChamp): boolean {
+  return nature !== "SAISISSABLE"
 }
 
 /**
@@ -98,9 +97,10 @@ export function validateChampConfig(
       field: "codeMachine",
       message: "Le code machine doit etre en snake_case (minuscules, chiffres, underscores, commence par une lettre).",
     })
-  } else if (isSourceFieldCode(input.codeMachine)) {
-    // A champ shadowing a source code would make a regle_calcul ambiguous (enrichi wins over source).
-    errors.push({ field: "codeMachine", message: "Ce code machine est reserve a un champ source." })
+  } else if (knownFieldCodes.has(input.codeMachine)) {
+    // A champ whose code shadows an existing champ (imported codes included) would make a
+    // regle_calcul ambiguous; imported codes are reserved.
+    errors.push({ field: "codeMachine", message: "Ce code machine est déjà utilisé." })
   }
 
   if (!input.nomAffichage.trim()) {
@@ -127,6 +127,10 @@ export function validateChampConfig(
 
   if (input.nature === "CALCULE" && !regleCalcul) {
     errors.push({ field: "regleCalcul", message: "La regle de calcul est obligatoire pour un champ calcule." })
+  }
+
+  if (input.nature === "IMPORTE" && regleCalcul) {
+    errors.push({ field: "regleCalcul", message: "Un champ importé ne peut pas porter de règle de calcul." })
   }
 
   if (regleCalcul) {

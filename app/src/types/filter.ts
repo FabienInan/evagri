@@ -43,7 +43,7 @@ export interface FilterConfig {
   typeFiltre: FilterType | string
   estActif: boolean
   codeMachine?: string | null
-  champEnrichissable?:
+  champ?:
     | {
         id: string
         codeMachine: string
@@ -55,7 +55,7 @@ export interface FilterConfig {
       }
     | null
   operateursDisponibles?: FilterOperator[] | null
-  /** Distinct values for a list-type filter: source column values or distinct enrichment values. */
+  /** Distinct values for a list-type filter, read from ValeurChamp for any nature. */
   optionsListe?: string[] | null
   ordreAffichage: number
 }

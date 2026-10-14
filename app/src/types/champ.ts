@@ -1,7 +1,7 @@
-export const NATURE_CHAMP = ["SAISISSABLE", "CALCULE"] as const
+export const NATURE_CHAMP = ["IMPORTE", "SAISISSABLE", "CALCULE"] as const
 export type NatureChamp = (typeof NATURE_CHAMP)[number]
 
-export const TYPE_DONNEES_CHAMP = ["DECIMAL", "ENTIER", "LISTE", "MULTI_SELECT", "TEXTE", "BOOLEAN", "DATE"] as const
+export const TYPE_DONNEES_CHAMP = ["DECIMAL", "ENTIER", "LISTE", "MULTI_SELECT", "TEXTE", "TEXTE_MULTIPLE", "BOOLEAN", "DATE"] as const
 export type TypeDonneesChamp = (typeof TYPE_DONNEES_CHAMP)[number]
 
 /** LISTE and MULTI_SELECT both draw their values from `optionsListe`; MULTI_SELECT stores several of them. */
@@ -27,12 +27,13 @@ export interface ChampEnrichissableConfig {
   ordreAffichage: number
   estAffiche: boolean
   estObligatoire: boolean
-  estModifiable: boolean
+  typeFiltreRecommande: string | null
+  estLectureSeule: boolean
   actif: boolean
 }
 
-/** Fields an administrator can set; est_modifiable is always derived from nature, never sent by the client. */
-export type ChampEnrichissableInput = Omit<ChampEnrichissableConfig, "id" | "estModifiable" | "actif">
+/** Fields an administrator can set; est_lecture_seule is always derived from nature, never sent by the client. */
+export type ChampEnrichissableInput = Omit<ChampEnrichissableConfig, "id" | "estLectureSeule" | "actif" | "typeFiltreRecommande">
 
 export interface FicheSection {
   id: string
