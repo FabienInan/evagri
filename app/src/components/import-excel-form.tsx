@@ -24,10 +24,17 @@ export function ImportExcelForm({ onImported }: { onImported?: () => void }) {
     ignored: number
     errors: { sheet: string; row: number; message: string }[]
   } | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   async function handleSubmit(formData: FormData) {
     startTransition(async () => {
+      setError(null)
       const res = await importExcel(formData)
+      if (!res.ok) {
+        setReport(null)
+        setError(res.error)
+        return
+      }
       setReport(res)
       onImported?.()
       router.refresh()
@@ -74,6 +81,8 @@ export function ImportExcelForm({ onImported }: { onImported?: () => void }) {
             )}
           </Button>
         </form>
+
+        {error && <p className="text-sm text-destructive">{error}</p>}
 
         {report && (
           <div className="rounded-md border border-border bg-muted/30 p-4 space-y-3">

@@ -6,9 +6,9 @@ import { Eye, Pencil, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { DataTable, type DataTableColumn } from "@/components/data-table"
-import type { SerializedTransaction, EnrichmentValues } from "@/serializers/transaction.serializer"
-import type { TransactionSourceField } from "@/lib/transaction-source-fields"
-import type { EnrichmentField } from "@/repositories/enrichment.repository"
+import type { SerializedTransaction, SerializedValue } from "@/serializers/transaction.serializer"
+import { isImportedFieldCode, type ImportedField } from "@/lib/imported-fields"
+import type { ChampEnrichissableConfig, TypeDonneesChamp } from "@/types/champ"
 
 export type TransactionRow = SerializedTransaction
 
@@ -34,34 +34,42 @@ export function formatNumber(value: number | null | undefined, digits = 2) {
   }).format(value)
 }
 
-export function formatValue(value: string | number | boolean | null | undefined): string {
+export function formatValue(value: SerializedValue | undefined): string {
   if (value === null || value === undefined) return "—"
+  if (Array.isArray(value)) return value.length > 0 ? value.join(", ") : "—"
   if (typeof value === "boolean") return value ? "Oui" : "Non"
   if (typeof value === "number") return formatNumber(value)
   return String(value)
 }
 
-function computeTauxGlobal(row: TransactionRow): number | null {
-  if (!row.prixVente || !row.superficieTotaleHectare) return null
-  return row.prixVente / row.superficieTotaleHectare
-}
-
-function StatusBadge({ statut }: { statut: string | null | undefined }) {
-  const value = statut ?? "A analyser"
-  switch (value) {
-    case "Analysée":
-      return <Badge variant="default">Analysée</Badge>
-    case "A analyser":
-      return <Badge variant="warning">A analyser</Badge>
-    default:
-      return <Badge variant="secondary">{value}</Badge>
+/** Renders a stored flat value according to its champ's data type (dates locale-formatted, arrays joined). */
+function renderFieldValue(value: SerializedValue | undefined, typeDonnees: TypeDonneesChamp): string {
+  if (typeDonnees === "DATE" && typeof value === "string" && value !== "") {
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("fr-CA")
   }
+  return formatValue(value)
 }
 
-function Actions({ id, statut }: { id: string; statut: string | null | undefined }) {
+/** Le taux global combine deux valeurs numériques de la carte plate `fields`. */
+function computeTauxGlobal(row: TransactionRow): number | null {
+  const prix = row.fields.prix_vente
+  const superficie = row.fields.superficie_totale_hectare
+  if (typeof prix !== "number" || typeof superficie !== "number" || superficie === 0) return null
+  return prix / superficie
+}
+
+function StatusBadge({ statut }: { statut: string }) {
+  return statut === "ANALYSEE" ? (
+    <Badge variant="default">Analysée</Badge>
+  ) : (
+    <Badge variant="warning">Non analysée</Badge>
+  )
+}
+
+function Actions({ id, statut }: { id: string; statut: string }) {
   const router = useRouter()
-  const value = statut ?? "A analyser"
-  const isAnalysee = value === "Analysée"
+  const isAnalysee = statut === "ANALYSEE"
 
   return (
     // stopPropagation: keeps action clicks from toggling the row selection
@@ -96,56 +104,38 @@ function Actions({ id, statut }: { id: string; statut: string | null | undefined
   )
 }
 
-function isNumericEnrichment(typeDonnees: string): boolean {
-  return typeDonnees === "DECIMAL" || typeDonnees === "ENTIER" || typeDonnees === "POURCENTAGE"
+function isNumericType(typeDonnees: string): boolean {
+  return typeDonnees === "DECIMAL" || typeDonnees === "ENTIER"
 }
 
-function defaultCellValue(row: TransactionRow, key: string) {
-  if (key === "numeroInscription") return row.numeroInscription ?? row.enrichment["sia"] ?? "—"
-  if (key === "dateVente") return row.dateVente ? new Date(row.dateVente).toLocaleDateString("fr-CA") : "—"
-  if (key === "lotsCadastraux") return row.lotsCadastraux?.join(", ") ?? "—"
-  return formatValue(row[key as keyof TransactionRow] as string | number | boolean | null)
-}
-
+/** Colonnes construites depuis le catalogue `IMPORTED_FIELDS` (clé = codeMachine) puis les champs `Champ`
+ *  non importés : les deux lisent la même carte plate `row.fields`. */
 function useTableColumns(
-  sourceFields: TransactionSourceField[],
-  enrichmentFields: EnrichmentField[]
+  importedFields: ImportedField[],
+  champs: ChampEnrichissableConfig[]
 ): DataTableColumn<TransactionRow>[] {
   return useMemo(() => {
-    const sourceKeys = new Set(sourceFields.map((field) => field.key))
-    const seen = new Set<string>(sourceKeys)
-
-    const sourceCols: DataTableColumn<TransactionRow>[] = sourceFields.map((field) => ({
-      key: field.key,
+    const importedCols: DataTableColumn<TransactionRow>[] = importedFields.map((field) => ({
+      key: field.code,
       label: field.label,
       numeric: field.numeric,
-      sortable: field.sortable,
-      defaultVisible: field.defaultVisible,
-      minWidth: field.minWidth,
-      priority: field.priority,
-      render: (row) => defaultCellValue(row, field.key),
+      sortable: field.display.sortable,
+      defaultVisible: field.display.defaultVisible,
+      minWidth: field.display.minWidth,
+      priority: field.display.priority,
+      render: (row) => renderFieldValue(row.fields[field.code], field.typeDonnees),
     }))
 
-    const enrichmentCols: DataTableColumn<TransactionRow>[] = enrichmentFields
-      .filter((field) => !sourceKeys.has(field.codeMachine))
-      .filter((field) => {
-        if (seen.has(field.codeMachine)) {
-          if (process.env.NODE_ENV === "development") {
-            console.warn(`[TransactionTable] Duplicate column key ignored: ${field.codeMachine}`)
-          }
-          return false
-        }
-        seen.add(field.codeMachine)
-        return true
-      })
-      .map((field) => ({
-        key: field.codeMachine,
-        label: field.nomAffichage,
-        numeric: isNumericEnrichment(field.typeDonnees),
+    const champCols: DataTableColumn<TransactionRow>[] = champs
+      .filter((champ) => champ.actif && !isImportedFieldCode(champ.codeMachine))
+      .map((champ) => ({
+        key: champ.codeMachine,
+        label: champ.nomAffichage,
+        numeric: isNumericType(champ.typeDonnees),
         defaultVisible: false,
         minWidth: 130,
         priority: 1,
-        render: (row) => formatValue((row.enrichment as EnrichmentValues)[field.codeMachine]),
+        render: (row) => renderFieldValue(row.fields[champ.codeMachine], champ.typeDonnees),
       }))
 
     const computedCols: DataTableColumn<TransactionRow>[] = [
@@ -165,7 +155,7 @@ function useTableColumns(
         minWidth: 110,
         priority: 3,
         locked: true,
-        render: (row) => <StatusBadge statut={row.enrichie?.statut} />,
+        render: (row) => <StatusBadge statut={row.statut} />,
       },
       {
         key: "actions",
@@ -174,18 +164,18 @@ function useTableColumns(
         minWidth: 80,
         priority: 10,
         locked: true,
-        render: (row) => <Actions id={row.id} statut={row.enrichie?.statut} />,
+        render: (row) => <Actions id={row.id} statut={row.statut} />,
       },
     ]
 
-    return [...sourceCols, ...enrichmentCols, ...computedCols]
-  }, [sourceFields, enrichmentFields])
+    return [...importedCols, ...champCols, ...computedCols]
+  }, [importedFields, champs])
 }
 
 interface TransactionTableProps {
   data: TableData
-  sourceFields: TransactionSourceField[]
-  enrichmentFields: EnrichmentField[]
+  importedFields: ImportedField[]
+  champs: ChampEnrichissableConfig[]
   onSort: (field: string) => void
   sortField: string
   sortOrder: "asc" | "desc"
@@ -199,8 +189,8 @@ interface TransactionTableProps {
 
 export function TransactionTable({
   data,
-  sourceFields,
-  enrichmentFields,
+  importedFields,
+  champs,
   onSort,
   sortField,
   sortOrder,
@@ -210,7 +200,7 @@ export function TransactionTable({
   onSelectRow,
   fillHeight,
 }: TransactionTableProps) {
-  const columns = useTableColumns(sourceFields, enrichmentFields)
+  const columns = useTableColumns(importedFields, champs)
 
   return (
     <DataTable
@@ -231,4 +221,3 @@ export function TransactionTable({
     />
   )
 }
-

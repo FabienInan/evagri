@@ -9,11 +9,11 @@ import { deleteDocument, uploadDocument } from "@/server/actions/fiche"
 import type { SerializedFicheDocument } from "@/serializers/fiche.serializer"
 
 export function DocumentsPanel({
-  transactionSourceId,
+  transactionId,
   documents,
   readOnly,
 }: {
-  transactionSourceId: string
+  transactionId: string
   documents: SerializedFicheDocument[]
   readOnly: boolean
 }) {
@@ -27,7 +27,7 @@ export function DocumentsPanel({
     const formData = new FormData()
     formData.append("file", file)
     startTransition(async () => {
-      const res = await uploadDocument(transactionSourceId, formData)
+      const res = await uploadDocument(transactionId, formData)
       if (!res.ok) setError(res.error)
       else router.refresh()
     })

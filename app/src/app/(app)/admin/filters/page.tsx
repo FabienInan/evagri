@@ -8,7 +8,7 @@ export default async function FiltersAdminPage() {
   const orgId = getCurrentOrganisationId()
 
   const [filters, champs] = await Promise.all([
-    findFiltersByOrganisation(orgId, { includeChamp: true }),
+    findFiltersByOrganisation(orgId),
     findChampsByOrganisation(orgId),
   ])
 

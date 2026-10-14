@@ -20,7 +20,7 @@ export function ChampsPageClient({
   initialSections: FicheSection[]
 }) {
   const [tab, setTab] = useState<Tab>("champs")
-  const saisissablesAffiches = champs.filter((c) => c.nature === "SAISISSABLE" && c.actif && c.estAffiche)
+  const saisissablesAffiches = champs.filter((c) => c.nature !== "CALCULE" && c.actif && c.estAffiche)
 
   const sectionsEditorRef = useRef<SectionsEditorHandle | null>(null)
   const [savingDisposition, setSavingDisposition] = useState(false)

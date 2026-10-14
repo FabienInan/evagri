@@ -11,12 +11,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { SerializedTransaction } from "@/serializers/transaction.serializer"
+import type { SerializedValue } from "@/serializers/transaction.serializer"
 import type { TypologieOption } from "@/repositories/typologie.repository"
 import type { FicheMode } from "@/lib/fiche"
 
+/** Libellés d'affichage du statut (le modèle stocke les codes "ANALYSEE"/"NON_ANALYSEE"). */
+export function statutLabel(statut: string): string {
+  return statut === "ANALYSEE" ? "Analysée" : "Non analysée"
+}
+
 export function FicheHeader({
-  transaction,
+  fields,
   mode,
   typologies,
   typeCode,
@@ -28,7 +33,7 @@ export function FicheHeader({
   onSave,
   onAnalyse,
 }: {
-  transaction: SerializedTransaction
+  fields: Record<string, SerializedValue>
   mode: FicheMode
   typologies: TypologieOption[]
   typeCode: string | null
@@ -42,6 +47,8 @@ export function FicheHeader({
   onAnalyse: () => void
 }) {
   const isEdition = mode === "edition"
+  const numeroInscription = fields.numero_inscription
+  const lots = Array.isArray(fields.lots_cadastraux) ? fields.lots_cadastraux : []
 
   return (
     <Card className="gap-0 py-0 pb-0">
@@ -52,14 +59,14 @@ export function FicheHeader({
           </p>
           <div className="flex flex-wrap items-center gap-2.5">
             <p className="text-2xl font-semibold tracking-tight tabular-nums text-foreground">
-              {transaction.numeroInscription ?? "—"}
+              {numeroInscription ?? "—"}
             </p>
-            <Badge variant={statut === "Analysée" ? "default" : "warning"}>{statut}</Badge>
+            <Badge variant={statut === "ANALYSEE" ? "default" : "warning"}>{statutLabel(statut)}</Badge>
           </div>
           <p className="text-sm text-muted-foreground">
             N° de lot :{" "}
             <span className="font-medium tabular-nums text-foreground">
-              {transaction.lotsCadastraux.length > 0 ? transaction.lotsCadastraux.join(", ") : "—"}
+              {lots.length > 0 ? lots.join(", ") : "—"}
             </span>
           </p>
         </div>

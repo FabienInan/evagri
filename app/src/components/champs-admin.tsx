@@ -5,7 +5,7 @@ import { Search, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createChamp, updateChamp, toggleChampActif } from "@/server/actions/champs"
 import type { ChampInput } from "@/server/actions/champs"
-import { parseListOptions } from "@/lib/champs"
+import { parseListOptions, deriveEstLectureSeule } from "@/lib/champs"
 import { buildCodeMachine } from "@/lib/normalization/parsing"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,6 +20,7 @@ import { hasOptions } from "@/types/champ"
 import type { TypologieOption } from "@/repositories/typologie.repository"
 
 const NATURE_LABELS: Record<NatureChamp, string> = {
+  IMPORTE: "Importé",
   SAISISSABLE: "Saisissable",
   CALCULE: "Calculé",
 }
@@ -30,6 +31,7 @@ const TYPE_DONNEES_LABELS: Record<TypeDonneesChamp, string> = {
   LISTE: "Liste",
   MULTI_SELECT: "Liste (choix multiple)",
   TEXTE: "Texte",
+  TEXTE_MULTIPLE: "Texte (choix multiple)",
   BOOLEAN: "Booléen",
   DATE: "Date",
 }
@@ -155,7 +157,7 @@ export function ChampsAdmin({
         return
       }
       setEditDraft(payload)
-      setItems((prev) => prev.map((c) => (c.id === selected.id ? { ...c, ...payload, id: c.id, actif: c.actif, estModifiable: payload.nature === "SAISISSABLE" } : c)))
+      setItems((prev) => prev.map((c) => (c.id === selected.id ? { ...c, ...payload, id: c.id, actif: c.actif, estLectureSeule: deriveEstLectureSeule(payload.nature) } : c)))
       setLastSaved(selected.id)
       setTimeout(() => setLastSaved((current) => (current === selected.id ? null : current)), 1500)
     } catch (err) {

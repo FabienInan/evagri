@@ -20,7 +20,8 @@ function champ(overrides: Partial<ChampEnrichissableConfig>): ChampEnrichissable
     ordreAffichage: 0,
     estAffiche: true,
     estObligatoire: false,
-    estModifiable: true,
+    typeFiltreRecommande: null,
+    estLectureSeule: false,
     actif: true,
     ...overrides,
   }
@@ -66,8 +67,8 @@ describe("FieldControl MULTI_SELECT", () => {
     expect(onChange).toHaveBeenCalledWith(null)
   })
 
-  it("disables the trigger when the champ is not modifiable", () => {
-    render(<FieldControl champ={champ({ estModifiable: false })} valeur="Prairie" onChange={() => {}} />)
+  it("disables the trigger when the champ is read-only", () => {
+    render(<FieldControl champ={champ({ estLectureSeule: true })} valeur="Prairie" onChange={() => {}} />)
     expect((trigger() as HTMLButtonElement).disabled).toBe(true)
   })
 })

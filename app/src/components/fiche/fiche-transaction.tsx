@@ -6,7 +6,6 @@ import { SectionCard } from "@/components/fiche/section-card"
 import { FieldControl } from "@/components/fiche/field-control"
 import { FieldValue } from "@/components/fiche/field-value"
 import { IndicateursPanel } from "@/components/fiche/indicateurs-panel"
-import { SourceDataPanel } from "@/components/fiche/source-data-panel"
 import { DocumentsPanel } from "@/components/fiche/documents-panel"
 import { saveFiche, setFicheStatut, type FicheFieldError } from "@/server/actions/fiche"
 import {
@@ -23,14 +22,10 @@ export function FicheTransactionClient({ fiche }: { fiche: SerializedFiche }) {
   const isEdition = mode === "edition"
 
   const [valeurs, setValeurs] = useState<Record<string, FicheValeur>>(() =>
-    withRecomputedIndicateurs(
-      fiche.champs,
-      fiche.transaction as unknown as Record<string, unknown>,
-      fiche.transaction.enrichment
-    )
+    withRecomputedIndicateurs(fiche.champs, fiche.fields)
   )
   const [typeCode, setTypeCode] = useState<string | null>(() => {
-    const current = resolveTypeTransaction(fiche.transaction.enrichment[TYPE_TRANSACTION_CODE], fiche.typologies)
+    const current = resolveTypeTransaction(fiche.fields[TYPE_TRANSACTION_CODE] ?? null, fiche.typologies)
     return current?.code ?? null
   })
   const [saving, setSaving] = useState(false)
@@ -47,11 +42,7 @@ export function FicheTransactionClient({ fiche }: { fiche: SerializedFiche }) {
   })
 
   function recompute(nextValeurs: Record<string, FicheValeur>) {
-    return withRecomputedIndicateurs(
-      fiche.champs,
-      fiche.transaction as unknown as Record<string, unknown>,
-      nextValeurs
-    )
+    return withRecomputedIndicateurs(fiche.champs, nextValeurs)
   }
 
   function handleFieldChange(codeMachine: string, valeur: FicheValeur) {
@@ -79,7 +70,7 @@ export function FicheTransactionClient({ fiche }: { fiche: SerializedFiche }) {
     setActionError(null)
     setFieldErrors([])
     try {
-      const res = await saveFiche({ id: fiche.transaction.id, typeTransactionCode: typeCode, valeurs })
+      const res = await saveFiche({ id: fiche.id, typeTransactionCode: typeCode, valeurs })
       if (!res.ok) {
         applyActionError(res)
         return false
@@ -102,7 +93,7 @@ export function FicheTransactionClient({ fiche }: { fiche: SerializedFiche }) {
     if (!saved) return
     setSaving(true)
     try {
-      const res = await setFicheStatut(fiche.transaction.id, "Analysée")
+      const res = await setFicheStatut(fiche.id, "ANALYSEE")
       if (!res.ok) applyActionError(res)
     } catch {
       setActionError("Échec du changement de statut. Réessayez.")
@@ -125,7 +116,7 @@ export function FicheTransactionClient({ fiche }: { fiche: SerializedFiche }) {
   return (
     <div className="space-y-4">
       <FicheHeader
-        transaction={fiche.transaction}
+        fields={fiche.fields}
         mode={mode}
         typologies={fiche.typologies}
         typeCode={typeCode}
@@ -137,8 +128,6 @@ export function FicheTransactionClient({ fiche }: { fiche: SerializedFiche }) {
         onSave={handleSave}
         onAnalyse={handleAnalyse}
       />
-
-      {mode === "consultation" && <SourceDataPanel transaction={fiche.transaction} />}
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_320px]">
         <div className="space-y-4">
@@ -183,7 +172,7 @@ export function FicheTransactionClient({ fiche }: { fiche: SerializedFiche }) {
       </div>
 
       <DocumentsPanel
-        transactionSourceId={fiche.transaction.id}
+        transactionId={fiche.id}
         documents={fiche.documents}
         readOnly={!isEdition}
       />

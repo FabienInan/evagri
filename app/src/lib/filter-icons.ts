@@ -71,16 +71,6 @@ const DATA_TYPE_ICONS: Record<string, LucideIcon> = {
 
 const FIELD_CODE_ICONS: Record<string, LucideIcon> = {
   statut: Activity,
-  numeroInscription: FileDigit,
-  dateVente: Calendar,
-  vendeur: User,
-  acheteur: User,
-  prixVente: DollarSign,
-  mrc: Home,
-  municipalite: Home,
-  adresse: Home,
-  superficieTotaleHectare: Ruler,
-  lotsCadastraux: MapPin,
   numero_inscription: FileDigit,
   date_vente: Calendar,
   prix_vente: DollarSign,

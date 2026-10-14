@@ -4,9 +4,7 @@ import { listChampsEnrichissablesByOrganisation } from "@/repositories/champs.re
 import { findFicheLayout } from "@/repositories/fiche-layout.repository"
 import { listTypologiesByOrganisation } from "@/repositories/typologie.repository"
 import { findTransactionFiche, listDocuments } from "@/repositories/fiche.repository"
-import { serializeTransaction } from "@/serializers/transaction.serializer"
-import { serializeDocument, type SerializedFiche } from "@/serializers/fiche.serializer"
-import { deriveFicheMode } from "@/lib/fiche"
+import { serializeDocument, serializeFiche } from "@/serializers/fiche.serializer"
 import { FicheTransactionClient } from "@/components/fiche/fiche-transaction"
 
 export const dynamic = "force-dynamic"
@@ -29,16 +27,12 @@ export default async function FicheTransactionPage({
     listDocuments(id),
   ])
 
-  const statut = record.enrichie?.statut ?? "A analyser"
-  const fiche: SerializedFiche = {
-    transaction: serializeTransaction(record),
+  const fiche = serializeFiche(record, {
     champs,
     sections,
     typologies,
     documents: documents.map(serializeDocument),
-    statut,
-    mode: deriveFicheMode(statut),
-  }
+  })
 
-  return <FicheTransactionClient key={statut} fiche={fiche} />
+  return <FicheTransactionClient key={fiche.statut} fiche={fiche} />
 }

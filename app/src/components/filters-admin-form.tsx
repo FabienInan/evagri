@@ -20,7 +20,6 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { getFilterIcon, getFilterIconColor } from "@/lib/filter-icons"
 import { recommendFilterType, recommendedTypeForField, DEFAULT_OPERATEURS, moveItemToIndex } from "@/lib/filters"
-import { SOURCE_FIELDS, SOURCE_FIELD_BY_CODE, isSourceFieldCode } from "@/lib/transaction-source-fields"
 import type { FilterConfig, FilterType } from "@/types/filter"
 import type { CreateFilterInput } from "@/server/actions/filters"
 
@@ -98,7 +97,7 @@ export function FiltersAdminForm({
   const [dropIndex, setDropIndex] = useState<number | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const firstAvailableChamp = champs.find(
-    (c) => !filters.some((f) => f.champEnrichissable?.id === c.id)
+    (c) => !filters.some((f) => f.champ?.id === c.id)
   )
   const firstAvailableVirtual = VIRTUAL_FILTERS.find(
     (v) => !filters.some((f) => f.codeMachine === v.codeMachine)
@@ -106,17 +105,12 @@ export function FiltersAdminForm({
   const [newChampId, setNewChampId] = useState<string>(
     firstAvailableChamp?.id ?? (firstAvailableVirtual ? `__VIRTUAL_${firstAvailableVirtual.codeMachine}` : "")
   )
-  const isSourceSelection = newChampId.startsWith("__SOURCE_")
-  const sourceCode = isSourceSelection ? newChampId.replace("__SOURCE_", "") : null
   const isVirtualSelection = newChampId.startsWith("__VIRTUAL_")
   const selectedVirtualCode = isVirtualSelection ? newChampId.replace("__VIRTUAL_", "") : null
-  const isNewChampUsed = isSourceSelection
-    ? items.some((f) => f.codeMachine === sourceCode)
-    : isVirtualSelection
-      ? items.some((f) => f.codeMachine === selectedVirtualCode)
-      : items.some((f) => f.champEnrichissable?.id === newChampId)
+  const isNewChampUsed = isVirtualSelection
+    ? items.some((f) => f.codeMachine === selectedVirtualCode)
+    : items.some((f) => f.champ?.id === newChampId)
   const recommendedTypeForNew = useMemo<FilterType | null>(() => {
-    if (isSourceSelection) return SOURCE_FIELD_BY_CODE[sourceCode ?? ""]?.typeFiltreRecommande ?? null
     if (isVirtualSelection) {
       return VIRTUAL_FILTERS.find((v) => v.codeMachine === selectedVirtualCode)?.typeFiltre ?? null
     }
@@ -127,7 +121,7 @@ export function FiltersAdminForm({
       nomAffichage: champ.nomAffichage,
       typeDonnees: champ.typeDonnees,
     })
-  }, [newChampId, isSourceSelection, sourceCode, isVirtualSelection, selectedVirtualCode, champs])
+  }, [newChampId, isVirtualSelection, selectedVirtualCode, champs])
   const { setAction, clearAction } = useHeaderActions()
   // The header button is set once per (publishing, lastSaved) change, so a bare `onClick={handlePublish}`
   // would freeze an `items` snapshot: a pure reorder doesn't change those deps and would publish the old
@@ -224,12 +218,12 @@ export function FiltersAdminForm({
 
   async function handleCreate(formData: FormData) {
     setCreateError(null)
-    const rawChampId = formData.get("champEnrichissableId") as string
+    const rawChampId = formData.get("champId") as string
     const type = formData.get("typeFiltre") as FilterType
     // Nouveau filtre ajouté en fin de liste : l'ordre se règle ensuite par glisser-déposer.
     const ordre = items.reduce((max, f) => Math.max(max, f.ordreAffichage), -1) + 1
 
-    const baseInput: Omit<CreateFilterInput, "nomFiltre" | "champEnrichissableId" | "codeMachine"> = {
+    const baseInput: Omit<CreateFilterInput, "nomFiltre" | "champId" | "codeMachine"> = {
       typeFiltre: type,
       operateurs: DEFAULT_OPERATEURS[type],
       ordreAffichage: ordre,
@@ -237,21 +231,7 @@ export function FiltersAdminForm({
 
     let input: CreateFilterInput
 
-    if (rawChampId.startsWith("__SOURCE_")) {
-      const code = rawChampId.replace("__SOURCE_", "")
-      const descriptor = SOURCE_FIELD_BY_CODE[code]
-      if (!descriptor) return
-      if (items.some((f) => f.codeMachine === code)) {
-        setCreateError("Un filtre existe déjà pour cette donnée source.")
-        return
-      }
-      input = {
-        ...baseInput,
-        nomFiltre: descriptor.label,
-        codeMachine: code,
-        champEnrichissableId: null,
-      }
-    } else if (rawChampId.startsWith("__VIRTUAL_")) {
+    if (rawChampId.startsWith("__VIRTUAL_")) {
       const virtualCode = rawChampId.replace("__VIRTUAL_", "")
       const virtual = VIRTUAL_FILTERS.find((v) => v.codeMachine === virtualCode)
       if (!virtual) return
@@ -263,19 +243,19 @@ export function FiltersAdminForm({
         ...baseInput,
         nomFiltre: virtual.nomFiltre,
         codeMachine: virtual.codeMachine,
-        champEnrichissableId: null,
+        champId: null,
       }
     } else {
       const champ = champs.find((c) => c.id === rawChampId)
       if (!champ) return
-      if (items.some((f) => f.champEnrichissable?.id === champ.id)) {
+      if (items.some((f) => f.champ?.id === champ.id)) {
         setCreateError("Un filtre existe déjà pour ce champ.")
         return
       }
       input = {
         ...baseInput,
         nomFiltre: champ.nomAffichage,
-        champEnrichissableId: champ.id,
+        champId: champ.id,
         codeMachine: null,
       }
     }
@@ -399,11 +379,11 @@ export function FiltersAdminForm({
               <p className="text-sm text-muted-foreground">Aucun filtre ne correspond à la recherche.</p>
             ) : (
               filtered.map((f, index) => {
-                const isVirtual = !f.champEnrichissable && !!f.codeMachine && !isSourceFieldCode(f.codeMachine)
-                const Icon = getFilterIcon(f.typeFiltre, f.champEnrichissable, f.codeMachine)
+                const isVirtual = !f.champ && !!f.codeMachine
+                const Icon = getFilterIcon(f.typeFiltre, f.champ, f.codeMachine)
                 const color = getFilterIconColor(f.typeFiltre)
-                const unit = f.champEnrichissable?.unite
-                const dataType = f.champEnrichissable?.typeDonnees
+                const unit = f.champ?.unite
+                const dataType = f.champ?.typeDonnees
                 const isSelected = selectedId === f.id
                 const showTopLine = dropIndex === index
                 const showBottomLine = index === filtered.length - 1 && dropIndex === filtered.length
@@ -496,9 +476,7 @@ export function FiltersAdminForm({
 
                 {selected.codeMachine && (
                   <div className="space-y-1.5">
-                    <Label className="text-sm font-medium">
-                      {isSourceFieldCode(selected.codeMachine) ? "Donnée source" : "Code virtuel"}
-                    </Label>
+                    <Label className="text-sm font-medium">Code virtuel</Label>
                     <p className="text-sm text-foreground">{selected.codeMachine}</p>
                   </div>
                 )}
@@ -589,21 +567,13 @@ function ChampSelect({
   onValueChange?: (value: string) => void
 }) {
   return (
-    <Select name="champEnrichissableId" value={value} defaultValue={champs[0]?.id} onValueChange={onValueChange}>
+    <Select name="champId" value={value} defaultValue={champs[0]?.id} onValueChange={onValueChange}>
       <SelectTrigger className="h-10 w-full rounded-lg">
         <SelectValue placeholder="Champ cible" />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="__source-heading__" disabled className="font-semibold text-muted-foreground">
-          Données sources
-        </SelectItem>
-        {SOURCE_FIELDS.map((f) => (
-          <SelectItem key={f.code} value={`__SOURCE_${f.code}`} className="pl-6">
-            {f.label}
-          </SelectItem>
-        ))}
-        <SelectItem value="__enrichi-heading__" disabled className="font-semibold text-muted-foreground">
-          Champs enrichis
+        <SelectItem value="__champs-heading__" disabled className="font-semibold text-muted-foreground">
+          Champs
         </SelectItem>
         {champs.map((c) => (
           <SelectItem key={c.id} value={c.id} className="pl-6">

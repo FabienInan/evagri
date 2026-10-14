@@ -349,7 +349,7 @@ export function validateFiche(input: {
   const acericole = pickSuperficie(valeursVisibles, SUPERFICIE_ROOTS.superficieAcericole)
 
   const surfaceErrors = validateEnrichment({
-    superficieTotaleHectare: input.fields["superficie_totale_hectare"] ?? null,
+    superficieTotaleHectare: pickNumber(input.fields, ["superficie_totale_hectare"]),
     superficieCultivee: cultivee?.valeur ?? null,
     superficieBoisee: boisee?.valeur ?? null,
     superficieConstructible: constructible?.valeur ?? null,

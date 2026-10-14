@@ -1,4 +1,4 @@
-import type { EnrichmentValues, SerializedTransaction } from "@/serializers/transaction.serializer"
+import type { SerializedTransaction } from "@/serializers/transaction.serializer"
 
 export interface TransactionSearchInput {
   page?: number
@@ -26,5 +26,3 @@ export interface MapTransactionDTO {
   longitude: number | null
   municipalite: string | null
 }
-
-export { type EnrichmentValues }

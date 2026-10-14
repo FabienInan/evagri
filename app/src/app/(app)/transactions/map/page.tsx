@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic"
 export default async function MapPage() {
   const orgId = getCurrentOrganisationId()
 
-  const filtersConfig = await findFiltersByOrganisation(orgId, { includeChamp: true })
+  const filtersConfig = await findFiltersByOrganisation(orgId)
 
   return <MapPageClient filtersConfig={filtersConfig} />
 }

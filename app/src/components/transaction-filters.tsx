@@ -14,16 +14,16 @@ import {
 import { MultiSelect } from "@/components/ui/multi-select"
 import { Switch } from "@/components/ui/switch"
 import type { FilterConfig, FilterInput } from "@/types/filter"
-import { isSourceFieldCode } from "@/lib/transaction-source-fields"
 import { parseMultiValue } from "@/lib/multi-value"
 import { cn } from "@/lib/utils"
 
 type VirtualOption = { label: string; value: string }
 
+// Les libellés sont affichés à l'utilisateur, les valeurs sont les codes du modèle unifié.
 const VIRTUAL_FILTER_OPTIONS: Record<string, VirtualOption[]> = {
   statut: [
-    { label: "Analysée", value: "Analysée" },
-    { label: "A analyser", value: "A analyser" },
+    { label: "Analysée", value: "ANALYSEE" },
+    { label: "Non analysée", value: "NON_ANALYSEE" },
   ],
 }
 
@@ -83,7 +83,7 @@ export function TransactionFilters({
 
   const defaultTypeFiltre = (config?: FilterConfig): FilterInput["typeFiltre"] => {
     if (config?.codeMachine === "statut") return "STATUT"
-    if (config?.champEnrichissable?.codeMachine === "typeTransaction") return "TYPE_TRANSACTION"
+    if (config?.champ?.codeMachine === "typeTransaction") return "TYPE_TRANSACTION"
     if (config?.typeFiltre) {
       return config.typeFiltre as FilterInput["typeFiltre"]
     }
@@ -129,7 +129,7 @@ export function TransactionFilters({
       .filter(([_, v]) => v.value !== "")
       .map(([id, v]) => {
         const config = filtersConfig.find((f) => f.id === id)
-        const field = config?.codeMachine || config?.champEnrichissable?.codeMachine || id
+        const field = config?.codeMachine || config?.champ?.codeMachine || id
         const typeFiltre = defaultTypeFiltre(config)
         const virtualOptions = config?.codeMachine ? VIRTUAL_FILTER_OPTIONS[config.codeMachine] : undefined
         const virtualValue = virtualOptions?.find((o) => o.label === v.value)?.value
@@ -243,7 +243,7 @@ export function TransactionFilters({
           .filter((f) => f.estActif)
           .sort((a, b) => a.ordreAffichage - b.ordreAffichage)
           .map((f) => {
-            const isVirtual = !!f.codeMachine && !isSourceFieldCode(f.codeMachine)
+            const isVirtual = !!f.codeMachine && !f.champ
             const rawOptions = isVirtual
               ? VIRTUAL_FILTER_OPTIONS[f.codeMachine as string] || []
               : Array.isArray(f.optionsListe)

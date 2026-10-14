@@ -36,7 +36,7 @@ export function FieldControl({
   disabled?: boolean
   error?: string | null
 }) {
-  const readOnly = disabled || !champ.estModifiable
+  const readOnly = disabled || champ.estLectureSeule
   const label = `${champ.nomAffichage}${champ.estObligatoire ? " *" : ""}${champ.unite !== "N/A" ? ` (${champ.unite})` : ""}`
   const errorId = error ? `${champ.codeMachine}-error` : undefined
 

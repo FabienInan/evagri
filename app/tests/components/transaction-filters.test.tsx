@@ -20,6 +20,7 @@ function makeFilter(overrides: Partial<FilterConfig> = {}): FilterConfig {
     typeFiltre: "MULTI_SELECT",
     estActif: true,
     codeMachine: null,
+    champ: null,
     operateursDisponibles: ["in"],
     optionsListe: ["Argile", "Sable", "Limon"],
     ordreAffichage: 1,

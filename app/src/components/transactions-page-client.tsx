@@ -8,8 +8,8 @@ import { useTransactionFilters } from "@/hooks/use-transaction-filters"
 import { useSelectedTransactions } from "@/components/selected-transactions-context"
 import { useFilterPanelVisibility } from "@/hooks/use-filter-panel-visibility"
 import type { FilterConfig, FilterInput } from "@/types/filter"
-import type { TransactionSourceField } from "@/lib/transaction-source-fields"
-import type { EnrichmentField } from "@/repositories/enrichment.repository"
+import type { ImportedField } from "@/lib/imported-fields"
+import type { ChampEnrichissableConfig } from "@/types/champ"
 
 type TableData = Awaited<ReturnType<typeof searchTransactions>>
 type TransactionRow = TableData["transactions"][number]
@@ -19,15 +19,15 @@ const PAGE_SIZE = 25
 interface TransactionsPageClientProps {
   initialData: TableData
   filtersConfig: FilterConfig[]
-  sourceFields: TransactionSourceField[]
-  enrichmentFields: EnrichmentField[]
+  importedFields: ImportedField[]
+  champs: ChampEnrichissableConfig[]
 }
 
 export function TransactionsPageClient({
   initialData,
   filtersConfig,
-  sourceFields,
-  enrichmentFields,
+  importedFields,
+  champs,
 }: TransactionsPageClientProps) {
   const { filters, setFilters } = useTransactionFilters()
   const { selectedIds, toggleSelected } = useSelectedTransactions()
@@ -141,8 +141,8 @@ export function TransactionsPageClient({
       )}
       <TransactionTable
         data={{ transactions, total }}
-        sourceFields={sourceFields}
-        enrichmentFields={enrichmentFields}
+        importedFields={importedFields}
+        champs={champs}
         onSort={handleSort}
         sortField={sortField}
         sortOrder={sortOrder}

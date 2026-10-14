@@ -95,6 +95,10 @@ export function ImportHistory({ initialImports }: { initialImports: Importation[
   async function handleRetry(id: string) {
     try {
       const res = await retryImport(id)
+      if ("error" in res) {
+        setMessage(res.error)
+        return
+      }
       setMessage(res.message)
       setImports((prev) =>
         prev.map((imp) => (imp.id === id ? { ...imp, statut: "EN_COURS" } : imp))
