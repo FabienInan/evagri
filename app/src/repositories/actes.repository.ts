@@ -1,22 +1,22 @@
 import { prisma } from "@/lib/prisma"
 
 export async function findDocumentActeByFileName(
-  transactionSourceId: string,
+  transactionId: string,
   nomFichier: string
 ) {
   return prisma.documentActe.findFirst({
-    where: { transactionSourceId, nomFichier },
+    where: { transactionId, nomFichier },
   })
 }
 
 export async function createDocumentActe(
-  transactionSourceId: string,
+  transactionId: string,
   nomFichier: string,
   cheminStockage: string
 ) {
   return prisma.documentActe.create({
     data: {
-      transactionSourceId,
+      transactionId,
       nomFichier,
       cheminStockage,
     },
@@ -33,18 +33,18 @@ export async function updateDocumentActePath(
   })
 }
 
-export async function findTransactionSourceByNumeroInscription(
+export async function findTransactionByNumeroInscription(
   organisationId: string,
   numeroInscription: string
 ) {
   // Exact match: a `contains` lookup made the leading digits of one numero attach an acte to a different
   // transaction (e.g. "123" matching "1234"). An unmatched acte is visible and recoverable; a silently
   // mis-attached one is neither.
-  return prisma.transactionSource.findFirst({
+  return prisma.transaction.findFirst({
     where: {
       organisationId,
-      numeroInscription,
+      valeurs: { some: { champ: { codeMachine: "numero_inscription" }, valeurTexte: numeroInscription } },
     },
-    orderBy: { dateVente: "desc" },
+    orderBy: { createdAt: "desc" },
   })
 }

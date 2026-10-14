@@ -36,7 +36,7 @@ export async function ensureEnrichmentChamps(
   }))
 
   // One lookup for the whole batch instead of one per header, then create only the genuinely new ones.
-  const existing = await prisma.champEnrichissable.findMany({
+  const existing = await prisma.champ.findMany({
     where: { organisationId, codeMachine: { in: prepared.map((p) => p.codeMachine) } },
     select: { id: true, codeMachine: true, typeDonnees: true },
   })
@@ -44,7 +44,7 @@ export async function ensureEnrichmentChamps(
 
   const missing = prepared.filter((p) => !byCode.has(p.codeMachine))
   if (missing.length > 0) {
-    const data: Prisma.ChampEnrichissableCreateManyInput[] = missing.map((p) => {
+    const data: Prisma.ChampCreateManyInput[] = missing.map((p) => {
       // A catalogued champ (closed vocabulary or known numeric field) gets its canonical type/options; the
       // rest fall back to value-shape inference, which can never yield LISTE/MULTI_SELECT.
       const def = enrichmentChampDef(p.codeMachine)
@@ -69,9 +69,9 @@ export async function ensureEnrichmentChamps(
         ...(def?.optionsListe ? { optionsListe: def.optionsListe } : {}),
       }
     })
-    await prisma.champEnrichissable.createMany({ data })
+    await prisma.champ.createMany({ data })
 
-    const created = await prisma.champEnrichissable.findMany({
+    const created = await prisma.champ.findMany({
       where: { organisationId, codeMachine: { in: missing.map((p) => p.codeMachine) } },
       select: { id: true, codeMachine: true, typeDonnees: true },
     })
@@ -87,8 +87,8 @@ export async function ensureEnrichmentChamps(
 export async function findChampByCodeMachine(
   organisationId: string,
   codeMachine: string
-): Promise<Pick<import("@prisma/client").ChampEnrichissable, "id" | "typeDonnees"> | null> {
-  return prisma.champEnrichissable.findUnique({
+): Promise<Pick<import("@prisma/client").Champ, "id" | "typeDonnees"> | null> {
+  return prisma.champ.findUnique({
     where: { organisationId_codeMachine: { organisationId, codeMachine } },
     select: { id: true, typeDonnees: true },
   })
@@ -100,13 +100,13 @@ export async function ensureChampByCodeMachine(
   nomAffichage: string,
   typeDonnees: string,
   unite: string
-): Promise<Pick<import("@prisma/client").ChampEnrichissable, "id" | "typeDonnees">> {
-  const existing = await prisma.champEnrichissable.findUnique({
+): Promise<Pick<import("@prisma/client").Champ, "id" | "typeDonnees">> {
+  const existing = await prisma.champ.findUnique({
     where: { organisationId_codeMachine: { organisationId, codeMachine } },
     select: { id: true, typeDonnees: true },
   })
   if (existing) return existing
-  const created = await prisma.champEnrichissable.create({
+  const created = await prisma.champ.create({
     data: {
       organisationId,
       codeMachine,
@@ -136,8 +136,10 @@ export interface EnrichmentField {
 export async function findEnrichmentFieldsByOrganisation(
   organisationId: string
 ): Promise<EnrichmentField[]> {
-  return prisma.champEnrichissable.findMany({
-    where: { organisationId, actif: true },
+  return prisma.champ.findMany({
+    // Only SAISISSABLE/CALCULE champs are enrichment fields: IMPORTE champs come from import columns,
+    // not from unrecognised spreadsheet headers to be mapped.
+    where: { organisationId, actif: true, nature: { in: ["SAISISSABLE", "CALCULE"] } },
     select: {
       id: true,
       codeMachine: true,

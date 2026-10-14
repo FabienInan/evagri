@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
 import type { ChampEnrichissableConfig, ChampEnrichissableInput } from "@/types/champ"
 
-function toConfig(champ: Prisma.ChampEnrichissableGetPayload<object>): ChampEnrichissableConfig {
+function toConfig(champ: Prisma.ChampGetPayload<object>): ChampEnrichissableConfig {
   return {
     id: champ.id,
     codeMachine: champ.codeMachine,
@@ -18,7 +18,8 @@ function toConfig(champ: Prisma.ChampEnrichissableGetPayload<object>): ChampEnri
     ordreAffichage: champ.ordreAffichage,
     estAffiche: champ.estAffiche,
     estObligatoire: champ.estObligatoire,
-    estModifiable: champ.estModifiable,
+    typeFiltreRecommande: champ.typeFiltreRecommande,
+    estLectureSeule: champ.estLectureSeule,
     actif: champ.actif,
   }
 }
@@ -26,7 +27,7 @@ function toConfig(champ: Prisma.ChampEnrichissableGetPayload<object>): ChampEnri
 export async function listChampsEnrichissablesByOrganisation(
   organisationId: string
 ): Promise<ChampEnrichissableConfig[]> {
-  const champs = await prisma.champEnrichissable.findMany({
+  const champs = await prisma.champ.findMany({
     where: { organisationId },
     orderBy: { ordreAffichage: "asc" },
   })
@@ -35,7 +36,7 @@ export async function listChampsEnrichissablesByOrganisation(
 
 /** Every codeMachine of the organisation, used to check a regle_calcul only references known enrichi fields. */
 export async function listChampCodesByOrganisation(organisationId: string): Promise<string[]> {
-  const champs = await prisma.champEnrichissable.findMany({
+  const champs = await prisma.champ.findMany({
     where: { organisationId },
     select: { codeMachine: true },
   })
@@ -44,9 +45,9 @@ export async function listChampCodesByOrganisation(organisationId: string): Prom
 
 export async function createChampEnrichissable(
   organisationId: string,
-  input: ChampEnrichissableInput & { estModifiable: boolean }
+  input: ChampEnrichissableInput & { estLectureSeule: boolean }
 ): Promise<ChampEnrichissableConfig> {
-  const created = await prisma.champEnrichissable.create({
+  const created = await prisma.champ.create({
     data: {
       organisationId,
       codeMachine: input.codeMachine,
@@ -62,7 +63,7 @@ export async function createChampEnrichissable(
       ordreAffichage: input.ordreAffichage,
       estAffiche: input.estAffiche,
       estObligatoire: input.estObligatoire,
-      estModifiable: input.estModifiable,
+      estLectureSeule: input.estLectureSeule,
     },
   })
   return toConfig(created)
@@ -72,9 +73,9 @@ export async function createChampEnrichissable(
 export async function updateChampEnrichissable(
   organisationId: string,
   id: string,
-  input: ChampEnrichissableInput & { estModifiable: boolean }
+  input: ChampEnrichissableInput & { estLectureSeule: boolean }
 ): Promise<boolean> {
-  const result = await prisma.champEnrichissable.updateMany({
+  const result = await prisma.champ.updateMany({
     where: { id, organisationId },
     data: {
       nomAffichage: input.nomAffichage,
@@ -89,7 +90,7 @@ export async function updateChampEnrichissable(
       ordreAffichage: input.ordreAffichage,
       estAffiche: input.estAffiche,
       estObligatoire: input.estObligatoire,
-      estModifiable: input.estModifiable,
+      estLectureSeule: input.estLectureSeule,
     },
   })
   return result.count > 0
@@ -100,7 +101,7 @@ export async function setChampActif(
   id: string,
   actif: boolean
 ): Promise<boolean> {
-  const result = await prisma.champEnrichissable.updateMany({
+  const result = await prisma.champ.updateMany({
     where: { id, organisationId },
     data: { actif },
   })
@@ -109,14 +110,14 @@ export async function setChampActif(
 
 /** Ownership check: returns the champ's id only when it belongs to the organisation. */
 export async function findChampForOrganisation(organisationId: string, id: string) {
-  return prisma.champEnrichissable.findFirst({
+  return prisma.champ.findFirst({
     where: { id, organisationId },
     select: { id: true },
   })
 }
 
 export async function findChampByOrganisationAndCode(organisationId: string, codeMachine: string) {
-  return prisma.champEnrichissable.findUnique({
+  return prisma.champ.findUnique({
     where: { organisationId_codeMachine: { organisationId, codeMachine } },
     select: { id: true },
   })

@@ -1,71 +1,54 @@
 import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
 import type { FilterConfig } from "@/types/filter"
-import { isSourceFieldCode, sourceColumnOf, SOURCE_FIELD_BY_CODE } from "@/lib/transaction-source-fields"
 
-const LIST_TYPE_FILTRES = new Set(["LISTE", "MULTI_SELECT"])
+/** Filter types whose dropdown is fed by distinct values read from ValeurChamp. */
+const OPTION_HYDRATING_FILTRES = new Set(["LISTE", "MULTI_SELECT", "NUMERO_LOT"])
 
-function distinctNonEmpty(values: (string | null)[]): string[] {
-  const unique = Array.from(new Set(values.filter((v): v is string => !!v && v.trim() !== "")))
-  return unique.sort((a, b) => a.localeCompare(b))
-}
-
-/** Scoped through the champ's organisation so values never leak across tenants. */
-async function findDistinctEnrichmentValues(
+/**
+ * Distinct non-empty values of a champ across the organisation's transactions, for a list-type filter's
+ * dropdown. Reads scalar text values and each element of the multi-valued column, scoped through the
+ * transaction so values never leak across tenants.
+ */
+export async function findDistinctFieldValues(
   organisationId: string,
-  champEnrichissableId: string
+  codeMachine: string
 ): Promise<string[]> {
-  const rows = await prisma.valeurEnrichissement.findMany({
-    where: {
-      champEnrichissableId,
-      champEnrichissable: { organisationId },
-      valeurTexte: { not: null },
-    },
-    select: { valeurTexte: true },
-    distinct: ["valeurTexte"],
+  const rows = await prisma.valeurChamp.findMany({
+    where: { transaction: { organisationId }, champ: { codeMachine } },
+    select: { valeurTexte: true, valeurTexteMultiple: true },
   })
-  return distinctNonEmpty(rows.map((r) => r.valeurTexte))
-}
-
-/** Distinct non-empty values of a text source column, for a list-type filter's dropdown. */
-async function findDistinctSourceValues(organisationId: string, code: string): Promise<string[]> {
-  const descriptor = SOURCE_FIELD_BY_CODE[code]
-  if (!descriptor || descriptor.array || descriptor.typeDonnees !== "TEXTE") return []
-  const column = sourceColumnOf(code) as string
-  const rows = await prisma.transactionSource.findMany({
-    where: { organisationId, [column]: { not: "" } },
-    select: { [column]: true },
-    distinct: [column],
-  } as Prisma.TransactionSourceFindManyArgs)
-  return distinctNonEmpty((rows as Record<string, unknown>[]).map((r) => r[column] as string | null))
+  const values = new Set<string>()
+  for (const r of rows) {
+    if (r.valeurTexte) values.add(r.valeurTexte)
+    for (const v of r.valeurTexteMultiple) values.add(v)
+  }
+  return Array.from(values).sort((a, b) => a.localeCompare(b, "fr"))
 }
 
 export async function findFiltersByOrganisation(
-  organisationId: string,
-  options: { includeChamp?: boolean } = {}
+  organisationId: string
 ): Promise<FilterConfig[]> {
   const filters = await prisma.filtreRecherche.findMany({
     where: { organisationId },
     orderBy: { ordreAffichage: "asc" },
-    include: options.includeChamp ? { champEnrichissable: true } : undefined,
+    include: { champ: true },
   })
 
   const withOptions = await Promise.all(
     filters.map(async (f) => {
-      const champ = (f as { champEnrichissable?: Prisma.ChampEnrichissableGetPayload<object> | null })
-        .champEnrichissable
-
-      // Distinct dropdown values: static champ options win, otherwise source column or enrichment values.
+      // Distinct dropdown values: a champ's static optionsListe wins, otherwise the values stored in
+      // ValeurChamp. A virtual filter (no champ) falls back to its own codeMachine when it carries one.
       let optionsListe: string[] | null = null
-      if (champ) {
-        const staticOptions = Array.isArray(champ.optionsListe) && champ.optionsListe.length > 0
+      if (f.champ) {
+        const staticOptions = Array.isArray(f.champ.optionsListe) && f.champ.optionsListe.length > 0
         if (staticOptions) {
-          optionsListe = champ.optionsListe as string[]
-        } else if (LIST_TYPE_FILTRES.has(f.typeFiltre)) {
-          optionsListe = await findDistinctEnrichmentValues(organisationId, champ.id)
+          optionsListe = f.champ.optionsListe as string[]
+        } else if (OPTION_HYDRATING_FILTRES.has(f.typeFiltre)) {
+          optionsListe = await findDistinctFieldValues(organisationId, f.champ.codeMachine)
         }
-      } else if (LIST_TYPE_FILTRES.has(f.typeFiltre) && isSourceFieldCode(f.codeMachine)) {
-        optionsListe = await findDistinctSourceValues(organisationId, f.codeMachine as string)
+      } else if (OPTION_HYDRATING_FILTRES.has(f.typeFiltre) && f.codeMachine) {
+        optionsListe = await findDistinctFieldValues(organisationId, f.codeMachine)
       }
 
       return {
@@ -83,7 +66,7 @@ export async function findFiltersByOrganisation(
 }
 
 export async function findChampsByOrganisation(organisationId: string) {
-  return prisma.champEnrichissable.findMany({
+  return prisma.champ.findMany({
     where: { organisationId },
     select: {
       id: true,
@@ -96,12 +79,12 @@ export async function findChampsByOrganisation(organisationId: string) {
   })
 }
 
-export async function findFilterByChampEnrichissableId(
+export async function findFilterByChampId(
   organisationId: string,
-  champEnrichissableId: string
+  champId: string
 ) {
   return prisma.filtreRecherche.findFirst({
-    where: { organisationId, champEnrichissableId },
+    where: { organisationId, champId },
   })
 }
 
