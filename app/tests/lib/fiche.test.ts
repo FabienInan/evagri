@@ -3,11 +3,10 @@ import {
   TYPE_TRANSACTION_CODE,
   buildCalculationContext,
   buildFicheViewModel,
-  buildSourceNumbers,
+  buildNumericFields,
   buildStorageEntries,
   deriveFicheMode,
   formatFicheValue,
-  formatSourceFieldValue,
   isChampApplicable,
   recomputeIndicateurs,
   resolveTypeTransaction,
@@ -34,7 +33,8 @@ function champ(overrides: Partial<ChampEnrichissableConfig>): ChampEnrichissable
     ordreAffichage: 0,
     estAffiche: true,
     estObligatoire: false,
-    estModifiable: true,
+    typeFiltreRecommande: null,
+    estLectureSeule: false,
     actif: true,
     ...overrides,
   }
@@ -42,10 +42,10 @@ function champ(overrides: Partial<ChampEnrichissableConfig>): ChampEnrichissable
 
 describe("deriveFicheMode", () => {
   it("is consultation when the transaction is analysed", () => {
-    expect(deriveFicheMode("Analysée")).toBe("consultation")
+    expect(deriveFicheMode("ANALYSEE")).toBe("consultation")
   })
   it("is edition otherwise", () => {
-    expect(deriveFicheMode("A analyser")).toBe("edition")
+    expect(deriveFicheMode("NON_ANALYSEE")).toBe("edition")
     expect(deriveFicheMode(null)).toBe("edition")
   })
 })
@@ -81,7 +81,7 @@ describe("buildFicheViewModel", () => {
 
   it("splits SAISISSABLE into sections and CALCULE into indicateurs", () => {
     const saisi = champ({ id: "a", codeMachine: "a" })
-    const calcule = champ({ id: "k", codeMachine: "k", nature: "CALCULE", regleCalcul: "a * 1", estModifiable: false })
+    const calcule = champ({ id: "k", codeMachine: "k", nature: "CALCULE", regleCalcul: "a * 1", estLectureSeule: true })
     const vm = buildFicheViewModel({
       sections: [{ id: "s1", nom: "Un", ordre: 0, champs: ["a", "k"] }],
       champs: [saisi, calcule],
@@ -90,6 +90,17 @@ describe("buildFicheViewModel", () => {
     })
     expect(vm.mainSections[0].champs.map((c) => c.config.id)).toEqual(["a"])
     expect(vm.indicateurs.map((c) => c.config.id)).toEqual(["k"])
+  })
+
+  it("renders an IMPORTE champ in the main area like a SAISISSABLE one", () => {
+    const imported = champ({ id: "i", codeMachine: "i", nature: "IMPORTE" })
+    const vm = buildFicheViewModel({
+      sections: [{ id: "s1", nom: "Un", ordre: 0, champs: ["i"] }],
+      champs: [imported],
+      valeurs: {},
+      typeCode: null,
+    })
+    expect(vm.mainSections[0].champs.map((c) => c.config.id)).toEqual(["i"])
   })
 
   it("excludes a champ hidden by estAffiche or applicableATypes", () => {
@@ -140,26 +151,18 @@ describe("formatFicheValue", () => {
   })
 })
 
-describe("formatSourceFieldValue", () => {
-  it("joins array columns and maps the column name", () => {
-    expect(formatSourceFieldValue({ column: "lotsCadastraux", typeDonnees: "TEXTE", array: true }, { lotsCadastraux: ["1", "2"] })).toBe("1, 2")
-    expect(formatSourceFieldValue({ column: "mrc", typeDonnees: "TEXTE" }, { mrc: "Drummond" })).toBe("Drummond")
-    expect(formatSourceFieldValue({ column: "mrc", typeDonnees: "TEXTE" }, {})).toBe("—")
-  })
-})
-
-describe("buildSourceNumbers", () => {
-  it("maps source columns to their snake_case codes and ignores non-numeric columns", () => {
-    const source = buildSourceNumbers({ prixVente: 120000, superficieTotaleHectare: 40, mrc: "Drummond" })
-    expect(source.prix_vente).toBe(120000)
-    expect(source.superficie_totale_hectare).toBe(40)
-    expect(source.mrc).toBeNull()
+describe("buildNumericFields", () => {
+  it("keeps only the numeric entries of the flat field map", () => {
+    expect(buildNumericFields({ superficie_totale_hectare: 50, prix_vente: 100000, mrc: "Drummond" })).toEqual({
+      superficie_totale_hectare: 50,
+      prix_vente: 100000,
+    })
   })
 })
 
 describe("buildCalculationContext and recomputeIndicateurs", () => {
   it("evaluates the rule and rounds the result to an integer", () => {
-    const context = buildCalculationContext({ prixVente: 100000, superficieTotaleHectare: 30 }, {})
+    const context = buildCalculationContext({ prix_vente: 100000, superficie_totale_hectare: 30 })
     const result = recomputeIndicateurs(
       [champ({ id: "k", codeMachine: "taux_global", nature: "CALCULE", regleCalcul: "prix_vente / superficie_totale_hectare" })],
       context
@@ -168,7 +171,7 @@ describe("buildCalculationContext and recomputeIndicateurs", () => {
   })
 
   it("leaves the indicator null on a division by zero", () => {
-    const context = buildCalculationContext({ prixVente: 1000, superficieTotaleHectare: 0 }, {})
+    const context = buildCalculationContext({ prix_vente: 1000, superficie_totale_hectare: 0 })
     const result = recomputeIndicateurs(
       [champ({ id: "k", codeMachine: "taux_global", nature: "CALCULE", regleCalcul: "prix_vente / superficie_totale_hectare" })],
       context
@@ -177,7 +180,7 @@ describe("buildCalculationContext and recomputeIndicateurs", () => {
   })
 
   it("feeds a calculated field back so a later rule can reference it", () => {
-    const context = buildCalculationContext({ prixVente: 1000, superficieTotaleHectare: 10 }, {})
+    const context = buildCalculationContext({ prix_vente: 1000, superficie_totale_hectare: 10 })
     const result = recomputeIndicateurs(
       [
         champ({ id: "a", codeMachine: "taux", nature: "CALCULE", regleCalcul: "prix_vente / superficie_totale_hectare" }),
@@ -190,7 +193,7 @@ describe("buildCalculationContext and recomputeIndicateurs", () => {
   })
 
   it("resolves a cascade even when the dependency is listed second", () => {
-    const context = buildCalculationContext({ prixVente: 1000, superficieTotaleHectare: 10 }, {})
+    const context = buildCalculationContext({ prix_vente: 1000, superficie_totale_hectare: 10 })
     const result = recomputeIndicateurs(
       [
         champ({ id: "b", codeMachine: "double_taux", nature: "CALCULE", regleCalcul: "taux * 2" }),
@@ -208,11 +211,11 @@ describe("withRecomputedIndicateurs", () => {
       champ({ id: "k", codeMachine: "taux_global", nature: "CALCULE", regleCalcul: "prix_vente / superficie_totale_hectare" }),
       champ({ id: "s", codeMachine: "superficie_boise_ha", nature: "SAISISSABLE" }),
     ]
-    const valeurs = withRecomputedIndicateurs(
-      champs,
-      { prixVente: 720000, superficieTotaleHectare: 89.61 },
-      { superficie_boise_ha: 12 }
-    )
+    const valeurs = withRecomputedIndicateurs(champs, {
+      prix_vente: 720000,
+      superficie_totale_hectare: 89.61,
+      superficie_boise_ha: 12,
+    })
     // 720000 / 89.61 = 8034.8... → arrondi à l'entier
     expect(valeurs.taux_global).toBe(8035)
     expect(valeurs.superficie_boise_ha).toBe(12)
@@ -222,7 +225,7 @@ describe("withRecomputedIndicateurs", () => {
     const champs = [
       champ({ id: "k", codeMachine: "taux_global", nature: "CALCULE", regleCalcul: "prix_vente / superficie_totale_hectare" }),
     ]
-    const valeurs = withRecomputedIndicateurs(champs, { prixVente: null, superficieTotaleHectare: null }, {})
+    const valeurs = withRecomputedIndicateurs(champs, { prix_vente: null, superficie_totale_hectare: null })
     expect(valeurs.taux_global).toBeNull()
   })
 })
@@ -235,29 +238,72 @@ describe("toNumericValues", () => {
 
 describe("toStorageValue", () => {
   it("routes decimals to valeurNombre", () => {
-    expect(toStorageValue("DECIMAL", 4.2)).toEqual({ valeurNombre: 4.2, valeurTexte: null, valeurBooleen: null })
+    expect(toStorageValue("DECIMAL", 4.2)).toEqual({
+      valeurNombre: 4.2,
+      valeurTexte: null,
+      valeurTexteMultiple: [],
+      valeurBooleen: null,
+      valeurDate: null,
+    })
   })
   it("routes booleans to valeurBooleen", () => {
-    expect(toStorageValue("BOOLEAN", false)).toEqual({ valeurNombre: null, valeurTexte: null, valeurBooleen: false })
+    expect(toStorageValue("BOOLEAN", false)).toEqual({
+      valeurNombre: null,
+      valeurTexte: null,
+      valeurTexteMultiple: [],
+      valeurBooleen: false,
+      valeurDate: null,
+    })
   })
   it("routes text and list to valeurTexte", () => {
-    expect(toStorageValue("LISTE", "CULTIVEE")).toEqual({ valeurNombre: null, valeurTexte: "CULTIVEE", valeurBooleen: null })
+    expect(toStorageValue("LISTE", "CULTIVEE")).toEqual({
+      valeurNombre: null,
+      valeurTexte: "CULTIVEE",
+      valeurTexteMultiple: [],
+      valeurBooleen: null,
+      valeurDate: null,
+    })
   })
   it("stores a multi-selection as a delimited valeurTexte", () => {
     expect(toStorageValue("MULTI_SELECT", "Prairie, Vigne")).toEqual({
       valeurNombre: null,
       valeurTexte: "Prairie, Vigne",
+      valeurTexteMultiple: [],
       valeurBooleen: null,
+      valeurDate: null,
     })
     expect(toStorageValue("MULTI_SELECT", null)).toEqual({
       valeurNombre: null,
       valeurTexte: null,
+      valeurTexteMultiple: [],
       valeurBooleen: null,
+      valeurDate: null,
+    })
+  })
+  it("stores a TEXTE_MULTIPLE list in valeurTexteMultiple", () => {
+    expect(toStorageValue("TEXTE_MULTIPLE", ["L1", "L2"])).toEqual({
+      valeurNombre: null,
+      valeurTexte: null,
+      valeurTexteMultiple: ["L1", "L2"],
+      valeurBooleen: null,
+      valeurDate: null,
     })
   })
   it("returns all-null for an empty value", () => {
-    expect(toStorageValue("TEXTE", "")).toEqual({ valeurNombre: null, valeurTexte: null, valeurBooleen: null })
-    expect(toStorageValue("DECIMAL", null)).toEqual({ valeurNombre: null, valeurTexte: null, valeurBooleen: null })
+    expect(toStorageValue("TEXTE", "")).toEqual({
+      valeurNombre: null,
+      valeurTexte: null,
+      valeurTexteMultiple: [],
+      valeurBooleen: null,
+      valeurDate: null,
+    })
+    expect(toStorageValue("DECIMAL", null)).toEqual({
+      valeurNombre: null,
+      valeurTexte: null,
+      valeurTexteMultiple: [],
+      valeurBooleen: null,
+      valeurDate: null,
+    })
   })
 })
 
@@ -315,7 +361,7 @@ describe("validateFiche", () => {
   const baseFor = (champs: ChampEnrichissableConfig[]) => ({
     champs,
     sections: [{ id: "s1", nom: "Section", ordre: 0, champs: champs.map((c) => c.id) }],
-    source: { superficie_totale_hectare: 40 },
+    fields: { superficie_totale_hectare: 40 },
     typeCode: "CULTIVEE" as string | null,
     dateVente: null as string | null,
   })
@@ -459,8 +505,14 @@ describe("buildStorageEntries", () => {
     const t = champ({ id: "t", codeMachine: TYPE_TRANSACTION_CODE, typeDonnees: "LISTE" })
     const entries = buildStorageEntries([a, t], { a: 5, b: null }, "CULTIVEE")
     expect(entries).toEqual([
-      { champEnrichissableId: "a", valeurNombre: 5, valeurTexte: null, valeurBooleen: null },
-      { champEnrichissableId: "t", valeurNombre: null, valeurTexte: "CULTIVEE", valeurBooleen: null },
+      { champId: "a", valeurNombre: 5, valeurTexte: null, valeurTexteMultiple: [], valeurBooleen: null, valeurDate: null },
+      { champId: "t", valeurNombre: null, valeurTexte: "CULTIVEE", valeurTexteMultiple: [], valeurBooleen: null, valeurDate: null },
     ])
+  })
+
+  it("stores a TEXTE_MULTIPLE champ in valeurTexteMultiple", () => {
+    const champs = [champ({ id: "c1", codeMachine: "lots_cadastraux", typeDonnees: "TEXTE_MULTIPLE" })]
+    const entries = buildStorageEntries(champs, { lots_cadastraux: ["L1", "L2"] }, null)
+    expect(entries[0]).toMatchObject({ champId: "c1", valeurTexteMultiple: ["L1", "L2"], valeurTexte: null })
   })
 })

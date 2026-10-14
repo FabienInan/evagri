@@ -1,9 +1,8 @@
 import type { ChampEnrichissableConfig, FicheSection, TypeDonneesChamp } from "@/types/champ"
-import { SOURCE_FIELDS } from "@/lib/transaction-source-fields"
 import { evaluateRule, roundToInteger, type CalculationContext } from "@/lib/calculator"
 import type { TypologieOption } from "@/repositories/typologie.repository"
 import { validateEnrichment, validateSaleDate, type RangeCheck } from "@/lib/validation"
-import { joinMultiValue } from "@/lib/multi-value"
+import { joinMultiValue, parseMultiValue } from "@/lib/multi-value"
 
 export type FicheMode = "edition" | "consultation"
 export type FicheValeur = string | number | boolean | null
@@ -27,7 +26,7 @@ export interface FicheViewModel {
 }
 
 export function deriveFicheMode(statut: string | null | undefined): FicheMode {
-  return statut === "Analysée" ? "consultation" : "edition"
+  return statut === "ANALYSEE" ? "consultation" : "edition"
 }
 
 /** An empty applicableATypes means the champ applies everywhere; an unset transaction type disables filtering
@@ -69,8 +68,8 @@ export function buildFicheViewModel(input: {
     for (const id of section.champs) {
       const config = byId.get(id)
       if (!config) continue
-      if (config.nature !== "SAISISSABLE") continue
       if (config.codeMachine === TYPE_TRANSACTION_CODE) continue
+      if (config.nature === "CALCULE") continue
       if (!isChampVisible(config, input.typeCode, placedChampIds)) continue
       champs.push({ config, valeur: input.valeurs[config.codeMachine] ?? null })
     }
@@ -116,35 +115,17 @@ export function formatFicheValue(typeDonnees: TypeDonneesChamp, valeur: FicheVal
   }
 }
 
-export function formatSourceFieldValue(
-  field: { column: string; typeDonnees: TypeDonneesChamp; array?: boolean },
-  transaction: Record<string, unknown>
-): string {
-  const raw = transaction[field.column]
-  if (field.array) {
-    const list = Array.isArray(raw) ? raw : []
-    return list.length > 0 ? list.join(", ") : "—"
+/** Numeric entries of the flat field map feed the calculation/validation context; other values are ignored. */
+export function buildNumericFields(fields: Record<string, FicheValeur>): Record<string, number | null> {
+  const result: Record<string, number | null> = {}
+  for (const [code, valeur] of Object.entries(fields)) {
+    if (typeof valeur === "number") result[code] = valeur
   }
-  if (raw === null || raw === undefined || raw === "") return "—"
-  return formatFicheValue(field.typeDonnees, raw as FicheValeur)
+  return result
 }
 
-/** Only numeric source columns feed the calculation/validation context; text/date/array columns yield null. */
-export function buildSourceNumbers(transaction: Record<string, unknown>): Record<string, number | null> {
-  const source: Record<string, number | null> = {}
-  for (const field of SOURCE_FIELDS) {
-    if (field.array) continue
-    const raw = transaction[field.column]
-    source[field.code] = typeof raw === "number" ? raw : null
-  }
-  return source
-}
-
-export function buildCalculationContext(
-  transaction: Record<string, unknown>,
-  enrichiValues: Record<string, number | null>
-): CalculationContext {
-  return { source: buildSourceNumbers(transaction), enrichi: enrichiValues }
+export function buildCalculationContext(fields: Record<string, FicheValeur>): CalculationContext {
+  return { fields: toNumericValues(fields) }
 }
 
 export function toNumericValues(valeurs: Record<string, FicheValeur>): Record<string, number | null> {
@@ -165,7 +146,7 @@ export function recomputeIndicateurs(
   context: CalculationContext
 ): Record<string, number | null> {
   const calcule = champs.filter((champ) => champ.nature === "CALCULE" && champ.regleCalcul)
-  const enrichi: Record<string, number | null> = { ...context.enrichi }
+  const fields: Record<string, number | null> = { ...context.fields }
   const result: Record<string, number | null> = {}
 
   // Iterate to a fixpoint so a rule can reference another CALCULE field whose own value is computed in
@@ -176,35 +157,33 @@ export function recomputeIndicateurs(
     passes += 1
     changed = false
     for (const champ of calcule) {
-      const value = roundToInteger(evaluateRule(champ.regleCalcul as string, { source: context.source, enrichi }))
+      const value = roundToInteger(evaluateRule(champ.regleCalcul as string, { fields }))
       if (!(champ.codeMachine in result) || result[champ.codeMachine] !== value) {
         changed = true
       }
       result[champ.codeMachine] = value
-      enrichi[champ.codeMachine] = value
+      fields[champ.codeMachine] = value
     }
   }
 
   return result
 }
 
-/** Returns the displayed values with the CALCULE indicators recomputed from the source columns and the
- *  current enrichment values. Used both when the fiche opens (indicators must show immediately, not only
- *  after a blur) and whenever a field changes; the computed values are persisted on save like any other. */
+/** Returns the displayed values with the CALCULE indicators recomputed from the flat field map. Used both
+ *  when the fiche opens (indicators must show immediately, not only after a blur) and whenever a field
+ *  changes; the computed values are persisted on save like any other. */
 export function withRecomputedIndicateurs(
   champs: ChampEnrichissableConfig[],
-  transaction: Record<string, unknown>,
-  valeurs: Record<string, FicheValeur>
+  fields: Record<string, FicheValeur>
 ): Record<string, FicheValeur> {
-  const context = buildCalculationContext(transaction, toNumericValues(valeurs))
-  return { ...valeurs, ...recomputeIndicateurs(champs, context) }
+  return { ...fields, ...recomputeIndicateurs(champs, buildCalculationContext(fields)) }
 }
 
 export function toStorageValue(
   typeDonnees: TypeDonneesChamp,
   valeur: FicheValeur
-): { valeurNombre: number | null; valeurTexte: string | null; valeurBooleen: boolean | null } {
-  const empty = { valeurNombre: null, valeurTexte: null, valeurBooleen: null }
+): { valeurNombre: number | null; valeurTexte: string | null; valeurTexteMultiple: string[]; valeurBooleen: boolean | null; valeurDate: Date | null } {
+  const empty = { valeurNombre: null, valeurTexte: null, valeurTexteMultiple: [], valeurBooleen: null, valeurDate: null }
   if (valeur === null || valeur === undefined || valeur === "") return empty
 
   switch (typeDonnees) {
@@ -216,6 +195,14 @@ export function toStorageValue(
     case "BOOLEAN": {
       const b = typeof valeur === "boolean" ? valeur : valeur === "true"
       return { ...empty, valeurBooleen: b }
+    }
+    case "DATE": {
+      const d = valeur instanceof Date ? valeur : new Date(String(valeur))
+      return Number.isNaN(d.getTime()) ? empty : { ...empty, valeurDate: d }
+    }
+    case "TEXTE_MULTIPLE": {
+      const parts = Array.isArray(valeur) ? valeur.map(String) : parseMultiValue(valeur)
+      return parts.length === 0 ? empty : { ...empty, valeurTexteMultiple: parts }
     }
     case "MULTI_SELECT": {
       const text = Array.isArray(valeur) ? joinMultiValue(valeur) : String(valeur)
@@ -302,7 +289,7 @@ export function validateFiche(input: {
   champs: ChampEnrichissableConfig[]
   sections: FicheSection[]
   valeurs: Record<string, FicheValeur>
-  source: Record<string, number | null>
+  fields: Record<string, FicheValeur>
   typeCode: string | null
   dateVente: string | null
 }): FicheValidationError[] {
@@ -362,7 +349,7 @@ export function validateFiche(input: {
   const acericole = pickSuperficie(valeursVisibles, SUPERFICIE_ROOTS.superficieAcericole)
 
   const surfaceErrors = validateEnrichment({
-    superficieTotaleHectare: input.source["superficie_totale_hectare"] ?? null,
+    superficieTotaleHectare: input.fields["superficie_totale_hectare"] ?? null,
     superficieCultivee: cultivee?.valeur ?? null,
     superficieBoisee: boisee?.valeur ?? null,
     superficieConstructible: constructible?.valeur ?? null,
@@ -384,27 +371,22 @@ export function buildStorageEntries(
   champs: ChampEnrichissableConfig[],
   valeurs: Record<string, FicheValeur>,
   typeTransactionCode: string | null
-): { champEnrichissableId: string; valeurNombre: number | null; valeurTexte: string | null; valeurBooleen: boolean | null }[] {
-  const entries: { champEnrichissableId: string; valeurNombre: number | null; valeurTexte: string | null; valeurBooleen: boolean | null }[] = []
+): { champId: string; valeurNombre: number | null; valeurTexte: string | null; valeurTexteMultiple: string[]; valeurBooleen: boolean | null; valeurDate: Date | null }[] {
+  const entries: ReturnType<typeof buildStorageEntries> = []
 
   for (const champ of champs) {
     if (champ.codeMachine === TYPE_TRANSACTION_CODE) continue
     const raw = valeurs[champ.codeMachine]
     if (raw === undefined) continue
     const stored = toStorageValue(champ.typeDonnees, raw)
-    if (stored.valeurNombre === null && stored.valeurTexte === null && stored.valeurBooleen === null) continue
-    entries.push({ champEnrichissableId: champ.id, ...stored })
+    if (stored.valeurNombre === null && stored.valeurTexte === null && stored.valeurTexteMultiple.length === 0 && stored.valeurBooleen === null && stored.valeurDate === null) continue
+    entries.push({ champId: champ.id, ...stored })
   }
 
   if (typeTransactionCode) {
     const typeChamp = champs.find((c) => c.codeMachine === TYPE_TRANSACTION_CODE)
     if (typeChamp) {
-      entries.push({
-        champEnrichissableId: typeChamp.id,
-        valeurNombre: null,
-        valeurTexte: typeTransactionCode,
-        valeurBooleen: null,
-      })
+      entries.push({ champId: typeChamp.id, valeurNombre: null, valeurTexte: typeTransactionCode, valeurTexteMultiple: [], valeurBooleen: null, valeurDate: null })
     }
   }
 
