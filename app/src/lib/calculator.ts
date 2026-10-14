@@ -1,9 +1,8 @@
 import Decimal from "decimal.js"
 
-/** Values are looked up as enrichi first, then source, so a computed field can shadow a raw column with the same name. */
+/** A computed field resolves its identifiers against the flat field map (imported + saisissable + calculé). */
 export interface CalculationContext {
-  source: Record<string, number | null>
-  enrichi: Record<string, number | null>
+  fields: Record<string, number | null>
 }
 
 type Associativity = "left" | "right"
@@ -75,11 +74,8 @@ function toReversePolishNotation(tokens: string[]): string[] {
 }
 
 function resolveIdentifier(identifier: string, context: CalculationContext): number | null {
-  if (identifier in context.enrichi) {
-    return context.enrichi[identifier]
-  }
-  if (identifier in context.source) {
-    return context.source[identifier]
+  if (identifier in context.fields) {
+    return context.fields[identifier]
   }
   return null
 }
@@ -101,7 +97,7 @@ function validateRpnArity(rpn: string[]): string | null {
 }
 
 /**
- * Evaluates a `regle_calcul` expression (+ - * / and parentheses only) against source/enrichi field values.
+ * Evaluates a `regle_calcul` expression (+ - * / and parentheses only) against the flat field map.
  * Returns null instead of throwing on missing values, division by zero, or malformed syntax, so callers can
  * leave a field blank rather than break the whole fiche.
  */
