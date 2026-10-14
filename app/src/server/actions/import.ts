@@ -27,18 +27,26 @@ export async function importExcel(formData: FormData): Promise<ImportExcelResult
   const file = formData.get("file")
   if (!(file instanceof File)) return { ok: false, error: "No file provided" }
 
-  const buffer = Buffer.from(await file.arrayBuffer())
-  const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
-  const parsed = parseWorkbook(arrayBuffer)
-  if (parsed.length === 0) {
-    return { ok: false, error: "Aucune feuille reconnue (Terre, Bois, Ventes erablière)" }
+  let parsed: ReturnType<typeof parseWorkbook>
+  let organisationId: string
+  let importation: Awaited<ReturnType<typeof createImportation>>
+
+  try {
+    const buffer = Buffer.from(await file.arrayBuffer())
+    const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
+    parsed = parseWorkbook(arrayBuffer)
+    if (parsed.length === 0) {
+      return { ok: false, error: "Aucune feuille reconnue (Terre, Bois, Ventes erablière)" }
+    }
+
+    organisationId = getCurrentOrganisationId()
+    const org = await findDefaultOrganisation()
+    if (!org) return { ok: false, error: "Organisation par défaut non initialisée" }
+
+    importation = await createImportation(organisationId, "EXISTANT_EVAGRI")
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
   }
-
-  const organisationId = getCurrentOrganisationId()
-  const org = await findDefaultOrganisation()
-  if (!org) return { ok: false, error: "Organisation par défaut non initialisée" }
-
-  const importation = await createImportation(organisationId, "EXISTANT_EVAGRI")
 
   let totalRows = 0
   let totalInserted = 0
