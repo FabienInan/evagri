@@ -25,4 +25,10 @@ describe("IMPORTED_FIELDS", () => {
     expect(IMPORTED_FIELD_BY_CODE.date_vente.entetesImport.EXISTANT_EVAGRI).toContain("Date de L'acte")
     expect(IMPORTED_FIELD_BY_CODE.mrc.entetesImport.JLR).toContain("MRC")
   })
+
+  it("restores the legacy EVAGRI header variants", () => {
+    expect(IMPORTED_FIELD_BY_CODE.prix_vente.entetesImport.EXISTANT_EVAGRI).toContain("Prixdevente($)")
+    expect(IMPORTED_FIELD_BY_CODE.adresse.entetesImport.EXISTANT_EVAGRI).toContain("Adresse complette")
+    expect(IMPORTED_FIELD_BY_CODE.superficie_totale_hectare.entetesImport.EXISTANT_EVAGRI).toContain("Superficie totale (ha)")
+  })
 })
