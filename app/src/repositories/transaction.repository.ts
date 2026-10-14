@@ -87,23 +87,49 @@ export async function applyRenteWhere(
 
 export type MapTransaction = {
   id: string
+  numeroInscription: string | null
+  dateVente: Date | null
+  prixVente: Prisma.Decimal | null
+  superficieTotaleHectare: Prisma.Decimal | null
   latitude: number | null
   longitude: number | null
+  municipalite: string | null
 }
 
-function extractCoordinate(
-  values: { valeurNombre: Prisma.Decimal | null; champ: { codeMachine: string } | null }[]
-): { latitude: number | null; longitude: number | null } {
-  let latitude: number | null = null
-  let longitude: number | null = null
+// Codes machine for the fields the map popup consumes; only these values are loaded per transaction.
+const MAP_POPUP_CODES = [
+  "latitude",
+  "longitude",
+  "numero_inscription",
+  "date_vente",
+  "prix_vente",
+  "superficie_totale_hectare",
+  "municipalite",
+] as const
+
+type MapValue = {
+  valeurNombre: Prisma.Decimal | null
+  valeurTexte: string | null
+  valeurDate: Date | null
+  champ: { codeMachine: string } | null
+}
+
+/** Indexes a transaction's selected values by `champ.codeMachine` so each popup field can be read by code. */
+function indexValuesByCode(
+  values: MapValue[]
+): Record<string, { nombre: Prisma.Decimal | null; texte: string | null; date: Date | null }> {
+  const index: Record<string, { nombre: Prisma.Decimal | null; texte: string | null; date: Date | null }> = {}
   for (const v of values) {
     const code = v.champ?.codeMachine
-    if (!code || v.valeurNombre === null || v.valeurNombre === undefined) continue
-    const n = new Decimal(v.valeurNombre.toString()).toNumber()
-    if (code === "latitude") latitude = n
-    if (code === "longitude") longitude = n
+    if (!code) continue
+    index[code] = { nombre: v.valeurNombre ?? null, texte: v.valeurTexte ?? null, date: v.valeurDate ?? null }
   }
-  return { latitude, longitude }
+  return index
+}
+
+function toNumber(value: Prisma.Decimal | null | undefined): number | null {
+  if (value === null || value === undefined) return null
+  return new Decimal(value.toString()).toNumber()
 }
 
 export async function findTransactionsForMap(
@@ -120,12 +146,14 @@ export async function findTransactionsForMap(
     select: {
       id: true,
       valeurs: {
-        // Only coordinate values: avoids loading every field value per transaction.
+        // Only the fields the map popup renders: avoids loading every field value per transaction.
         where: {
-          champ: { codeMachine: { in: ["latitude", "longitude"] } },
+          champ: { codeMachine: { in: [...MAP_POPUP_CODES] } },
         },
         select: {
           valeurNombre: true,
+          valeurTexte: true,
+          valeurDate: true,
           champ: {
             select: { codeMachine: true },
           },
@@ -134,12 +162,25 @@ export async function findTransactionsForMap(
     },
   })
 
-  return rows
-    .map((row) => {
-      const { latitude, longitude } = extractCoordinate(row.valeurs)
-      return { id: row.id, latitude, longitude }
+  const transactions: MapTransaction[] = []
+  for (const row of rows) {
+    const values = indexValuesByCode(row.valeurs)
+    const latitude = toNumber(values.latitude?.nombre)
+    const longitude = toNumber(values.longitude?.nombre)
+    // Skip rows without usable coordinates: the map cannot place them.
+    if (latitude === null || longitude === null) continue
+    transactions.push({
+      id: row.id,
+      numeroInscription: values.numero_inscription?.texte ?? null,
+      dateVente: values.date_vente?.date ?? null,
+      prixVente: values.prix_vente?.nombre ?? null,
+      superficieTotaleHectare: values.superficie_totale_hectare?.nombre ?? null,
+      latitude,
+      longitude,
+      municipalite: values.municipalite?.texte ?? null,
     })
-    .filter((row) => row.latitude !== null && row.longitude !== null) as MapTransaction[]
+  }
+  return transactions
 }
 
 export async function findExistingTransaction(
