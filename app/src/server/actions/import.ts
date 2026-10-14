@@ -17,18 +17,26 @@ import { createAuditLog } from "@/repositories/audit.repository"
 import { findTypologieByCode } from "@/repositories/import.repository"
 import type { ParsedRow } from "@/types/import"
 
-export async function importExcel(formData: FormData) {
-  const file = formData.get("file") as File
-  if (!file) throw new Error("No file provided")
+export type ImportExcelResult =
+  | { ok: true; totalRows: number; inserted: number; ignored: number; errors: { sheet: string; row: number; message: string }[] }
+  | { ok: false; error: string }
+
+/** Server actions return errors instead of throwing them: in production Next.js masks the message of a
+ *  thrown action error, so a validation message would reach the user as a generic error. */
+export async function importExcel(formData: FormData): Promise<ImportExcelResult> {
+  const file = formData.get("file")
+  if (!(file instanceof File)) return { ok: false, error: "No file provided" }
 
   const buffer = Buffer.from(await file.arrayBuffer())
   const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
   const parsed = parseWorkbook(arrayBuffer)
-  if (parsed.length === 0) throw new Error("Aucune feuille reconnue (Terre, Bois, Ventes erablière)")
+  if (parsed.length === 0) {
+    return { ok: false, error: "Aucune feuille reconnue (Terre, Bois, Ventes erablière)" }
+  }
 
   const organisationId = getCurrentOrganisationId()
   const org = await findDefaultOrganisation()
-  if (!org) throw new Error("Organisation par défaut non initialisée")
+  if (!org) return { ok: false, error: "Organisation par défaut non initialisée" }
 
   const importation = await createImportation(organisationId, "EXISTANT_EVAGRI")
 
@@ -77,7 +85,7 @@ export async function importExcel(formData: FormData) {
     })
   } catch (e) {
     await markImportationFailed(importation.id, e as Error)
-    throw e
+    return { ok: false, error: (e as Error).message }
   }
 
   await createAuditLog({
@@ -89,7 +97,7 @@ export async function importExcel(formData: FormData) {
   })
 
   return {
-    importationId: importation.id,
+    ok: true,
     totalRows,
     inserted: totalInserted,
     ignored: totalIgnored,
@@ -102,12 +110,17 @@ export async function listImports() {
   return listImportRecords(organisationId)
 }
 
-export async function retryImport(importationId: string) {
+export type RetryImportResult = { success: true; message: string } | { ok: false; error: string }
+
+export async function retryImport(importationId: string): Promise<RetryImportResult> {
   const organisationId = getCurrentOrganisationId()
   const importation = await findImportationById(importationId, organisationId)
-  if (!importation) throw new Error("Importation introuvable")
+  if (!importation) return { ok: false, error: "Importation introuvable" }
   if (importation.typeSource === "EXISTANT_EVAGRI") {
-    throw new Error("Relance non disponible pour les imports Excel manuels. Veuillez ré-uploader le fichier.")
+    return {
+      ok: false,
+      error: "Relance non disponible pour les imports Excel manuels. Veuillez ré-uploader le fichier.",
+    }
   }
 
   await resetImportForRetry(importationId)

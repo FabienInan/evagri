@@ -14,7 +14,7 @@ import {
   updateFicheStatut,
 } from "@/repositories/fiche.repository"
 import { serializeTransaction } from "@/serializers/transaction.serializer"
-import { buildSourceNumbers, buildStorageEntries, resolveTypeTransaction, TYPE_TRANSACTION_CODE, validateFiche } from "@/lib/fiche"
+import { buildStorageEntries, resolveTypeTransaction, validateFiche, withRecomputedIndicateurs } from "@/lib/fiche"
 import { saveActePDF } from "@/lib/file-storage"
 
 /** One blocking rule violation; `champ` is the codeMachine to display the message under, or null for a fiche-wide message. */
@@ -22,7 +22,7 @@ export type FicheFieldError = { code: string; message: string; champ: string | n
 
 export type FicheActionResult = { ok: true } | { ok: false; error: string; errors?: FicheFieldError[] }
 
-const valeurSchema = z.union([z.string(), z.number(), z.boolean(), z.null()])
+const valeurSchema = z.union([z.string(), z.number(), z.boolean(), z.array(z.string()), z.null()])
 
 const saveFicheSchema = z.object({
   id: z.string().min(1),
@@ -36,27 +36,27 @@ export async function saveFiche(input: unknown): Promise<FicheActionResult> {
   if (!parsed.success) return { ok: false, error: "Données invalides." }
 
   const record = await findTransactionFiche(organisationId, parsed.data.id)
-  if (!record || !record.enrichie) return { ok: false, error: "Transaction introuvable." }
+  if (!record) return { ok: false, error: "Transaction introuvable." }
 
   const [champs, sections] = await Promise.all([
     listChampsEnrichissablesByOrganisation(organisationId),
     findFicheLayout(organisationId),
   ])
-  const transaction = serializeTransaction(record)
+  const fields = serializeTransaction(record).fields
   const valeurs = parsed.data.valeurs
 
   const errors = validateFiche({
     champs,
     sections,
     valeurs,
-    source: buildSourceNumbers(transaction),
+    fields,
     typeCode: parsed.data.typeTransactionCode,
-    dateVente: transaction.dateVente,
+    dateVente: typeof fields.date_vente === "string" ? fields.date_vente : null,
   })
   if (errors.length > 0) return { ok: false, error: errors[0].message, errors }
 
   await saveFicheValues(
-    record.enrichie.id,
+    record.id,
     buildStorageEntries(champs, valeurs, parsed.data.typeTransactionCode)
   )
 
@@ -68,32 +68,30 @@ export async function saveFiche(input: unknown): Promise<FicheActionResult> {
 export async function setFicheStatut(id: string, statut: string): Promise<FicheActionResult> {
   const organisationId = getCurrentOrganisationId()
   const record = await findTransactionFiche(organisationId, id)
-  if (!record || !record.enrichie) return { ok: false, error: "Transaction introuvable." }
+  if (!record) return { ok: false, error: "Transaction introuvable." }
 
-  if (statut === "Analysée") {
+  if (statut === "ANALYSEE") {
     const [champs, sections, typologies] = await Promise.all([
       listChampsEnrichissablesByOrganisation(organisationId),
       findFicheLayout(organisationId),
       listTypologiesByOrganisation(organisationId),
     ])
-    const transaction = serializeTransaction(record)
-    const valeurs = transaction.enrichment
-    const typeChamp = champs.find((c) => c.codeMachine === TYPE_TRANSACTION_CODE)
-    const storedType = typeChamp ? valeurs[typeChamp.codeMachine] : null
-    const typeCode = resolveTypeTransaction(storedType ?? null, typologies)?.code ?? null
+    const fields = serializeTransaction(record).fields
+    const valeurs = withRecomputedIndicateurs(champs, fields)
+    const typeCode = resolveTypeTransaction(fields.typeTransaction ?? null, typologies)?.code ?? null
 
     const errors = validateFiche({
       champs,
       sections,
       valeurs,
-      source: buildSourceNumbers(transaction),
+      fields,
       typeCode,
-      dateVente: transaction.dateVente,
+      dateVente: typeof fields.date_vente === "string" ? fields.date_vente : null,
     })
     if (errors.length > 0) return { ok: false, error: errors[0].message, errors }
   }
 
-  await updateFicheStatut(record.enrichie.id, statut, statut === "Analysée" ? new Date() : record.enrichie.dateStatut ?? null)
+  await updateFicheStatut(record.id, statut, statut === "ANALYSEE" ? new Date() : record.dateStatut ?? null)
 
   revalidatePath(`/transactions/${id}`)
   revalidatePath("/transactions")
@@ -101,7 +99,7 @@ export async function setFicheStatut(id: string, statut: string): Promise<FicheA
 }
 
 export async function uploadDocument(
-  transactionSourceId: string,
+  transactionId: string,
   formData: FormData
 ): Promise<FicheActionResult> {
   const organisationId = getCurrentOrganisationId()
@@ -113,17 +111,17 @@ export async function uploadDocument(
     return { ok: false, error: "Seuls les fichiers PDF sont acceptés." }
   }
 
-  const record = await findTransactionFiche(organisationId, transactionSourceId)
+  const record = await findTransactionFiche(organisationId, transactionId)
   if (!record) return { ok: false, error: "Transaction introuvable." }
 
-  const stored = await saveActePDF(file, organisationId, transactionSourceId)
+  const stored = await saveActePDF(file, organisationId, transactionId)
   await createDocument({
-    transactionSourceId,
+    transactionId,
     nomFichier: stored.nomFichier,
     cheminStockage: stored.cheminStockage,
   })
 
-  revalidatePath(`/transactions/${transactionSourceId}`)
+  revalidatePath(`/transactions/${transactionId}`)
   return { ok: true }
 }
 

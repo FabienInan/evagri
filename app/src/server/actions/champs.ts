@@ -12,8 +12,8 @@ import {
   updateChampEnrichissable,
 } from "@/repositories/champs.repository"
 import { listTypologiesByOrganisation } from "@/repositories/typologie.repository"
-import { deriveEstModifiable, formatChampInputErrors, normalizeChampInput, validateChampConfig } from "@/lib/champs"
-import { SOURCE_FIELD_CODES } from "@/lib/transaction-source-fields"
+import { deriveEstLectureSeule, formatChampInputErrors, normalizeChampInput, validateChampConfig } from "@/lib/champs"
+import { IMPORTED_FIELD_BY_CODE } from "@/lib/imported-fields"
 import { NATURE_CHAMP, TYPE_DONNEES_CHAMP } from "@/types/champ"
 import type { ChampEnrichissableInput } from "@/types/champ"
 
@@ -62,10 +62,10 @@ function parseChampInput(
   return { ok: true, data: result.data }
 }
 
-/** Source field codes plus every other champ's codeMachine in the organisation, minus the field being saved (avoids self-reference). */
+/** Imported field codes plus every other champ's codeMachine in the organisation, minus the field being saved (avoids self-reference). */
 async function buildKnownFieldCodes(organisationId: string, excludeCodeMachine: string): Promise<Set<string>> {
   const champCodes = await listChampCodesByOrganisation(organisationId)
-  const codes = new Set<string>([...SOURCE_FIELD_CODES, ...champCodes])
+  const codes = new Set<string>([...Object.keys(IMPORTED_FIELD_BY_CODE), ...champCodes])
   codes.delete(excludeCodeMachine)
   return codes
 }
@@ -89,7 +89,7 @@ export async function createChamp(input: ChampInput): Promise<ChampActionResult>
 
   await createChampEnrichissable(organisationId, {
     ...normalized,
-    estModifiable: deriveEstModifiable(normalized.nature),
+    estLectureSeule: deriveEstLectureSeule(normalized.nature),
   })
 
   revalidatePath("/admin/champs")
@@ -110,7 +110,7 @@ export async function updateChamp(id: string, input: ChampInput): Promise<ChampA
 
   const updated = await updateChampEnrichissable(organisationId, id, {
     ...normalized,
-    estModifiable: deriveEstModifiable(normalized.nature),
+    estLectureSeule: deriveEstLectureSeule(normalized.nature),
   })
   if (!updated) {
     return { ok: false, error: "Champ introuvable." }

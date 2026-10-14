@@ -4,7 +4,7 @@ import { getCurrentOrganisationId } from "@/repositories/organisation.repository
 import {
   createDocumentActe,
   findDocumentActeByFileName,
-  findTransactionSourceByNumeroInscription,
+  findTransactionByNumeroInscription,
   updateDocumentActePath,
 } from "@/repositories/actes.repository"
 import { saveActePDF } from "@/lib/file-storage"
@@ -21,7 +21,7 @@ export async function importActesPDF(formData: FormData) {
   if (files.length === 0) throw new Error("Aucun fichier PDF fourni")
 
   const organisationId = getCurrentOrganisationId()
-  const matched: { filename: string; numeroInscription: string | null; transactionSourceId: string }[] = []
+  const matched: { filename: string; numeroInscription: string | null; transactionId: string }[] = []
   const unmatched: string[] = []
 
   for (const file of files) {
@@ -36,7 +36,7 @@ export async function importActesPDF(formData: FormData) {
       continue
     }
 
-    const transaction = await findTransactionSourceByNumeroInscription(
+    const transaction = await findTransactionByNumeroInscription(
       organisationId,
       numeroInscription
     )
@@ -60,8 +60,8 @@ export async function importActesPDF(formData: FormData) {
 
     matched.push({
       filename: file.name,
-      numeroInscription: transaction.numeroInscription ?? null,
-      transactionSourceId: transaction.id,
+      numeroInscription,
+      transactionId: transaction.id,
     })
   }
 

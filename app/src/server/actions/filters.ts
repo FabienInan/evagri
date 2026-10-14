@@ -8,7 +8,7 @@ import {
   createFilter as createFilterRepo,
   deleteFilter as deleteFilterRepo,
   findChampsByOrganisation,
-  findFilterByChampEnrichissableId,
+  findFilterByChampId,
   findFilterByCodeMachine,
   findFiltersByOrganisation,
   updateFiltersOrder,
@@ -18,7 +18,7 @@ import { findChampForOrganisation } from "@/repositories/champs.repository"
 
 export async function listFilters() {
   const organisationId = getCurrentOrganisationId()
-  return findFiltersByOrganisation(organisationId, { includeChamp: true })
+  return findFiltersByOrganisation(organisationId)
 }
 
 export async function listChamps() {
@@ -29,7 +29,7 @@ export async function listChamps() {
 const createFilterSchema = z.object({
   nomFiltre: z.string().min(1),
   typeFiltre: z.enum(FILTER_TYPES),
-  champEnrichissableId: z.string().nullable(),
+  champId: z.string().nullable(),
   codeMachine: z.string().nullable(),
   operateurs: z.array(z.enum(FILTER_OPERATORS)).nullable(),
   ordreAffichage: z.number().int(),
@@ -48,16 +48,13 @@ export async function createFilter(input: CreateFilterInput): Promise<FilterActi
     return { ok: false, error: "Données invalides." }
   }
 
-  if (parsed.data.champEnrichissableId) {
-    const champ = await findChampForOrganisation(organisationId, parsed.data.champEnrichissableId)
+  if (parsed.data.champId) {
+    const champ = await findChampForOrganisation(organisationId, parsed.data.champId)
     if (!champ) {
       return { ok: false, error: "Champ introuvable." }
     }
 
-    const existing = await findFilterByChampEnrichissableId(
-      organisationId,
-      parsed.data.champEnrichissableId
-    )
+    const existing = await findFilterByChampId(organisationId, parsed.data.champId)
     if (existing) {
       return { ok: false, error: "Un filtre existe déjà pour ce champ." }
     }
@@ -70,13 +67,11 @@ export async function createFilter(input: CreateFilterInput): Promise<FilterActi
     }
   }
 
-  const data: CreateFilterRepositoryInput = {
+  const data = {
     organisation: { connect: { id: organisationId } },
     nomFiltre: parsed.data.nomFiltre,
     typeFiltre: parsed.data.typeFiltre,
-    champEnrichissable: parsed.data.champEnrichissableId
-      ? { connect: { id: parsed.data.champEnrichissableId } }
-      : undefined,
+    champId: parsed.data.champId,
     codeMachine: parsed.data.codeMachine,
     operateursDisponibles:
       parsed.data.operateurs as CreateFilterRepositoryInput["operateursDisponibles"],
