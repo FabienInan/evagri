@@ -330,12 +330,17 @@ export async function importSheet(
         if (hasParsedValue(parsed)) enrichmentValues.push({ champId: champ.id, ...parsed })
       }
 
-      // Geocoded coordinates (not read from the file) are written as values of the imported latitude/longitude.
+      // Geocoded coordinates (not read from the file) fill only the axes the file did not provide.
       if (coords && !coords.fromFile) {
         const latitudeChampId = importedChampIds.get("latitude")
         const longitudeChampId = importedChampIds.get("longitude")
-        if (latitudeChampId) enrichmentValues.push({ champId: latitudeChampId, valeurNombre: new Decimal(coords.latitude) })
-        if (longitudeChampId) enrichmentValues.push({ champId: longitudeChampId, valeurNombre: new Decimal(coords.longitude) })
+        const alreadyPushed = new Set(enrichmentValues.map((v) => v.champId))
+        if (latitudeChampId && !alreadyPushed.has(latitudeChampId)) {
+          enrichmentValues.push({ champId: latitudeChampId, valeurNombre: new Decimal(coords.latitude) })
+        }
+        if (longitudeChampId && !alreadyPushed.has(longitudeChampId)) {
+          enrichmentValues.push({ champId: longitudeChampId, valeurNombre: new Decimal(coords.longitude) })
+        }
       }
 
       await createImportedTransaction({

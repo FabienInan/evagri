@@ -1,6 +1,20 @@
-import { describe, it, expect } from "vitest"
-import { parseFieldValue } from "@/services/import.service"
+import { describe, it, expect, vi } from "vitest"
+import { parseFieldValue, importSheet } from "@/services/import.service"
 import type { EnrichmentChamp } from "@/types/import"
+
+vi.mock("@/repositories/enrichment.repository", () => ({
+  findChampByCodeMachine: vi.fn(async (_organisationId: string, code: string) => ({ id: `champ-${code}` })),
+}))
+vi.mock("@/repositories/import.repository", () => ({
+  incrementImportationCounters: vi.fn(async () => {}),
+}))
+vi.mock("@/repositories/transaction.repository", () => ({
+  createImportedTransaction: vi.fn(async () => ({ id: "tx-1" })),
+  findExistingTransaction: vi.fn(async () => null),
+}))
+vi.mock("@/lib/cadastre", () => ({
+  geocodeLotCadastral: vi.fn(async () => ({ latitude: 46.1, longitude: -71.2 })),
+}))
 
 function champ(codeMachine: string, typeDonnees: string): EnrichmentChamp {
   return { id: "c1", header: codeMachine, codeMachine, typeDonnees }
@@ -48,5 +62,38 @@ describe("parseFieldValue", () => {
       valeurBooleen: null,
       valeurDate: null,
     })
+  })
+})
+
+describe("importSheet enrichmentValues", () => {
+  it("does not duplicate a latitude champId when the file provides only one axis and geocoding fills the rest", async () => {
+    const { createImportedTransaction } = await import("@/repositories/transaction.repository")
+    vi.mocked(createImportedTransaction).mockClear()
+
+    await importSheet({
+      organisationId: "org-1",
+      // File carries a latitude cell but no longitude -> resolveCoordinates falls through to geocoding.
+      rows: [{ numero_inscription: "22309676", latitude: 46.8, lots_cadastraux: ["5433069"] }],
+      rawRows: [{}],
+      enrichmentChamps: [],
+      systemeSource: "JLR",
+      importationId: "imp-1",
+    })
+
+    const values = vi.mocked(createImportedTransaction).mock.calls.at(0)?.[0].enrichmentValues ?? []
+    const ids = values.map((v) => v.champId)
+
+    // No champId appears twice.
+    expect(new Set(ids).size).toBe(ids.length)
+
+    // Exactly one latitude entry, and it keeps the file-sourced value (not the geocoded one).
+    const latEntries = values.filter((v) => v.champId === "champ-latitude")
+    expect(latEntries).toHaveLength(1)
+    expect(latEntries[0].valeurNombre?.toString()).toBe("46.8")
+
+    // The geocoded longitude fills the missing axis.
+    const lonEntries = values.filter((v) => v.champId === "champ-longitude")
+    expect(lonEntries).toHaveLength(1)
+    expect(lonEntries[0].valeurNombre?.toString()).toBe("-71.2")
   })
 })
