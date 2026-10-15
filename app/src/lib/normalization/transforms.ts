@@ -100,12 +100,25 @@ export function normalizeZoneAgricoleCptaq(value: unknown) {
 }
 
 /**
+ * Canonicalises a numero_inscription: strips every whitespace character and trims, so the value stored on the
+ * transaction equals the dedup key the importer looks it up with (`findExistingTransaction`). `"AB 123"` and
+ * `"AB123"` are the same inscription; an empty result means "no numero" and is returned as null.
+ */
+export function normalizeNumeroInscription(value: unknown): string | null {
+  if (value === null || value === undefined || value === "") return null
+  const normalized = String(value).replace(/\s+/g, "").trim()
+  return normalized || null
+}
+
+/**
  * Per-codeMachine normalizers applied to a TEXTE enrichment value at import time, so the live import stores
  * the same canonical form as the offline `scripts/normalize-excel.ts`. `cptaq` collapses its free-text
- * answers (oui / Non / partiel / en partie ...) to the canonical Oui / Non / Partiel.
+ * answers (oui / Non / partiel / en partie ...) to the canonical Oui / Non / Partiel; `numero_inscription`
+ * strips internal whitespace so the stored value matches the importer's dedup key.
  */
 const TEXT_NORMALIZERS: Record<string, (value: unknown) => string | null> = {
   cptaq: (value) => normalizeZoneAgricoleCptaq(value).zone,
+  numero_inscription: normalizeNumeroInscription,
 }
 
 /** Canonicalizes a text enrichment value by its field code. Unknown codes, and values a normalizer cannot

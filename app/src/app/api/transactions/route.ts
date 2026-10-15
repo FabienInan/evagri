@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   const parsed = filterSearchParamsSchema.safeParse({
     page: searchParams.get("page") ?? "1",
     pageSize: searchParams.get("pageSize") ?? "25",
-    sortField: searchParams.get("sortField") ?? "dateVente",
+    sortField: searchParams.get("sortField") ?? "date_vente",
     sortOrder: searchParams.get("sortOrder") ?? "desc",
     filters: searchParams.get("filters") ?? "[]",
   })

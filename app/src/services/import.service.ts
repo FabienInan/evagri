@@ -2,7 +2,7 @@ import Decimal from "decimal.js"
 import { geocodeLotCadastral } from "@/lib/cadastre"
 import { IMPORTED_FIELDS } from "@/lib/imported-fields"
 import { parseBooleanish, parseFrenchNumber } from "@/lib/normalization/parsing"
-import { normalizeEnrichmentText } from "@/lib/normalization/transforms"
+import { normalizeEnrichmentText, normalizeNumeroInscription } from "@/lib/normalization/transforms"
 import { findChampByCodeMachine } from "@/repositories/enrichment.repository"
 import { incrementImportationCounters } from "@/repositories/import.repository"
 import {
@@ -51,12 +51,6 @@ function parseLots(value: unknown): string[] {
   if (typeof value === "number") return [String(value)]
   if (typeof value === "string") return value.split(/[,;]/).map((s) => s.trim()).filter(Boolean)
   return []
-}
-
-function normalizeNumeroInscription(value: unknown): string | null {
-  if (value === null || value === undefined || value === "") return null
-  const normalized = String(value).replace(/\s+/g, "").trim()
-  return normalized || null
 }
 
 function isBlank(value: unknown): boolean {

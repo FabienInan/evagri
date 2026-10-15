@@ -50,4 +50,27 @@ describe("findExistingTransaction", () => {
     const found = await findExistingTransaction(orgId, "DUP-1", null)
     expect(found?.id).toBe(tx.id)
   })
+
+  it("does not treat a null-date query as matching a dated row", async () => {
+    const numeroChamp = await prisma.champ.findFirstOrThrow({ where: { organisationId: orgId, codeMachine: "numero_inscription" } })
+    const dateChamp = await prisma.champ.create({
+      data: { organisationId: orgId, codeMachine: "date_vente", nomAffichage: "Date de vente", typeDonnees: "DATE", nature: "IMPORTE", estLectureSeule: true },
+    })
+    const dateVente = new Date("2024-05-01T00:00:00.000Z")
+    const tx = await prisma.transaction.create({
+      data: {
+        organisationId: orgId,
+        systemeSource: "EXISTANT_EVAGRI",
+        valeurs: { create: [
+          { champId: numeroChamp.id, valeurTexte: "ND-1" },
+          { champId: dateChamp.id, valeurDate: dateVente },
+        ] },
+      },
+    })
+
+    // A query without a date must not match a row that carries one...
+    expect(await findExistingTransaction(orgId, "ND-1", null)).toBeNull()
+    // ...while the same date does match it (the negative branch is what changed).
+    expect((await findExistingTransaction(orgId, "ND-1", dateVente))?.id).toBe(tx.id)
+  })
 })

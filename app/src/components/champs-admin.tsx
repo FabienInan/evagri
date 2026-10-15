@@ -57,6 +57,7 @@ function emptyDraft(): ChampInput {
     ordreAffichage: 0,
     estAffiche: true,
     estObligatoire: false,
+    estLectureSeule: false,
   }
 }
 
@@ -75,6 +76,7 @@ function toDraft(champ: ChampEnrichissableConfig): ChampInput {
     ordreAffichage: champ.ordreAffichage,
     estAffiche: champ.estAffiche,
     estObligatoire: champ.estObligatoire,
+    estLectureSeule: champ.estLectureSeule,
   }
 }
 
@@ -157,7 +159,7 @@ export function ChampsAdmin({
         return
       }
       setEditDraft(payload)
-      setItems((prev) => prev.map((c) => (c.id === selected.id ? { ...c, ...payload, id: c.id, actif: c.actif, estLectureSeule: deriveEstLectureSeule(payload.nature) } : c)))
+      setItems((prev) => prev.map((c) => (c.id === selected.id ? { ...c, ...payload, id: c.id, actif: c.actif, estLectureSeule: payload.estLectureSeule ?? deriveEstLectureSeule(payload.nature) } : c)))
       setLastSaved(selected.id)
       setTimeout(() => setLastSaved((current) => (current === selected.id ? null : current)), 1500)
     } catch (err) {
@@ -270,7 +272,14 @@ export function ChampsAdmin({
               <Label className="text-sm font-medium">Nature</Label>
               <Select
                 value={draft.nature}
-                onValueChange={(v) => setDraft((d) => ({ ...d, nature: v as NatureChamp }))}
+                onValueChange={(v) =>
+                  setDraft((d) => ({
+                    ...d,
+                    nature: v as NatureChamp,
+                    // CALCULE is always read-only; SAISISSABLE resets to editable when re-selected.
+                    estLectureSeule: deriveEstLectureSeule(v as NatureChamp),
+                  }))
+                }
               >
                 <SelectTrigger className="h-10 w-full rounded-lg">
                   <SelectValue />
@@ -331,6 +340,15 @@ export function ChampsAdmin({
                   onCheckedChange={(checked) => setDraft((d) => ({ ...d, estObligatoire: checked }))}
                 />
                 <Label className="text-sm font-medium">Obligatoire</Label>
+              </div>
+            )}
+            {draft.nature !== "CALCULE" && (
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={draft.estLectureSeule ?? false}
+                  onCheckedChange={(checked) => setDraft((d) => ({ ...d, estLectureSeule: checked }))}
+                />
+                <Label className="text-sm font-medium">Lecture seule</Label>
               </div>
             )}
             <Button onClick={handleCreate} disabled={creating} className="gap-2 rounded-lg">
@@ -518,6 +536,16 @@ export function ChampsAdmin({
                   <Switch
                     checked={editDraft.estObligatoire}
                     onCheckedChange={(checked) => setEditDraft((d) => (d ? { ...d, estObligatoire: checked } : d))}
+                  />
+                </div>
+              )}
+
+              {editDraft.nature !== "CALCULE" && (
+                <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                  <Label className="text-sm font-medium">Lecture seule</Label>
+                  <Switch
+                    checked={editDraft.estLectureSeule ?? false}
+                    onCheckedChange={(checked) => setEditDraft((d) => (d ? { ...d, estLectureSeule: checked } : d))}
                   />
                 </div>
               )}

@@ -41,6 +41,7 @@ const champInputSchema = z.object({
   ordreAffichage: z.number().int(),
   estAffiche: z.boolean(),
   estObligatoire: z.boolean(),
+  estLectureSeule: z.boolean().optional(),
 })
 
 export type ChampInput = z.infer<typeof champInputSchema>
@@ -89,7 +90,7 @@ export async function createChamp(input: ChampInput): Promise<ChampActionResult>
 
   await createChampEnrichissable(organisationId, {
     ...normalized,
-    estLectureSeule: deriveEstLectureSeule(normalized.nature),
+    estLectureSeule: parsed.data.estLectureSeule ?? deriveEstLectureSeule(normalized.nature),
   })
 
   revalidatePath("/admin/champs")
@@ -110,7 +111,7 @@ export async function updateChamp(id: string, input: ChampInput): Promise<ChampA
 
   const updated = await updateChampEnrichissable(organisationId, id, {
     ...normalized,
-    estLectureSeule: deriveEstLectureSeule(normalized.nature),
+    estLectureSeule: parsed.data.estLectureSeule ?? deriveEstLectureSeule(normalized.nature),
   })
   if (!updated) {
     return { ok: false, error: "Champ introuvable." }

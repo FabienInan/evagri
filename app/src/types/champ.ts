@@ -32,8 +32,14 @@ export interface ChampEnrichissableConfig {
   actif: boolean
 }
 
-/** Fields an administrator can set; est_lecture_seule is always derived from nature, never sent by the client. */
-export type ChampEnrichissableInput = Omit<ChampEnrichissableConfig, "id" | "estLectureSeule" | "actif" | "typeFiltreRecommande">
+/** Fields an administrator can set. est_lecture_seule is optional: when omitted it is derived from nature
+ *  (IMPORTE/CALCULE => true); when supplied it is honored, so an admin can re-open an IMPORTE champ. */
+export type ChampEnrichissableInput = Omit<
+  ChampEnrichissableConfig,
+  "id" | "estLectureSeule" | "actif" | "typeFiltreRecommande"
+> & {
+  estLectureSeule?: boolean
+}
 
 export interface FicheSection {
   id: string

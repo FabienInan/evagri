@@ -71,4 +71,9 @@ describe("FieldControl MULTI_SELECT", () => {
     render(<FieldControl champ={champ({ estLectureSeule: true })} valeur="Prairie" onChange={() => {}} />)
     expect((trigger() as HTMLButtonElement).disabled).toBe(true)
   })
+
+  it("leaves an IMPORTE champ editable when it is explicitly not read-only", () => {
+    render(<FieldControl champ={champ({ nature: "IMPORTE", estLectureSeule: false })} valeur="Prairie" onChange={() => {}} />)
+    expect((trigger() as HTMLButtonElement).disabled).toBe(false)
+  })
 })

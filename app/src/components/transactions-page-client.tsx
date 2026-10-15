@@ -34,7 +34,7 @@ export function TransactionsPageClient({
 
   const [transactions, setTransactions] = useState<TransactionRow[]>(initialData.transactions)
   const [total, setTotal] = useState(initialData.total)
-  const [sortField, setSortField] = useState("dateVente")
+  const [sortField, setSortField] = useState("date_vente")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(initialData.transactions.length < initialData.total)
