@@ -56,4 +56,19 @@ describe("createChamp estLectureSeule", () => {
     expect(result).toEqual({ ok: true })
     expect((await findChamp("champ_importe_derive"))?.estLectureSeule).toBe(true)
   })
+
+  it("forces estLectureSeule true for a CALCULE champ even when the request sends false", async () => {
+    const { createChamp } = await import("@/server/actions/champs")
+    const result = await createChamp({
+      ...baseInput,
+      codeMachine: "indicateur_test_calc",
+      nature: "CALCULE",
+      typeDonnees: "ENTIER",
+      unite: "$",
+      regleCalcul: "prix_vente",
+      estLectureSeule: false,
+    })
+    expect(result).toEqual({ ok: true })
+    expect((await findChamp("indicateur_test_calc"))?.estLectureSeule).toBe(true)
+  })
 })

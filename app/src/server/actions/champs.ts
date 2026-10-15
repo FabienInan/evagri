@@ -90,7 +90,12 @@ export async function createChamp(input: ChampInput): Promise<ChampActionResult>
 
   await createChampEnrichissable(organisationId, {
     ...normalized,
-    estLectureSeule: parsed.data.estLectureSeule ?? deriveEstLectureSeule(normalized.nature),
+    // CALCULE is forced read-only regardless of the request (§6.5); other natures honor an explicit
+    // value from the admin form and otherwise derive it from nature.
+    estLectureSeule:
+      normalized.nature === "CALCULE"
+        ? true
+        : parsed.data.estLectureSeule ?? deriveEstLectureSeule(normalized.nature),
   })
 
   revalidatePath("/admin/champs")
@@ -111,7 +116,12 @@ export async function updateChamp(id: string, input: ChampInput): Promise<ChampA
 
   const updated = await updateChampEnrichissable(organisationId, id, {
     ...normalized,
-    estLectureSeule: parsed.data.estLectureSeule ?? deriveEstLectureSeule(normalized.nature),
+    // CALCULE is forced read-only regardless of the request (§6.5); other natures honor an explicit
+    // value from the admin form and otherwise derive it from nature.
+    estLectureSeule:
+      normalized.nature === "CALCULE"
+        ? true
+        : parsed.data.estLectureSeule ?? deriveEstLectureSeule(normalized.nature),
   })
   if (!updated) {
     return { ok: false, error: "Champ introuvable." }
