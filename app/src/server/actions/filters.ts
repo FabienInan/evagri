@@ -67,11 +67,13 @@ export async function createFilter(input: CreateFilterInput): Promise<FilterActi
     }
   }
 
-  const data = {
+  // Typed as the repository's checked create input: `champ` is a relation (nested connect), not the raw
+  // `champId` FK, which Prisma rejects at runtime. The annotation keeps that mistake a compile error.
+  const data: CreateFilterRepositoryInput = {
     organisation: { connect: { id: organisationId } },
     nomFiltre: parsed.data.nomFiltre,
     typeFiltre: parsed.data.typeFiltre,
-    champId: parsed.data.champId,
+    champ: parsed.data.champId ? { connect: { id: parsed.data.champId } } : undefined,
     codeMachine: parsed.data.codeMachine,
     operateursDisponibles:
       parsed.data.operateurs as CreateFilterRepositoryInput["operateursDisponibles"],
