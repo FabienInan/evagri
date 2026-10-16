@@ -204,7 +204,7 @@ export function TransactionTable({
 
   return (
     <DataTable
-      storageKey="transaction-table"
+      storageKey="transaction-table:v2"
       columns={columns}
       rows={data.transactions}
       rowKey={(row, index) => `${row.id}-${index}`}

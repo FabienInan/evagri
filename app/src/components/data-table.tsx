@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
-import { ChevronDown, ChevronUp, Loader2, MoveHorizontal, Settings2 } from "lucide-react"
+import { ChevronDown, ChevronUp, GripVertical, Loader2, MoveHorizontal, Settings2 } from "lucide-react"
 import { useResponsiveColumns } from "@/hooks/use-responsive-columns"
 import {
   loadColumnOrder,
@@ -251,19 +251,23 @@ function DataTableHeader<T>({
               className={`relative py-2 select-none ${col.numeric ? "text-right" : ""} ${draggable ? "cursor-grab active:cursor-grabbing" : ""} ${draggedKey === col.key ? "opacity-40" : ""} ${dragOverKey === col.key ? "bg-primary/10" : ""} ${width ? "overflow-hidden" : ""}`}
               onClick={() => col.sortable && onSort?.(col.key)}
             >
-              {col.sortable ? (
-                <span className="flex items-center gap-1 font-semibold cursor-pointer">
-                  {col.label}
-                  {sortField === col.key &&
-                    (sortOrder === "asc" ? (
-                      <ChevronUp className="h-3.5 w-3.5" />
-                    ) : (
-                      <ChevronDown className="h-3.5 w-3.5" />
-                    ))}
-                </span>
-              ) : (
-                <span className="font-semibold">{col.label}</span>
-              )}
+              <span className={cn("flex items-center gap-1 font-semibold", col.sortable && "cursor-pointer")}>
+                {/* Affordance du réordonnancement : les en-têtes non verrouillés se glissent pour changer l'ordre. */}
+                {draggable && (
+                  <GripVertical
+                    aria-hidden="true"
+                    className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50"
+                  />
+                )}
+                {col.label}
+                {col.sortable &&
+                  sortField === col.key &&
+                  (sortOrder === "asc" ? (
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  ))}
+              </span>
               <ColumnResizeHandle
                 columnKey={col.key}
                 width={width}

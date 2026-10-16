@@ -30,27 +30,26 @@ export function MapPageClient({ filtersConfig }: MapPageClientProps) {
   }
 
   return (
-    <div className="space-y-4">
-      <div
-        className={`grid grid-cols-1 items-start gap-4 ${
-          showFilters ? "lg:grid-cols-[300px_1fr] lg:gap-4" : ""
-        }`}
-      >
-        {showFilters && (
-          <div className="self-start">
-            <TransactionFilters
-              filtersConfig={filtersConfig}
-              onSearch={handleSearch}
-              initialFilters={filters}
-            />
-          </div>
-        )}
-        <Card className="h-[calc(100vh-8rem)] overflow-hidden">
-          <CardContent className="p-0 h-full w-full">
-            <TransactionMap filters={filters} onGeoFilter={handleGeoFilter} />
-          </CardContent>
-        </Card>
-      </div>
+    <div
+      className={`grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 ${
+        showFilters ? "lg:grid-cols-[300px_1fr]" : ""
+      }`}
+    >
+      {showFilters && (
+        <div className="lg:min-h-0 lg:overflow-hidden">
+          <TransactionFilters
+            filtersConfig={filtersConfig}
+            onSearch={handleSearch}
+            initialFilters={filters}
+            scrollable
+          />
+        </div>
+      )}
+      <Card className="h-[calc(100vh-8rem)] overflow-hidden lg:h-full">
+        <CardContent className="p-0 h-full w-full">
+          <TransactionMap filters={filters} onGeoFilter={handleGeoFilter} />
+        </CardContent>
+      </Card>
     </div>
   )
 }
