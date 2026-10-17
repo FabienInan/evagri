@@ -43,7 +43,7 @@ export function formatValue(value: SerializedValue | undefined): string {
 }
 
 /** Renders a stored flat value according to its champ's data type (dates locale-formatted, arrays joined). */
-function renderFieldValue(value: SerializedValue | undefined, typeDonnees: TypeDonneesChamp): string {
+export function renderFieldValue(value: SerializedValue | undefined, typeDonnees: TypeDonneesChamp): string {
   if (typeDonnees === "DATE" && typeof value === "string" && value !== "") {
     const date = new Date(value)
     return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("fr-CA")
