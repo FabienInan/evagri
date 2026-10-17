@@ -1356,12 +1356,13 @@ git commit -m "feat(dossiers): détail d'un dossier et création de panier"
 **Files:**
 - Create: `app/src/lib/panier.ts`
 - Test: `app/tests/lib/panier.test.ts`
+- Modify: `app/src/components/transaction-table.tsx` (exporter `renderFieldValue`)
 - Create: `app/src/components/dossier/panier-view.tsx`
 - Create: `app/src/app/(app)/paniers/[id]/page.tsx`
 
 **Interfaces:**
-- Consumes: `DataTable` + `DataTableColumn` (`reorderable` de Task 4) ; `SerializedTransaction`, `SerializedValue` ; `removeTransactionFromPanier` (Task 3) ; `findPanierById`, `listTransactionsOfPanier` (Task 2) ; `listChampsEnrichissablesByOrganisation` ; `IMPORTED_FIELDS` ; `formatValue`, `formatNumber`, `formatCurrency` (`@/components/transaction-table`).
-- Produces: `sortTransactionRows(rows, sortField, sortOrder)` ; route `/paniers/[id]`.
+- Consumes: `DataTable` + `DataTableColumn` (`reorderable` de Task 4) ; `SerializedTransaction`, `SerializedValue` ; `removeTransactionFromPanier` (Task 3) ; `findPanierById`, `listTransactionsOfPanier` (Task 2) ; `listChampsEnrichissablesByOrganisation` ; `IMPORTED_FIELDS` ; `renderFieldValue` (exporté depuis `@/components/transaction-table`).
+- Produces: `sortTransactionRows(rows, sortField, sortOrder)` ; `renderFieldValue` exporté depuis `@/components/transaction-table` ; route `/paniers/[id]`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1461,7 +1462,17 @@ export function sortTransactionRows(
 Run: `npm test -- tests/lib/panier.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Create the panier view component**
+- [ ] **Step 5: Export `renderFieldValue` from the transaction table**
+
+Dans `app/src/components/transaction-table.tsx`, rendre la fonction réutilisable (elle est actuellement privée, ligne 46) :
+
+```tsx
+export function renderFieldValue(value: SerializedValue | undefined, typeDonnees: TypeDonneesChamp): string {
+```
+
+(Remplacer `function renderFieldValue(` par `export function renderFieldValue(`. Aucun autre changement dans ce fichier à cette étape.)
+
+- [ ] **Step 6: Create the panier view component**
 
 Create `app/src/components/dossier/panier-view.tsx` :
 
@@ -1473,23 +1484,11 @@ import { Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DataTable, type DataTableColumn } from "@/components/data-table"
 import { removeTransactionFromPanier } from "@/server/actions/dossier"
-import { formatCurrency, formatNumber } from "@/components/transaction-table"
+import { renderFieldValue } from "@/components/transaction-table"
 import { sortTransactionRows } from "@/lib/panier"
 import { isImportedFieldCode, type ImportedField } from "@/lib/imported-fields"
-import type { SerializedTransaction, SerializedValue } from "@/serializers/transaction.serializer"
-import type { ChampEnrichissableConfig, TypeDonneesChamp } from "@/types/champ"
-
-function renderFieldValue(value: SerializedValue | undefined, typeDonnees: TypeDonneesChamp): string {
-  if (typeDonnees === "DATE" && typeof value === "string" && value !== "") {
-    const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("fr-CA")
-  }
-  if (value === null || value === undefined) return "—"
-  if (Array.isArray(value)) return value.length > 0 ? value.join(", ") : "—"
-  if (typeof value === "boolean") return value ? "Oui" : "Non"
-  if (typeof value === "number") return typeDonnees === "DECIMAL" ? formatNumber(value) : String(value)
-  return String(value)
-}
+import type { SerializedTransaction } from "@/serializers/transaction.serializer"
+import type { ChampEnrichissableConfig } from "@/types/champ"
 
 function usePanierColumns(
   importedFields: ImportedField[],
@@ -1601,7 +1600,7 @@ export function PanierView({
 }
 ```
 
-- [ ] **Step 6: Create the page**
+- [ ] **Step 7: Create the page**
 
 Create `app/src/app/(app)/paniers/[id]/page.tsx` :
 
@@ -1644,15 +1643,15 @@ export default async function PanierPage({
 }
 ```
 
-- [ ] **Step 7: Verify**
+- [ ] **Step 8: Verify**
 
 Run: `npm run typecheck && npm run lint && npm test -- tests/lib/panier.test.ts`
 Expected: aucune erreur ; test PASS. Vérification visuelle : `/paniers/[id]` affiche le tableau, l'ordre des colonnes suit le tri (aucune poignée de réordonnancement), le retrait fonctionne, l'état vide s'affiche pour un panier sans transaction.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add app/src/lib/panier.ts app/tests/lib/panier.test.ts app/src/components/dossier/panier-view.tsx app/src/app/\(app\)/paniers
+git add app/src/lib/panier.ts app/tests/lib/panier.test.ts app/src/components/transaction-table.tsx app/src/components/dossier/panier-view.tsx app/src/app/\(app\)/paniers
 git commit -m "feat(paniers): vue tableau des transactions du panier"
 ```
 
