@@ -593,6 +593,7 @@ Create `app/src/server/actions/dossier.ts` :
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { Prisma } from "@prisma/client"
 import { getCurrentOrganisationId } from "@/repositories/organisation.repository"
 import {
   addTransactionsToPanier as repoAddTransactions,
@@ -640,9 +641,18 @@ export async function createDossier(input: {
   const existing = await findDossierByNumero(organisationId, parsed.data.numeroDossier)
   if (existing) return { ok: false, error: "Un dossier existe déjà avec ce numéro." }
 
-  const dossier = await repoCreateDossier(organisationId, parsed.data)
-  revalidatePath("/dossiers")
-  return { ok: true, id: dossier.id }
+  // Le pré-contrôle ci-dessus couvre le cas séquentiel ; une course concurrente peut encore heurter la
+  // contrainte unique @@unique([organisationId, numeroDossier]) — on la mappe en erreur lisible (jamais de 500).
+  try {
+    const dossier = await repoCreateDossier(organisationId, parsed.data)
+    revalidatePath("/dossiers")
+    return { ok: true, id: dossier.id }
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return { ok: false, error: "Un dossier existe déjà avec ce numéro." }
+    }
+    throw error
+  }
 }
 
 export async function createPanier(input: {
