@@ -195,6 +195,7 @@ function DataTableHeader<T>({
   onColumnResize,
   onColumnResizeEnd,
   sticky = false,
+  reorderable = true,
 }: {
   visible: DataTableColumn<T>[]
   sortField?: string
@@ -206,6 +207,8 @@ function DataTableHeader<T>({
   onColumnResizeEnd: () => void
   /** Keeps the header pinned to the top of the scrolling body (fill-height mode). */
   sticky?: boolean
+  /** When false, headers are not draggable and no reorder handle is shown. */
+  reorderable?: boolean
 }) {
   const [draggedKey, setDraggedKey] = useState<string | null>(null)
   const [dragOverKey, setDragOverKey] = useState<string | null>(null)
@@ -219,7 +222,7 @@ function DataTableHeader<T>({
     >
       <TableRow>
         {visible.map((col) => {
-          const draggable = !col.locked
+          const draggable = reorderable && !col.locked
           const width = columnWidths[col.key]
           return (
             <TableHead
@@ -304,6 +307,8 @@ export interface DataTableProps<T> {
   variant?: "card" | "bare"
   /** Fills its container's height (lg+) and scrolls the body, keeping the header pinned. Defaults to false. */
   fillHeight?: boolean
+  /** When false, column headers are not draggable (order follows the sort, e.g. the panier view). Defaults to true. */
+  reorderable?: boolean
 }
 
 export function DataTable<T>({
@@ -324,6 +329,7 @@ export function DataTable<T>({
   isRowSelected,
   variant = "card",
   fillHeight = false,
+  reorderable = true,
 }: DataTableProps<T>) {
   const visibleStorageKey = `evagri:${storageKey}:visible-columns`
   const orderStorageKey = `evagri:${storageKey}:column-order`
@@ -443,6 +449,7 @@ export function DataTable<T>({
             onColumnResize={handleColumnResize}
             onColumnResizeEnd={handleColumnResizeEnd}
             sticky={fillHeight}
+            reorderable={reorderable}
           />
           <TableBody>
             {rows.length === 0 && !loading ? (
