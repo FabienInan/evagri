@@ -1581,7 +1581,11 @@ export function PanierView({
     // Optimiste : on retire la ligne tout de suite, le serveur confirme ensuite.
     setRows((prev) => prev.filter((r) => r.id !== row.id))
     startTransition(async () => {
-      await removeTransactionFromPanier(panierId, row.id)
+      const res = await removeTransactionFromPanier(panierId, row.id)
+      // Échec côté serveur ({ ok: false }) : on réinsère la ligne pour ne pas mentir à l'utilisateur.
+      if (!res.ok) {
+        setRows((prev) => (prev.some((r) => r.id === row.id) ? prev : [...prev, row]))
+      }
     })
   }
 
