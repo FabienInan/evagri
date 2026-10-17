@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   LayoutList,
+  FolderOpen,
   Upload,
   SlidersHorizontal,
   ListTree,
@@ -16,6 +17,7 @@ import { Button } from "@/components/ui/button"
 
 const NAV_ITEMS = [
   { href: "/transactions", label: "Liste des transactions", icon: LayoutList },
+  { href: "/dossiers", label: "Dossiers", icon: FolderOpen },
   { href: "/admin/import", label: "Gestion des imports", icon: Upload },
   { href: "/admin/filters", label: "Configuration des filtres", icon: SlidersHorizontal },
   { href: "/admin/champs", label: "Champs enrichissables", icon: ListTree },
