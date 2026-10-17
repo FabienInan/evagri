@@ -1,6 +1,6 @@
 "use client"
 
-import { Check, Save } from "lucide-react"
+import { Check, Save, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
@@ -32,6 +32,7 @@ export function FicheHeader({
   onTypeChange,
   onSave,
   onAnalyse,
+  onAddToPanier,
 }: {
   fields: Record<string, SerializedValue>
   mode: FicheMode
@@ -45,6 +46,7 @@ export function FicheHeader({
   onTypeChange: (code: string | null) => void
   onSave: () => void
   onAnalyse: () => void
+  onAddToPanier: () => void
 }) {
   const isEdition = mode === "edition"
   const numeroInscription = fields.numero_inscription
@@ -82,6 +84,12 @@ export function FicheHeader({
               Analyser
             </Button>
           </div>
+        )}
+        {!isEdition && (
+          <Button variant="outline" size="sm" className="gap-2" onClick={onAddToPanier}>
+            <Plus className="h-4 w-4" />
+            Ajouter au panier
+          </Button>
         )}
       </div>
 

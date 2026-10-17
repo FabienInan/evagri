@@ -1,11 +1,12 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Eye, Pencil, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { DataTable, type DataTableColumn } from "@/components/data-table"
+import { AddToPanierDialog } from "@/components/dossier/add-to-panier-dialog"
 import type { SerializedTransaction, SerializedValue } from "@/serializers/transaction.serializer"
 import { isImportedFieldCode, type ImportedField } from "@/lib/imported-fields"
 import type { ChampEnrichissableConfig, TypeDonneesChamp } from "@/types/champ"
@@ -67,7 +68,7 @@ function StatusBadge({ statut }: { statut: string }) {
   )
 }
 
-function Actions({ id, statut }: { id: string; statut: string }) {
+function Actions({ id, statut, onAddToPanier }: { id: string; statut: string; onAddToPanier: () => void }) {
   const router = useRouter()
   const isAnalysee = statut === "ANALYSEE"
 
@@ -85,7 +86,13 @@ function Actions({ id, statut }: { id: string; statut: string }) {
           >
             <Eye className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" title="Ajouter au panier">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            title="Ajouter au panier"
+            onClick={onAddToPanier}
+          >
             <Plus className="h-4 w-4" />
           </Button>
         </>
@@ -112,7 +119,8 @@ function isNumericType(typeDonnees: string): boolean {
  *  non importés : les deux lisent la même carte plate `row.fields`. */
 function useTableColumns(
   importedFields: ImportedField[],
-  champs: ChampEnrichissableConfig[]
+  champs: ChampEnrichissableConfig[],
+  onAddToPanier: (id: string) => void
 ): DataTableColumn<TransactionRow>[] {
   return useMemo(() => {
     const importedCols: DataTableColumn<TransactionRow>[] = importedFields.map((field) => ({
@@ -164,12 +172,12 @@ function useTableColumns(
         minWidth: 80,
         priority: 10,
         locked: true,
-        render: (row) => <Actions id={row.id} statut={row.statut} />,
+        render: (row) => <Actions id={row.id} statut={row.statut} onAddToPanier={() => onAddToPanier(row.id)} />,
       },
     ]
 
     return [...importedCols, ...champCols, ...computedCols]
-  }, [importedFields, champs])
+  }, [importedFields, champs, onAddToPanier])
 }
 
 interface TransactionTableProps {
@@ -200,24 +208,34 @@ export function TransactionTable({
   onSelectRow,
   fillHeight,
 }: TransactionTableProps) {
-  const columns = useTableColumns(importedFields, champs)
+  const [addToPanierIds, setAddToPanierIds] = useState<string[] | null>(null)
+  const columns = useTableColumns(importedFields, champs, (id) => setAddToPanierIds([id]))
 
   return (
-    <DataTable
-      storageKey="transaction-table:v2"
-      columns={columns}
-      rows={data.transactions}
-      rowKey={(row, index) => `${row.id}-${index}`}
-      sortField={sortField}
-      sortOrder={sortOrder}
-      onSort={onSort}
-      loading={loading}
-      sentinelRef={sentinelRef}
-      fillHeight={fillHeight}
-      title="Résultats"
-      totalCount={data.total}
-      onRowClick={onSelectRow}
-      isRowSelected={selectedIds ? (row) => selectedIds.has(row.id) : undefined}
-    />
+    <>
+      <DataTable
+        storageKey="transaction-table:v2"
+        columns={columns}
+        rows={data.transactions}
+        rowKey={(row, index) => `${row.id}-${index}`}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        onSort={onSort}
+        loading={loading}
+        sentinelRef={sentinelRef}
+        fillHeight={fillHeight}
+        title="Résultats"
+        totalCount={data.total}
+        onRowClick={onSelectRow}
+        isRowSelected={selectedIds ? (row) => selectedIds.has(row.id) : undefined}
+      />
+      <AddToPanierDialog
+        transactionIds={addToPanierIds ?? []}
+        open={addToPanierIds !== null}
+        onOpenChange={(open) => {
+          if (!open) setAddToPanierIds(null)
+        }}
+      />
+    </>
   )
 }

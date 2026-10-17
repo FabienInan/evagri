@@ -7,6 +7,7 @@ import { FieldControl } from "@/components/fiche/field-control"
 import { FieldValue } from "@/components/fiche/field-value"
 import { IndicateursPanel } from "@/components/fiche/indicateurs-panel"
 import { DocumentsPanel } from "@/components/fiche/documents-panel"
+import { AddToPanierDialog } from "@/components/dossier/add-to-panier-dialog"
 import { saveFiche, setFicheStatut, type FicheFieldError } from "@/server/actions/fiche"
 import {
   TYPE_TRANSACTION_CODE,
@@ -33,6 +34,7 @@ export function FicheTransactionClient({ fiche }: { fiche: SerializedFiche }) {
   // règles bloquantes, chacune rattachée à un champ (ou à la fiche quand champ est null).
   const [actionError, setActionError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FicheFieldError[]>([])
+  const [addToPanierOpen, setAddToPanierOpen] = useState(false)
 
   const viewModel = buildFicheViewModel({
     sections: fiche.sections,
@@ -127,6 +129,7 @@ export function FicheTransactionClient({ fiche }: { fiche: SerializedFiche }) {
         onTypeChange={handleTypeChange}
         onSave={handleSave}
         onAnalyse={handleAnalyse}
+        onAddToPanier={() => setAddToPanierOpen(true)}
       />
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_320px]">
@@ -175,6 +178,12 @@ export function FicheTransactionClient({ fiche }: { fiche: SerializedFiche }) {
         transactionId={fiche.id}
         documents={fiche.documents}
         readOnly={!isEdition}
+      />
+
+      <AddToPanierDialog
+        transactionIds={[fiche.id]}
+        open={addToPanierOpen}
+        onOpenChange={setAddToPanierOpen}
       />
     </div>
   )

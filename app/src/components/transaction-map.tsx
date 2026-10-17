@@ -5,6 +5,7 @@ import { MapContainer, TileLayer } from "react-leaflet"
 import { DrawControl } from "@/components/transaction-map/draw-control"
 import { ClusterLayer } from "@/components/transaction-map/cluster-layer"
 import { TransactionMapSelectedPanel } from "@/components/transaction-map/selected-panel"
+import { AddToPanierDialog } from "@/components/dossier/add-to-panier-dialog"
 import type { FilterInput } from "@/types/filter"
 import { pointInPolygon } from "@/lib/geo"
 import type { MapTransaction } from "@/components/transaction-map/types"
@@ -26,6 +27,7 @@ export function TransactionMap({ filters, onGeoFilter }: TransactionMapProps) {
   )
   const [loadError, setLoadError] = useState<string | null>(null)
   const [polygon, setPolygon] = useState<{ lat: number; lng: number }[] | null>(null)
+  const [addToPanierIds, setAddToPanierIds] = useState<string[] | null>(null)
   const { selectedIds: pickedIds, toggleSelected, clearSelected } = useSelectedTransactions()
 
   useEffect(() => {
@@ -121,8 +123,17 @@ export function TransactionMap({ filters, onGeoFilter }: TransactionMapProps) {
             clearSelected()
           }}
           onFilter={handleFilter}
+          onAddToPanier={() => setAddToPanierIds(Array.from(selectedIds))}
         />
       )}
+
+      <AddToPanierDialog
+        transactionIds={addToPanierIds ?? []}
+        open={addToPanierIds !== null}
+        onOpenChange={(open) => {
+          if (!open) setAddToPanierIds(null)
+        }}
+      />
     </div>
   )
 }

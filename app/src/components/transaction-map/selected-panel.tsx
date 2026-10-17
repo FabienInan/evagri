@@ -1,6 +1,6 @@
 "use client"
 
-import { MapPin, Trash2, Filter } from "lucide-react"
+import { MapPin, Trash2, Filter, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 
@@ -8,12 +8,14 @@ type TransactionMapSelectedPanelProps = {
   selectedCount: number
   onClear: () => void
   onFilter: () => void
+  onAddToPanier: () => void
 }
 
 export function TransactionMapSelectedPanel({
   selectedCount,
   onClear,
   onFilter,
+  onAddToPanier,
 }: TransactionMapSelectedPanelProps) {
   return (
     <Card className="absolute bottom-4 left-4 z-[9999] w-80 border-border shadow-lg">
@@ -40,6 +42,10 @@ export function TransactionMapSelectedPanel({
         <Button size="sm" className="w-full gap-2" onClick={onFilter}>
           <Filter className="h-4 w-4" />
           Filtrer dans la liste
+        </Button>
+        <Button size="sm" variant="outline" className="w-full gap-2" onClick={onAddToPanier}>
+          <Plus className="h-4 w-4" />
+          Ajouter au panier
         </Button>
       </CardContent>
     </Card>
