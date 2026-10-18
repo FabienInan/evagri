@@ -11,6 +11,14 @@
 # testing
 /coverage
 
+# playwright
+/e2e/.auth/
+/e2e/.fixtures.json
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
 # next.js
 /.next/
 /out/

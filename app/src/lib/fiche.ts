@@ -100,7 +100,11 @@ export function formatFicheValue(typeDonnees: TypeDonneesChamp, valeur: FicheVal
       return isTruthy(valeur) ? "Oui" : "Non"
     case "DATE": {
       const date = new Date(String(valeur))
-      return Number.isNaN(date.getTime()) ? "—" : date.toLocaleDateString("fr-CA")
+      // Les dates sont des valeurs sans heure, stockées à minuit UTC : les formater en heure locale
+      // décalerait l'affichage d'un jour dans les fuseaux derrière UTC (ex. Montréal).
+      return Number.isNaN(date.getTime())
+        ? "—"
+        : date.toLocaleDateString("fr-CA", { timeZone: "UTC" })
     }
     case "DECIMAL":
     case "ENTIER": {
