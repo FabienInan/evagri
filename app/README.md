@@ -42,5 +42,6 @@ After the first seed, copy the generated organisation id into `DEFAULT_ORGANISAT
 3. Créer une ressource à partir du dépôt Git.
 4. Définir `DEFAULT_ORGANISATION_ID` et les variables S3 dans l'environnement Coolify.
 5. Ajouter un service PostgreSQL dans Coolify et lier `DATABASE_URL`.
+   - Monter un stockage persistant sur `/app/uploads` (PDF d'actes) : sans cela, les fichiers sont perdus à chaque redéploiement.
 6. Lancer `npm run db:migrate` et `npm run db:seed` une fois.
 7. Configurer une tâche planifiée pour `scripts/backup.sh`.

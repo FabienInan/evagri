@@ -64,6 +64,11 @@ export async function ensureEnrichmentChamps(
           typeDonnees,
         }),
         nature: "SAISISSABLE",
+        // §6.5 : un champ saisissable est modifiable par défaut. La colonne SQL vaut `true` pour couvrir
+        // les champs IMPORTE, donc l'import doit l'écrire explicitement plutôt que subir ce défaut.
+        estLectureSeule: false,
+        // Les colonnes importées sont des champs à enrichir : elles sont exigées par défaut.
+        estObligatoire: true,
         unite: named.unite,
         applicableATypes: [],
         ...(def?.optionsListe ? { optionsListe: def.optionsListe } : {}),
@@ -118,6 +123,9 @@ export async function ensureChampByCodeMachine(
         typeDonnees,
       }),
       nature: "SAISISSABLE",
+      // Même règle que ci-dessus : le défaut SQL (true) ne vaut que pour les champs IMPORTE.
+      estLectureSeule: false,
+      estObligatoire: true,
       unite,
       applicableATypes: [],
     },

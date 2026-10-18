@@ -106,12 +106,16 @@ export async function uploadDocument(
   const record = await findTransactionFiche(organisationId, transactionId)
   if (!record) return { ok: false, error: "Transaction introuvable." }
 
-  const stored = await saveActePDF(file, organisationId, transactionId)
-  await createDocument({
-    transactionId,
-    nomFichier: stored.nomFichier,
-    cheminStockage: stored.cheminStockage,
-  })
+  try {
+    const stored = await saveActePDF(file, organisationId, transactionId)
+    await createDocument({
+      transactionId,
+      nomFichier: stored.nomFichier,
+      cheminStockage: stored.cheminStockage,
+    })
+  } catch {
+    return { ok: false, error: "Échec de l'enregistrement du document." }
+  }
 
   revalidatePath(`/transactions/${transactionId}`)
   return { ok: true }

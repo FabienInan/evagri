@@ -13,6 +13,9 @@ services:
       - S3_BUCKET=${S3_BUCKET}
       - S3_ACCESS_KEY=${S3_ACCESS_KEY}
       - S3_SECRET_KEY=${S3_SECRET_KEY}
+    volumes:
+      # Les PDF d'actes doivent survivre aux redéploiements du conteneur.
+      - uploads:/app/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -57,3 +60,4 @@ services:
 
 volumes:
   pgdata:
+  uploads:

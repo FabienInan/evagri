@@ -31,6 +31,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
+# Les PDF d'actes sont écrits sous /app/uploads par l'utilisateur nextjs : le dossier doit exister
+# et lui appartenir, sinon fs.mkdir échoue (EACCES) et l'upload reste sans effet.
+RUN mkdir -p ./uploads && chown -R nextjs:nodejs ./uploads
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000
