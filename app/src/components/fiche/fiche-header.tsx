@@ -1,6 +1,6 @@
 "use client"
 
-import { Check, Save, Plus } from "lucide-react"
+import { Check, Save, Plus, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
@@ -32,6 +32,7 @@ export function FicheHeader({
   onTypeChange,
   onSave,
   onAnalyse,
+  onReopen,
   onAddToPanier,
 }: {
   fields: Record<string, SerializedValue>
@@ -46,6 +47,8 @@ export function FicheHeader({
   onTypeChange: (code: string | null) => void
   onSave: () => void
   onAnalyse: () => void
+  /** Repasse la fiche analysée en édition sans perdre le contributeur historique. */
+  onReopen: () => void
   onAddToPanier: () => void
 }) {
   const isEdition = mode === "edition"
@@ -86,10 +89,16 @@ export function FicheHeader({
           </div>
         )}
         {!isEdition && (
-          <Button variant="default" size="sm" className="gap-2" onClick={onAddToPanier}>
-            <Plus className="h-4 w-4" />
-            Ajouter au panier
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="gap-2" disabled={saving} onClick={onReopen}>
+              <RotateCcw className="h-4 w-4" />
+              Rouvrir
+            </Button>
+            <Button variant="default" size="sm" className="gap-2" onClick={onAddToPanier}>
+              <Plus className="h-4 w-4" />
+              Ajouter au panier
+            </Button>
+          </div>
         )}
       </div>
 

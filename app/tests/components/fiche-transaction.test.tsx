@@ -96,3 +96,42 @@ describe("FicheTransactionClient — enregistrement", () => {
     expect(await screen.findByText("Le champ « Observations » est obligatoire.")).toBeTruthy()
   })
 })
+
+describe("FicheTransactionClient — réouverture", () => {
+  beforeEach(() => {
+    saveFiche.mockClear()
+    setFicheStatut.mockClear()
+  })
+
+  it("repasses an analysed fiche to Non analysée after confirmation", async () => {
+    render(
+      <FicheTransactionClient
+        fiche={fiche({ statut: "ANALYSEE", mode: "consultation" })}
+        navigation={null}
+        detailQuery=""
+      />
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Rouvrir" }))
+    expect(screen.getByRole("heading", { name: "Rouvrir la transaction ?" })).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "Confirmer la réouverture" }))
+
+    await waitFor(() => expect(setFicheStatut).toHaveBeenCalledWith("t1", "NON_ANALYSEE"))
+  })
+
+  it("does not change the status when the confirmation is cancelled", async () => {
+    render(
+      <FicheTransactionClient
+        fiche={fiche({ statut: "ANALYSEE", mode: "consultation" })}
+        navigation={null}
+        detailQuery=""
+      />
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Rouvrir" }))
+    fireEvent.click(screen.getByRole("button", { name: "Annuler" }))
+
+    expect(screen.queryByRole("heading", { name: "Rouvrir la transaction ?" })).toBeNull()
+    expect(setFicheStatut).not.toHaveBeenCalled()
+  })
+})

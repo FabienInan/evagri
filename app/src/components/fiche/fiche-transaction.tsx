@@ -52,6 +52,7 @@ export function FicheTransactionClient({
   const [fieldErrors, setFieldErrors] = useState<FicheFieldError[]>([])
   const [addToPanierOpen, setAddToPanierOpen] = useState(false)
   const [analyseConfirmOpen, setAnalyseConfirmOpen] = useState(false)
+  const [reopenConfirmOpen, setReopenConfirmOpen] = useState(false)
 
   function goToTransaction(id: string | null) {
     if (id) router.push(`/transactions/${id}${detailQuery}`)
@@ -125,6 +126,20 @@ export function FicheTransactionClient({
     }
   }
 
+  async function handleReopen() {
+    setSaving(true)
+    setActionError(null)
+    setFieldErrors([])
+    try {
+      const res = await setFicheStatut(fiche.id, "NON_ANALYSEE")
+      if (!res.ok) applyActionError(res)
+    } catch {
+      setActionError("Échec de la réouverture. Réessayez.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
   // First error per champ (the action can return several for one field); the rest go to the banner.
   const errorsByChamp = new Map<string, string>()
   const bannerErrors: string[] = []
@@ -180,6 +195,7 @@ export function FicheTransactionClient({
         onTypeChange={handleTypeChange}
         onSave={handleSave}
         onAnalyse={() => setAnalyseConfirmOpen(true)}
+        onReopen={() => setReopenConfirmOpen(true)}
         onAddToPanier={() => setAddToPanierOpen(true)}
       />
 
@@ -259,6 +275,32 @@ export function FicheTransactionClient({
               }}
             >
               Confirmer l&apos;analyse
+            </Button>
+          </div>
+        </Modal>
+      )}
+
+      {reopenConfirmOpen && (
+        <Modal
+          title="Rouvrir la transaction ?"
+          onClose={() => setReopenConfirmOpen(false)}
+        >
+          <p className="text-sm text-muted-foreground">
+            La transaction repassera à « Non analysée » pour permettre sa correction. Le contributeur
+            historique et la date d&apos;analyse sont conservés.
+          </p>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" size="sm" onClick={() => setReopenConfirmOpen(false)}>
+              Annuler
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                setReopenConfirmOpen(false)
+                void handleReopen()
+              }}
+            >
+              Confirmer la réouverture
             </Button>
           </div>
         </Modal>

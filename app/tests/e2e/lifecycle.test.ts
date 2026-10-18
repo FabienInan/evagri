@@ -210,6 +210,23 @@ describe("E2E — cycle de vie import → recherche → fiche → statut → act
     expect(updated.statut).toBe("ANALYSEE")
   })
 
+  it("réouvre une fiche analysée sans perdre le contributeur ni la date d'analyse", async () => {
+    const { setFicheStatut } = await import("@/server/actions/fiche")
+    const analysedAt = new Date("2026-01-15T12:00:00.000Z")
+    await prisma.transaction.update({
+      where: { id: txId },
+      data: { contributeurId: "contributeur-historique", dateStatut: analysedAt },
+    })
+
+    const result = await setFicheStatut(txId, "NON_ANALYSEE")
+    expect(result).toEqual({ ok: true })
+
+    const updated = await prisma.transaction.findUniqueOrThrow({ where: { id: txId } })
+    expect(updated.statut).toBe("NON_ANALYSEE")
+    expect(updated.contributeurId).toBe("contributeur-historique")
+    expect(updated.dateStatut?.toISOString()).toBe(analysedAt.toISOString())
+  })
+
   it("associe un acte PDF au numéro d'inscription", async () => {
     const { importActesPDF } = await import("@/server/actions/actes")
     const formData = new FormData()
