@@ -14,6 +14,7 @@ vi.mock("@/server/actions/dossier", () => ({
 }))
 
 beforeEach(() => {
+  localStorage.clear()
   listDossiers.mockReset()
   listPaniersForDossier.mockReset()
   addTransactionsToPanier.mockReset()
@@ -46,6 +47,21 @@ describe("AddToPanierDialog", () => {
       expect(addTransactionsToPanier).toHaveBeenCalledWith({ panierId: "p1", transactionIds: ["t1"] })
     )
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+  })
+
+  it("préremplit le dialogue avec le dernier couple dossier/panier", async () => {
+    localStorage.setItem(
+      "evagri:current-panier",
+      JSON.stringify({ dossierId: "d1", panierId: "p1" })
+    )
+    render(<AddToPanierDialog transactionIds={["t1"]} open onOpenChange={() => {}} />)
+
+    await waitFor(() =>
+      expect((screen.getByLabelText("Dossier") as HTMLSelectElement).value).toBe("d1")
+    )
+    await waitFor(() =>
+      expect((screen.getByLabelText("Panier") as HTMLSelectElement).value).toBe("p1")
+    )
   })
 
   it("affiche une erreur si aucun panier n'est choisi", async () => {

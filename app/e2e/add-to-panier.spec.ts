@@ -33,6 +33,21 @@ test("ajoute une transaction au panier depuis la fiche", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Ajouter au panier" })).toHaveCount(0)
 })
 
+test("préremplit le dialogue avec le dernier panier utilisé", async ({ page }) => {
+  await page.goto(`/transactions/${fx.transactions.t2}`)
+  await page.getByRole("button", { name: "Ajouter au panier" }).click()
+  await page.getByLabel("Dossier").selectOption({ label: dossierOption })
+  await page.getByLabel("Panier").selectOption({ label: "Cible e2e" })
+  await page.getByRole("button", { name: "Ajouter", exact: true }).click()
+  await expect(page.getByRole("heading", { name: "Ajouter au panier" })).toHaveCount(0)
+
+  // Nouvelle transaction : le couple dossier/panier du dernier ajout est déjà sélectionné.
+  await page.goto(`/transactions/${fx.transactions.t9}`)
+  await page.getByRole("button", { name: "Ajouter au panier" }).click()
+  await expect(page.getByLabel("Dossier")).toHaveValue(fx.dossierId)
+  await expect(page.getByLabel("Panier")).toHaveValue(fx.paniers.cible)
+})
+
 test("refuse de confirmer sans panier choisi", async ({ page }) => {
   await page.goto("/transactions")
   const row = page.getByRole("row").filter({ hasText: fx.numeros.t3 })

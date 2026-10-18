@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Modal } from "@/components/dossier/modal"
@@ -9,6 +9,7 @@ import {
   listDossiers,
   listPaniersForDossier,
 } from "@/server/actions/dossier"
+import { readCurrentPanier, saveCurrentPanier } from "@/lib/current-panier"
 import type { SerializedDossier, SerializedPanier } from "@/serializers/dossier.serializer"
 
 /** Contenu monté à chaque ouverture : l'état (dossier/panier/messages) repart de zéro sans effet de reset. */
@@ -21,35 +22,50 @@ function AddToPanierDialogContent({
   onOpenChange: (open: boolean) => void
   onAdded?: () => void
 }) {
+  // Contexte du dernier ajout, lu une fois au montage : le contenu est remonté à chaque ouverture.
+  const [remembered] = useState(readCurrentPanier)
   const [dossiers, setDossiers] = useState<SerializedDossier[]>([])
-  const [dossierId, setDossierId] = useState("")
+  const [dossierId, setDossierId] = useState(remembered?.dossierId ?? "")
   const [paniers, setPaniers] = useState<SerializedPanier[]>([])
   const [panierId, setPanierId] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  // Choix manuel : il ne doit pas être écrasé par la restauration du panier mémorisé.
+  const panierTouched = useRef(false)
 
   useEffect(() => {
     let cancelled = false
     listDossiers().then((data) => {
-      if (!cancelled) setDossiers(data)
+      if (cancelled) return
+      setDossiers(data)
+      // Contexte obsolète : le dossier mémorisé n'existe plus.
+      if (remembered && !data.some((d) => d.id === remembered.dossierId)) {
+        setDossierId("")
+      }
     })
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [remembered])
 
   useEffect(() => {
     if (!dossierId) return
     let cancelled = false
     listPaniersForDossier(dossierId).then((data) => {
-      if (!cancelled) setPaniers(data)
+      if (cancelled) return
+      setPaniers(data)
+      // Restaure le panier mémorisé seulement s'il appartient toujours à ce dossier.
+      if (remembered && remembered.dossierId === dossierId && !panierTouched.current) {
+        setPanierId(data.some((p) => p.id === remembered.panierId) ? remembered.panierId : "")
+      }
     })
     return () => {
       cancelled = true
     }
-  }, [dossierId])
+  }, [dossierId, remembered])
 
   function handleDossierChange(id: string) {
+    panierTouched.current = false
     setDossierId(id)
     setPanierId("")
     setPaniers([])
@@ -68,6 +84,8 @@ function AddToPanierDialogContent({
       setError(res.error)
       return
     }
+    // Le prochain dialogue s'ouvrira sur ce couple dossier/panier.
+    saveCurrentPanier({ dossierId, panierId })
     // Succès : on referme la modale, la liste cible reflète l'ajout (revalidatePath côté action).
     onOpenChange(false)
     // La fiche s'en sert pour passer à la transaction suivante de la liste filtrée.
@@ -102,7 +120,10 @@ function AddToPanierDialogContent({
           className="h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
           value={panierId}
           disabled={!dossierId}
-          onChange={(e) => setPanierId(e.target.value)}
+          onChange={(e) => {
+            panierTouched.current = true
+            setPanierId(e.target.value)
+          }}
         >
           <option value="">— Choisir un panier —</option>
           {paniers.map((p) => (
