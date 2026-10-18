@@ -24,12 +24,15 @@ export function Header({ title }: { title: string }) {
         : pathname.startsWith("/paniers/")
           ? "Panier"
           : title)
-  const { action } = useHeaderActions()
+  const { action, titleSuffix } = useHeaderActions()
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-card px-4 shadow-sm">
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 items-center gap-2">
         <h1 className="truncate text-lg font-semibold text-foreground">{resolvedTitle}</h1>
+        {titleSuffix && (
+          <span className="truncate text-lg font-semibold tabular-nums text-muted-foreground">{titleSuffix}</span>
+        )}
       </div>
 
       <div className="flex items-center gap-3 text-sm text-muted-foreground">

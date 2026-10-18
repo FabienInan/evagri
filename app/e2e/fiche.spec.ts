@@ -7,7 +7,10 @@ test("fiche d'une transaction analysée : consultation", async ({ page }) => {
   await page.goto(`/transactions/${fx.transactions.t1}`)
   await expect(page.getByRole("heading", { level: 1, name: "Fiche de transaction" })).toBeVisible()
   await expect(page.getByText("Analysée", { exact: true })).toBeVisible()
-  await expect(page.getByRole("button", { name: "Ajouter au panier" })).toBeVisible()
+  const addToPanier = page.getByRole("button", { name: "Ajouter au panier" })
+  await expect(addToPanier).toBeVisible()
+  // Vert de la charte (Gazon) : la variante par défaut, pas une bordure.
+  await expect(addToPanier).toHaveClass(/bg-primary/)
   await expect(page.getByRole("button", { name: "Enregistrer" })).toHaveCount(0)
 })
 

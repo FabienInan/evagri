@@ -36,7 +36,17 @@ function StatusBadge({ statut }: { statut: string }) {
   )
 }
 
-function Actions({ id, statut, onAddToPanier }: { id: string; statut: string; onAddToPanier: () => void }) {
+function Actions({
+  id,
+  statut,
+  detailQuery,
+  onAddToPanier,
+}: {
+  id: string
+  statut: string
+  detailQuery: string
+  onAddToPanier: () => void
+}) {
   const router = useRouter()
   const isAnalysee = statut === "ANALYSEE"
 
@@ -50,7 +60,7 @@ function Actions({ id, statut, onAddToPanier }: { id: string; statut: string; on
             size="icon"
             className="h-8 w-8"
             title="Voir"
-            onClick={() => router.push(`/transactions/${id}`)}
+            onClick={() => router.push(`/transactions/${id}${detailQuery}`)}
           >
             <Eye className="h-4 w-4" />
           </Button>
@@ -70,7 +80,7 @@ function Actions({ id, statut, onAddToPanier }: { id: string; statut: string; on
           size="icon"
           className="h-8 w-8"
           title="Analyser"
-          onClick={() => router.push(`/transactions/${id}`)}
+          onClick={() => router.push(`/transactions/${id}${detailQuery}`)}
         >
           <Pencil className="h-4 w-4" />
         </Button>
@@ -83,6 +93,7 @@ function Actions({ id, statut, onAddToPanier }: { id: string; statut: string; on
 function useTableColumns(
   importedFields: ImportedField[],
   champs: ChampEnrichissableConfig[],
+  detailQuery: string,
   onAddToPanier: (id: string) => void
 ): DataTableColumn<TransactionRow>[] {
   return useMemo(() => {
@@ -114,12 +125,19 @@ function useTableColumns(
         minWidth: 80,
         priority: 10,
         locked: true,
-        render: (row) => <Actions id={row.id} statut={row.statut} onAddToPanier={() => onAddToPanier(row.id)} />,
+        render: (row) => (
+          <Actions
+            id={row.id}
+            statut={row.statut}
+            detailQuery={detailQuery}
+            onAddToPanier={() => onAddToPanier(row.id)}
+          />
+        ),
       },
     ]
 
     return [...fieldCols, ...computedCols]
-  }, [importedFields, champs, onAddToPanier])
+  }, [importedFields, champs, detailQuery, onAddToPanier])
 }
 
 interface TransactionTableProps {
@@ -129,6 +147,8 @@ interface TransactionTableProps {
   onSort: (field: string) => void
   sortField: string
   sortOrder: "asc" | "desc"
+  /** Contexte de la liste filtrée, ajouté aux liens vers la fiche. Vide sans filtre. */
+  detailQuery: string
   hasMore: boolean
   loading: boolean
   sentinelRef: React.RefObject<HTMLDivElement | null>
@@ -144,6 +164,7 @@ export function TransactionTable({
   onSort,
   sortField,
   sortOrder,
+  detailQuery,
   loading,
   sentinelRef,
   selectedIds,
@@ -151,7 +172,7 @@ export function TransactionTable({
   fillHeight,
 }: TransactionTableProps) {
   const [addToPanierIds, setAddToPanierIds] = useState<string[] | null>(null)
-  const columns = useTableColumns(importedFields, champs, (id) => setAddToPanierIds([id]))
+  const columns = useTableColumns(importedFields, champs, detailQuery, (id) => setAddToPanierIds([id]))
 
   return (
     <>

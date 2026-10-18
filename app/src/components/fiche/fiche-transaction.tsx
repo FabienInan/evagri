@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { FicheHeader } from "@/components/fiche/fiche-header"
 import { SectionCard } from "@/components/fiche/section-card"
 import { FieldControl } from "@/components/fiche/field-control"
@@ -19,8 +21,20 @@ import {
   type FicheValeur,
 } from "@/lib/fiche"
 import type { SerializedFiche } from "@/serializers/fiche.serializer"
+import type { TransactionNavigation } from "@/types/transaction"
 
-export function FicheTransactionClient({ fiche }: { fiche: SerializedFiche }) {
+export function FicheTransactionClient({
+  fiche,
+  navigation,
+  detailQuery,
+}: {
+  fiche: SerializedFiche
+  /** Voisins dans la liste filtrée ; null quand la fiche est ouverte hors contexte filtré. */
+  navigation: TransactionNavigation | null
+  /** Query string à conserver pour rester dans la même liste et le même tri. */
+  detailQuery: string
+}) {
+  const router = useRouter()
   const mode = fiche.mode
   const isEdition = mode === "edition"
 
@@ -38,6 +52,10 @@ export function FicheTransactionClient({ fiche }: { fiche: SerializedFiche }) {
   const [fieldErrors, setFieldErrors] = useState<FicheFieldError[]>([])
   const [addToPanierOpen, setAddToPanierOpen] = useState(false)
   const [analyseConfirmOpen, setAnalyseConfirmOpen] = useState(false)
+
+  function goToTransaction(id: string | null) {
+    if (id) router.push(`/transactions/${id}${detailQuery}`)
+  }
 
   const viewModel = buildFicheViewModel({
     sections: fiche.sections,
@@ -119,7 +137,36 @@ export function FicheTransactionClient({ fiche }: { fiche: SerializedFiche }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="relative space-y-4">
+      {navigation && (
+        // Flèches de navigation contextuelle, sur les bords, centrées verticalement dans le viewport
+        // tant que la fiche est visible. Elles ne s'affichent que dans une liste filtrée.
+        <div className="pointer-events-none sticky top-[calc(50vh-4rem)] z-20 h-0">
+          <Button
+            variant="outline"
+            size="icon"
+            className="pointer-events-auto absolute -left-4 top-0 -translate-y-1/2 rounded-full bg-card shadow-md"
+            aria-label="Transaction précédente"
+            title="Transaction précédente"
+            disabled={!navigation.prevId}
+            onClick={() => goToTransaction(navigation.prevId)}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="pointer-events-auto absolute -right-4 top-0 -translate-y-1/2 rounded-full bg-card shadow-md"
+            aria-label="Transaction suivante"
+            title="Transaction suivante"
+            disabled={!navigation.nextId}
+            onClick={() => goToTransaction(navigation.nextId)}
+          >
+            <ChevronRight className="h-5 w-5" />
+          </Button>
+        </div>
+      )}
+
       <FicheHeader
         fields={fiche.fields}
         mode={mode}
@@ -187,6 +234,7 @@ export function FicheTransactionClient({ fiche }: { fiche: SerializedFiche }) {
         transactionIds={[fiche.id]}
         open={addToPanierOpen}
         onOpenChange={setAddToPanierOpen}
+        onAdded={() => goToTransaction(navigation?.nextId ?? null)}
       />
 
       {analyseConfirmOpen && (

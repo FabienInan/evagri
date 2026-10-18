@@ -6,15 +6,25 @@ import { listTypologiesByOrganisation } from "@/repositories/typologie.repositor
 import { findTransactionFiche, listDocuments } from "@/repositories/fiche.repository"
 import { serializeDocument, serializeFiche } from "@/serializers/fiche.serializer"
 import { FicheTransactionClient } from "@/components/fiche/fiche-transaction"
+import {
+  buildPanierDetailQuery,
+  buildTransactionDetailQuery,
+  parseFiltersParam,
+} from "@/lib/transaction-filters"
+import { getPanierNavigation, getTransactionNavigation } from "@/server/transaction-order"
+import type { TransactionNavigation } from "@/types/transaction"
 
 export const dynamic = "force-dynamic"
 
 export default async function FicheTransactionPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
   const { id } = await params
+  const sp = await searchParams
   const organisationId = getCurrentOrganisationId()
 
   const record = await findTransactionFiche(organisationId, id)
@@ -34,5 +44,40 @@ export default async function FicheTransactionPage({
     documents: documents.map(serializeDocument),
   })
 
-  return <FicheTransactionClient key={fiche.statut} fiche={fiche} />
+  const sortField = typeof sp.sort === "string" && sp.sort ? sp.sort : "date_vente"
+  const sortOrder: "asc" | "desc" = sp.order === "asc" ? "asc" : "desc"
+
+  // Deux contextes de navigation possibles, transmis par les liens d'origine :
+  // - panier : uniquement les transactions déjà dans le panier (ordre de sa liste) ;
+  // - liste filtrée : les transactions correspondant aux filtres actifs.
+  const panierId = typeof sp.panier === "string" && sp.panier ? sp.panier : null
+  let navigation: TransactionNavigation | null = null
+  let detailQuery: string
+
+  if (panierId) {
+    navigation = await getPanierNavigation({
+      organisationId,
+      panierId,
+      currentId: id,
+      sortField,
+      sortOrder,
+    })
+    detailQuery = buildPanierDetailQuery({ panierId, sortField, sortOrder })
+  } else {
+    const filters = parseFiltersParam(typeof sp.filters === "string" ? sp.filters : null)
+    navigation =
+      filters.length > 0
+        ? await getTransactionNavigation({ organisationId, currentId: id, filters, sortField, sortOrder })
+        : null
+    detailQuery = buildTransactionDetailQuery({ filters, sortField, sortOrder })
+  }
+
+  return (
+    <FicheTransactionClient
+      key={fiche.statut}
+      fiche={fiche}
+      navigation={navigation}
+      detailQuery={detailQuery}
+    />
+  )
 }

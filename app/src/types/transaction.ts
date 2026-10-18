@@ -28,6 +28,14 @@ export interface TransactionSearchResult {
   totalPages: number
 }
 
+/** Position de la fiche courante dans la liste filtrée, pour la navigation contextuelle. */
+export interface TransactionNavigation {
+  prevId: string | null
+  nextId: string | null
+  index: number
+  total: number
+}
+
 export interface MapTransactionDTO {
   id: string
   numeroInscription: string | null

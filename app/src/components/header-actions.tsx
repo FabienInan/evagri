@@ -6,12 +6,16 @@ type HeaderActionsContextValue = {
   action: ReactNode
   setAction: (action: ReactNode) => void
   clearAction: () => void
+  titleSuffix: ReactNode
+  setTitleSuffix: (suffix: ReactNode) => void
+  clearTitleSuffix: () => void
 }
 
 const HeaderActionsContext = createContext<HeaderActionsContextValue | undefined>(undefined)
 
 export function HeaderActionsProvider({ children }: { children: ReactNode }) {
   const [action, setActionState] = useState<ReactNode>(null)
+  const [titleSuffix, setTitleSuffixState] = useState<ReactNode>(null)
 
   const setAction = useCallback((next: ReactNode) => {
     setActionState(next)
@@ -21,8 +25,18 @@ export function HeaderActionsProvider({ children }: { children: ReactNode }) {
     setActionState(null)
   }, [])
 
+  const setTitleSuffix = useCallback((next: ReactNode) => {
+    setTitleSuffixState(next)
+  }, [])
+
+  const clearTitleSuffix = useCallback(() => {
+    setTitleSuffixState(null)
+  }, [])
+
   return (
-    <HeaderActionsContext.Provider value={{ action, setAction, clearAction }}>
+    <HeaderActionsContext.Provider
+      value={{ action, setAction, clearAction, titleSuffix, setTitleSuffix, clearTitleSuffix }}
+    >
       {children}
     </HeaderActionsContext.Provider>
   )

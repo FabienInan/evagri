@@ -3,22 +3,9 @@
 import { useCallback, useMemo } from "react"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import type { FilterInput } from "@/types/filter"
+import { FILTERS_PARAM, parseFiltersParam, stringifyFilters } from "@/lib/transaction-filters"
 
-const FILTERS_PARAM = "filters"
-
-export function parseFiltersParam(raw: string | null): FilterInput[] {
-  if (!raw) return []
-  try {
-    const parsed = JSON.parse(decodeURIComponent(raw))
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
-}
-
-export function stringifyFilters(filters: FilterInput[]): string {
-  return encodeURIComponent(JSON.stringify(filters))
-}
+export { parseFiltersParam, stringifyFilters } from "@/lib/transaction-filters"
 
 export function useTransactionFilters() {
   const router = useRouter()

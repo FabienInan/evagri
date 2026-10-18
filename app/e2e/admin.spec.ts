@@ -6,7 +6,9 @@ test("page admin des champs enrichissables", async ({ page }) => {
   await expect(page.getByRole("tab", { name: "Champs enrichissables" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Disposition de la fiche" })).toBeVisible()
   await expect(page.getByText("Nouveau champ enrichissable")).toBeVisible()
-  await expect(page.getByText("N° d'inscription")).toBeVisible()
+  // Cibler le bouton de la liste : le champ peut aussi apparaître dans le panneau d'édition
+  // (le premier champ est sélectionné par défaut).
+  await expect(page.getByRole("button", { name: /^N° d'inscription/ })).toBeVisible()
 })
 
 test("page admin de configuration des filtres", async ({ page }) => {

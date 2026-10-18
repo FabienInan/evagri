@@ -63,7 +63,7 @@ describe("FicheTransactionClient — enregistrement", () => {
   })
 
   it("sends the typed value to saveFiche when Enregistrer is clicked", async () => {
-    render(<FicheTransactionClient fiche={fiche()} />)
+    render(<FicheTransactionClient fiche={fiche()} navigation={null} detailQuery="" />)
 
     const input = screen.getByRole("textbox")
     fireEvent.change(input, { target: { value: "hello" } })
@@ -75,7 +75,7 @@ describe("FicheTransactionClient — enregistrement", () => {
   })
 
   it("still sends the value when the field never fired a blur", async () => {
-    render(<FicheTransactionClient fiche={fiche()} />)
+    render(<FicheTransactionClient fiche={fiche()} navigation={null} detailQuery="" />)
     const input = screen.getByRole("textbox")
     fireEvent.change(input, { target: { value: "without-blur" } })
     // no blur
@@ -91,7 +91,7 @@ describe("FicheTransactionClient — enregistrement", () => {
       error: "bloqué",
       errors: [{ code: "V-OBLIG", champ: "observations", message: "Le champ « Observations » est obligatoire." }],
     })
-    render(<FicheTransactionClient fiche={fiche()} />)
+    render(<FicheTransactionClient fiche={fiche()} navigation={null} detailQuery="" />)
     fireEvent.click(screen.getByRole("button", { name: /Enregistrer/i }))
     expect(await screen.findByText("Le champ « Observations » est obligatoire.")).toBeTruthy()
   })

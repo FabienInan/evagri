@@ -2,11 +2,13 @@
 
 import { useMemo, useState, useTransition } from "react"
 import dynamic from "next/dynamic"
-import { Trash2 } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Eye, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DataTable, type DataTableColumn } from "@/components/data-table"
 import { removeTransactionFromPanier } from "@/server/actions/dossier"
 import { sortTransactionRows } from "@/lib/transaction-sort"
+import { buildPanierDetailQuery } from "@/lib/transaction-filters"
 import { buildTransactionFieldColumns } from "@/lib/transaction-columns"
 import { PanierExcelExport } from "@/components/dossier/panier-excel-export"
 import type { ImportedField } from "@/lib/imported-fields"
@@ -22,6 +24,7 @@ const PanierMapExport = dynamic(
 function usePanierColumns(
   importedFields: ImportedField[],
   champs: ChampEnrichissableConfig[],
+  onView: (row: SerializedTransaction) => void,
   onRemove: (row: SerializedTransaction) => void
 ): DataTableColumn<SerializedTransaction>[] {
   return useMemo(() => {
@@ -33,10 +36,19 @@ function usePanierColumns(
       key: "retirer",
       label: "",
       defaultVisible: true,
-      minWidth: 60,
+      minWidth: 88,
       locked: true,
       render: (row) => (
         <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            title="Voir la transaction"
+            onClick={() => onView(row)}
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -51,7 +63,7 @@ function usePanierColumns(
     }
 
     return [...fieldCols, actionCol]
-  }, [importedFields, champs, onRemove])
+  }, [importedFields, champs, onView, onRemove])
 }
 
 export function PanierView({
@@ -71,6 +83,18 @@ export function PanierView({
   const [sortField, setSortField] = useState("date_vente")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [, startTransition] = useTransition()
+  const router = useRouter()
+
+  // Contexte transmis à la fiche : la navigation Précédent/Suivant s'y limite aux transactions
+  // déjà dans ce panier, dans le même ordre que la liste affichée ici.
+  const detailQuery = useMemo(
+    () => buildPanierDetailQuery({ panierId, sortField, sortOrder }),
+    [panierId, sortField, sortOrder]
+  )
+
+  function handleView(row: SerializedTransaction) {
+    router.push(`/transactions/${row.id}${detailQuery}`)
+  }
 
   function handleRemove(row: SerializedTransaction) {
     // Optimiste : on retire la ligne tout de suite, le serveur confirme ensuite.
@@ -84,7 +108,7 @@ export function PanierView({
     })
   }
 
-  const columns = usePanierColumns(importedFields, champs, handleRemove)
+  const columns = usePanierColumns(importedFields, champs, handleView, handleRemove)
   const sorted = useMemo(
     () => sortTransactionRows(rows, sortField, sortOrder),
     [rows, sortField, sortOrder]

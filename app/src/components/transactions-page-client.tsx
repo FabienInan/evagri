@@ -7,6 +7,7 @@ import { TransactionFilters } from "@/components/transaction-filters"
 import { useTransactionFilters } from "@/hooks/use-transaction-filters"
 import { useSelectedTransactions } from "@/components/selected-transactions-context"
 import { useFilterPanelVisibility } from "@/hooks/use-filter-panel-visibility"
+import { buildTransactionDetailQuery } from "@/lib/transaction-filters"
 import type { FilterConfig, FilterInput } from "@/types/filter"
 import type { ImportedField } from "@/lib/imported-fields"
 import type { ChampEnrichissableConfig } from "@/types/champ"
@@ -123,6 +124,9 @@ export function TransactionsPageClient({
     setHasMore(res.transactions.length === PAGE_SIZE && PAGE_SIZE < res.total)
   }
 
+  // Contexte transmis aux fiches : la navigation précédent/suivant doit rester dans la liste filtrée.
+  const detailQuery = buildTransactionDetailQuery({ filters, sortField, sortOrder })
+
   return (
     <div
       className={`grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 ${
@@ -146,6 +150,7 @@ export function TransactionsPageClient({
         onSort={handleSort}
         sortField={sortField}
         sortOrder={sortOrder}
+        detailQuery={detailQuery}
         hasMore={hasMore}
         loading={loading}
         sentinelRef={sentinelRef}

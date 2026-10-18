@@ -15,9 +15,11 @@ import type { SerializedDossier, SerializedPanier } from "@/serializers/dossier.
 function AddToPanierDialogContent({
   transactionIds,
   onOpenChange,
+  onAdded,
 }: {
   transactionIds: string[]
   onOpenChange: (open: boolean) => void
+  onAdded?: () => void
 }) {
   const [dossiers, setDossiers] = useState<SerializedDossier[]>([])
   const [dossierId, setDossierId] = useState("")
@@ -68,6 +70,8 @@ function AddToPanierDialogContent({
     }
     // Succès : on referme la modale, la liste cible reflète l'ajout (revalidatePath côté action).
     onOpenChange(false)
+    // La fiche s'en sert pour passer à la transaction suivante de la liste filtrée.
+    onAdded?.()
   }
 
   return (
@@ -132,16 +136,22 @@ export function AddToPanierDialog({
   transactionIds,
   open,
   onOpenChange,
+  onAdded,
 }: {
   transactionIds: string[]
   open: boolean
   onOpenChange: (open: boolean) => void
+  onAdded?: () => void
 }) {
   if (!open) return null
 
   return (
     <Modal title="Ajouter au panier" onClose={() => onOpenChange(false)}>
-      <AddToPanierDialogContent transactionIds={transactionIds} onOpenChange={onOpenChange} />
+      <AddToPanierDialogContent
+        transactionIds={transactionIds}
+        onOpenChange={onOpenChange}
+        onAdded={onAdded}
+      />
     </Modal>
   )
 }
