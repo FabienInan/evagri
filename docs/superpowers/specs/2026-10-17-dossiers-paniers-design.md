@@ -56,9 +56,10 @@ Livrer la **gestion des dossiers et des paniers** :
    `reorderable?: boolean` (défaut `true`) ; la vue panier passe `reorderable={false}`
    (en-têtes non déplaçables, poignée de réordonnancement masquée). Le tri et la visibilité des
    colonnes restent persistés **par panier** via `storageKey="panier-table:<panierId>"`.
-7. **Jeu de colonnes par défaut de la vue panier.** N° d'inscription, date de vente, prix à l'acte,
-   superficie totale (ha), MRC, puis les indicateurs (champs `CALCULE`). Les champs `SAISISSABLE`
-   non importés sont **masqués par défaut** (`defaultVisible: false`) mais réactivables via le menu
+7. **Jeu de colonnes par défaut de la vue panier, aligné sur la liste des transactions.**
+   N° d'inscription, date de vente, prix à l'acte, superficie totale (ha) et MRC, soit les mêmes
+   colonnes de champs que `/transactions`. Les champs non importés — `SAISISSABLE` comme `CALCULE`
+   (indicateurs) — sont **masqués par défaut** (`defaultVisible: false`) mais réactivables via le menu
    « Colonnes ». Toutes les colonnes sont masquables (aucune verrouillée), la colonne d'action
    (retrait) exceptée si elle est présente.
 8. **Une modale d'ajout unique, plusieurs points d'entrée.** `AddToPanierDialog` reçoit une liste

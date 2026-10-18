@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState, useTransition } from "react"
+import dynamic from "next/dynamic"
 import { Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DataTable, type DataTableColumn } from "@/components/data-table"
@@ -10,6 +11,12 @@ import { sortTransactionRows } from "@/lib/panier"
 import { isImportedFieldCode, type ImportedField } from "@/lib/imported-fields"
 import type { SerializedTransaction } from "@/serializers/transaction.serializer"
 import type { ChampEnrichissableConfig } from "@/types/champ"
+
+// Leaflet touche `window` : la carte d'export est rendue côté client uniquement, comme la carte générale.
+const PanierMapExport = dynamic(
+  () => import("@/components/dossier/panier-map-export").then((m) => m.PanierMapExport),
+  { ssr: false }
+)
 
 function usePanierColumns(
   importedFields: ImportedField[],
@@ -27,16 +34,18 @@ function usePanierColumns(
       render: (row) => renderFieldValue(row.fields[field.code], field.typeDonnees),
     }))
 
-    // Indicateurs (CALCULE) visibles par défaut ; champs SAISISSABLE non importés masqués par défaut (décision 7).
+    // Mêmes colonnes visibles par défaut que la liste des transactions : seuls les champs importés
+    // apparaissent ; les champs enrichissables (saisissables comme calculés) sont masqués par défaut et
+    // réactivables via « Colonnes ».
     const champCols: DataTableColumn<SerializedTransaction>[] = champs
       .filter((champ) => champ.actif && !isImportedFieldCode(champ.codeMachine))
       .map((champ) => ({
         key: champ.codeMachine,
         label: champ.nomAffichage,
         numeric: champ.typeDonnees === "DECIMAL" || champ.typeDonnees === "ENTIER",
-        defaultVisible: champ.nature === "CALCULE",
+        defaultVisible: false,
         minWidth: 130,
-        priority: champ.nature === "CALCULE" ? 3 : 1,
+        priority: 1,
         render: (row) => renderFieldValue(row.fields[champ.codeMachine], champ.typeDonnees),
       }))
 
@@ -119,6 +128,7 @@ export function PanierView({
       reorderable={false}
       title={nom}
       totalCount={rows.length}
+      toolbar={<PanierMapExport transactions={rows} nom={nom} />}
       emptyMessage="Aucune transaction dans ce panier"
     />
   )

@@ -3,6 +3,21 @@ import { fixtures } from "./fixtures"
 
 const fx = fixtures()
 
+test("affiche par défaut les mêmes colonnes de champs que la liste des transactions", async ({ page }) => {
+  await page.goto(`/paniers/${fx.paniers.source}`)
+
+  // Mêmes champs importés visibles que /transactions, dans le même ordre, puis la colonne de retrait
+  // (sans libellé). Les champs enrichissables et les indicateurs calculés restent masqués par défaut.
+  await expect(page.getByRole("columnheader")).toHaveText([
+    "N° d'inscription",
+    "Date de vente",
+    "Prix à l'acte",
+    "MRC",
+    "Superficie (ha)",
+    "",
+  ])
+})
+
 // Affichage et retrait dans un seul test : le retrait mute le panier, donc l'ordre des assertions doit être
 // garanti (des tests séparés dépendraient de l'ordre d'exécution du fichier).
 test("affiche les transactions du panier puis en retire une", async ({ page }) => {
