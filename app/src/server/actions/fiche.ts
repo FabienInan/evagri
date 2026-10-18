@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { getCurrentOrganisationId } from "@/repositories/organisation.repository"
 import { listChampsEnrichissablesByOrganisation } from "@/repositories/champs.repository"
-import { findFicheLayout } from "@/repositories/fiche-layout.repository"
+import { getEffectiveFicheLayout } from "@/server/fiche-layout"
 import { listTypologiesByOrganisation } from "@/repositories/typologie.repository"
 import {
   createDocument,
@@ -32,7 +32,7 @@ export async function saveFiche(input: unknown): Promise<FicheActionResult> {
 
   const [champs, sections] = await Promise.all([
     listChampsEnrichissablesByOrganisation(organisationId),
-    findFicheLayout(organisationId),
+    getEffectiveFicheLayout(organisationId),
   ])
   const fields = serializeTransaction(record).fields
   const valeurs = parsed.data.valeurs
@@ -65,7 +65,7 @@ export async function setFicheStatut(id: string, statut: string): Promise<FicheA
   if (statut === "ANALYSEE") {
     const [champs, sections, typologies] = await Promise.all([
       listChampsEnrichissablesByOrganisation(organisationId),
-      findFicheLayout(organisationId),
+      getEffectiveFicheLayout(organisationId),
       listTypologiesByOrganisation(organisationId),
     ])
     const fields = serializeTransaction(record).fields

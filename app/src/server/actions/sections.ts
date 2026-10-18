@@ -2,12 +2,13 @@
 
 import { revalidatePath } from "next/cache"
 import { getCurrentOrganisationId } from "@/repositories/organisation.repository"
-import { findFicheLayout, saveFicheLayout as saveFicheLayoutRepo } from "@/repositories/fiche-layout.repository"
+import { saveFicheLayout as saveFicheLayoutRepo } from "@/repositories/fiche-layout.repository"
+import { getEffectiveFicheLayout } from "@/server/fiche-layout"
 import { sectionsSchema, type SectionInput } from "@/validators/section.validator"
 
 export async function getFicheLayout() {
   const organisationId = getCurrentOrganisationId()
-  return findFicheLayout(organisationId)
+  return getEffectiveFicheLayout(organisationId)
 }
 
 /** Returns a result instead of throwing: a thrown action error is masked in production, so the editor

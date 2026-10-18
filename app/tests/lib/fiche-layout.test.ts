@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest"
 import {
+  DEFAULT_SECTION_ID,
+  DEFAULT_SECTION_NAME,
   UNASSIGNED,
+  buildDefaultFicheLayout,
   buildInitialLayout,
   findContainerOf,
   moveBetweenContainers,
@@ -11,6 +14,18 @@ import {
   type Containers,
   type FicheLayoutState,
 } from "@/lib/fiche-layout"
+
+describe("buildDefaultFicheLayout", () => {
+  it("groups the given champs into a single editable default section", () => {
+    expect(buildDefaultFicheLayout(["a", "b"])).toEqual([
+      { id: DEFAULT_SECTION_ID, nom: DEFAULT_SECTION_NAME, ordre: 0, champs: ["a", "b"] },
+    ])
+  })
+
+  it("returns no section when there is no champ to enrich", () => {
+    expect(buildDefaultFicheLayout([])).toEqual([])
+  })
+})
 
 describe("buildInitialLayout", () => {
   it("pools every champ when no section is saved", () => {

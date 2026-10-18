@@ -8,11 +8,16 @@ interface FicheLayoutContenu {
   sections: FicheSection[]
 }
 
-export async function findFicheLayout(organisationId: string): Promise<FicheSection[]> {
+/**
+ * Returns `null` when the organisation never saved a layout, and `[]` when it saved an intentionally
+ * empty one — callers can then apply a default only in the former case.
+ */
+export async function findSavedFicheLayout(organisationId: string): Promise<FicheSection[] | null> {
   const vue = await prisma.vueFicheEvaluation.findFirst({
     where: { organisationId, typeVue: TYPE_VUE_FICHE_TRANSACTION },
   })
-  const contenu = vue?.contenu as FicheLayoutContenu | undefined
+  if (!vue) return null
+  const contenu = vue.contenu as unknown as FicheLayoutContenu | undefined
   return contenu?.sections ?? []
 }
 

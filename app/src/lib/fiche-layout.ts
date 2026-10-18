@@ -2,6 +2,10 @@ import type { FicheSection } from "@/types/champ"
 
 export const UNASSIGNED = "__UNASSIGNED__"
 
+/** Section proposée tant qu'aucune disposition n'a été enregistrée pour l'organisation. */
+export const DEFAULT_SECTION_ID = "section_default"
+export const DEFAULT_SECTION_NAME = "Champs à enrichir"
+
 /** Maps a container id (UNASSIGNED or a section id) to its ordered champ ids. */
 export type Containers = Record<string, string[]>
 
@@ -17,6 +21,12 @@ export interface FicheLayoutState {
 
 export function newSectionId(): string {
   return `section_${Date.now()}_${Math.round(Math.random() * 1_000_000)}`
+}
+
+/** Disposition par défaut : une seule section modifiable regroupant les champs à enrichir prioritaires. */
+export function buildDefaultFicheLayout(champIds: string[]): FicheSection[] {
+  if (champIds.length === 0) return []
+  return [{ id: DEFAULT_SECTION_ID, nom: DEFAULT_SECTION_NAME, ordre: 0, champs: champIds }]
 }
 
 /** Rebuilds drag state from a persisted layout: drops stale/duplicated ids and pools champs not yet assigned. */

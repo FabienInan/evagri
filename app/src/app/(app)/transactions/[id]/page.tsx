@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation"
 import { getCurrentOrganisationId } from "@/repositories/organisation.repository"
 import { listChampsEnrichissablesByOrganisation } from "@/repositories/champs.repository"
-import { findFicheLayout } from "@/repositories/fiche-layout.repository"
+import { getEffectiveFicheLayout } from "@/server/fiche-layout"
 import { listTypologiesByOrganisation } from "@/repositories/typologie.repository"
 import { findTransactionFiche, listDocuments } from "@/repositories/fiche.repository"
 import { serializeDocument, serializeFiche } from "@/serializers/fiche.serializer"
@@ -22,7 +22,7 @@ export default async function FicheTransactionPage({
 
   const [champs, sections, typologies, documents] = await Promise.all([
     listChampsEnrichissablesByOrganisation(organisationId),
-    findFicheLayout(organisationId),
+    getEffectiveFicheLayout(organisationId),
     listTypologiesByOrganisation(organisationId),
     listDocuments(id),
   ])
