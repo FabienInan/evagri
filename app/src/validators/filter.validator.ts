@@ -2,6 +2,17 @@ import { z } from "zod"
 import { FILTER_OPERATORS, FILTER_TYPES } from "@/types/filter"
 import { IMPORTED_FIELDS } from "@/lib/imported-fields"
 
+export const createFilterSchema = z.object({
+  nomFiltre: z.string().min(1),
+  typeFiltre: z.enum(FILTER_TYPES),
+  champId: z.string().nullable(),
+  codeMachine: z.string().nullable(),
+  operateurs: z.array(z.enum(FILTER_OPERATORS)).nullable(),
+  ordreAffichage: z.number().int(),
+})
+
+export type CreateFilterInput = z.infer<typeof createFilterSchema>
+
 /** Only columns flagged sortable in the table are accepted: an arbitrary field name would otherwise reach
  *  Prisma's orderBy and fail (or sort on an unexpected relation) at query time. Derived from the imported
  *  field catalogue so the sort keys (snake_case `code_machine`) stay in sync with the table. */

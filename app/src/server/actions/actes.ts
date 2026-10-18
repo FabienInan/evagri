@@ -16,9 +16,19 @@ function extractNumeroInscription(filename: string): string | null {
   return match ? match[1] : null
 }
 
-export async function importActesPDF(formData: FormData) {
+export type ImportActesResult =
+  | {
+      ok: true
+      matchedCount: number
+      unmatchedCount: number
+      matched: { filename: string; numeroInscription: string | null; transactionId: string }[]
+      unmatched: string[]
+    }
+  | { ok: false; error: string }
+
+export async function importActesPDF(formData: FormData): Promise<ImportActesResult> {
   const files = formData.getAll("files") as File[]
-  if (files.length === 0) throw new Error("Aucun fichier PDF fourni")
+  if (files.length === 0) return { ok: false, error: "Aucun fichier PDF fourni." }
 
   const organisationId = getCurrentOrganisationId()
   const matched: { filename: string; numeroInscription: string | null; transactionId: string }[] = []
@@ -73,6 +83,7 @@ export async function importActesPDF(formData: FormData) {
   })
 
   return {
+    ok: true,
     matchedCount: matched.length,
     unmatchedCount: unmatched.length,
     matched,

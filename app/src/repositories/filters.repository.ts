@@ -102,7 +102,7 @@ export type CreateFilterRepositoryInput = Prisma.FiltreRechercheCreateInput
 export async function createFilter(
   data: CreateFilterRepositoryInput
 ) {
-  return prisma.filtreRecherche.create({ data })
+  return prisma.filtreRecherche.create({ data, include: { champ: true } })
 }
 
 /** Scoped by organisationId: updateMany skips ids from another tenant instead of updating them. */

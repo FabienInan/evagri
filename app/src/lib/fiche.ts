@@ -1,6 +1,7 @@
 import type { ChampEnrichissableConfig, FicheSection, TypeDonneesChamp } from "@/types/champ"
 import { evaluateRule, roundToInteger, type CalculationContext } from "@/lib/calculator"
-import type { TypologieOption } from "@/repositories/typologie.repository"
+import { formatCellValue } from "@/lib/format"
+import type { TypologieOption } from "@/types/typologie"
 import { validateEnrichment, validateSaleDate, type RangeCheck } from "@/lib/validation"
 import { joinMultiValue, parseMultiValue } from "@/lib/multi-value"
 
@@ -84,39 +85,8 @@ export function buildFicheViewModel(input: {
   return { mainSections, indicateurs }
 }
 
-/** Interprets a stored boolean-ish value: the form sends real booleans, but an imported or legacy value
- *  may arrive as text ("false", "0"), which a plain truthiness check would render as "Oui". */
-function isTruthy(valeur: FicheValeur): boolean {
-  if (typeof valeur === "boolean") return valeur
-  if (typeof valeur === "number") return valeur !== 0
-  const normalized = String(valeur).trim().toLowerCase()
-  return normalized !== "" && normalized !== "false" && normalized !== "0" && normalized !== "non"
-}
-
 export function formatFicheValue(typeDonnees: TypeDonneesChamp, valeur: FicheValeur): string {
-  if (valeur === null || valeur === undefined || valeur === "") return "—"
-  switch (typeDonnees) {
-    case "BOOLEAN":
-      return isTruthy(valeur) ? "Oui" : "Non"
-    case "DATE": {
-      const date = new Date(String(valeur))
-      // Les dates sont des valeurs sans heure, stockées à minuit UTC : les formater en heure locale
-      // décalerait l'affichage d'un jour dans les fuseaux derrière UTC (ex. Montréal).
-      return Number.isNaN(date.getTime())
-        ? "—"
-        : date.toLocaleDateString("fr-CA", { timeZone: "UTC" })
-    }
-    case "DECIMAL":
-    case "ENTIER": {
-      const n = typeof valeur === "number" ? valeur : Number(valeur)
-      if (Number.isNaN(n)) return String(valeur)
-      return new Intl.NumberFormat("fr-CA", {
-        maximumFractionDigits: typeDonnees === "DECIMAL" ? 2 : 0,
-      }).format(n)
-    }
-    default:
-      return String(valeur)
-  }
+  return formatCellValue(valeur, typeDonnees)
 }
 
 /** Numeric entries of the flat field map feed the calculation/validation context; other values are ignored. */

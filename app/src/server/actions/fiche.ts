@@ -1,7 +1,6 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { z } from "zod"
 import { getCurrentOrganisationId } from "@/repositories/organisation.repository"
 import { listChampsEnrichissablesByOrganisation } from "@/repositories/champs.repository"
 import { findFicheLayout } from "@/repositories/fiche-layout.repository"
@@ -16,19 +15,12 @@ import {
 import { serializeTransaction } from "@/serializers/transaction.serializer"
 import { buildStorageEntries, resolveTypeTransaction, validateFiche, withRecomputedIndicateurs } from "@/lib/fiche"
 import { saveActePDF } from "@/lib/file-storage"
+import { saveFicheSchema } from "@/validators/fiche.validator"
 
 /** One blocking rule violation; `champ` is the codeMachine to display the message under, or null for a fiche-wide message. */
 export type FicheFieldError = { code: string; message: string; champ: string | null }
 
 export type FicheActionResult = { ok: true } | { ok: false; error: string; errors?: FicheFieldError[] }
-
-const valeurSchema = z.union([z.string(), z.number(), z.boolean(), z.array(z.string()), z.null()])
-
-const saveFicheSchema = z.object({
-  id: z.string().min(1),
-  typeTransactionCode: z.string().nullable(),
-  valeurs: z.record(z.string(), valeurSchema),
-})
 
 export async function saveFiche(input: unknown): Promise<FicheActionResult> {
   const organisationId = getCurrentOrganisationId()

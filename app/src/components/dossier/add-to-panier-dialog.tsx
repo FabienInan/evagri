@@ -24,7 +24,6 @@ function AddToPanierDialogContent({
   const [paniers, setPaniers] = useState<SerializedPanier[]>([])
   const [panierId, setPanierId] = useState("")
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -67,7 +66,8 @@ function AddToPanierDialogContent({
       setError(res.error)
       return
     }
-    setSuccess(`${res.added} transaction${res.added > 1 ? "s" : ""} ajoutée${res.added > 1 ? "s" : ""}.`)
+    // Succès : on referme la modale, la liste cible reflète l'ajout (revalidatePath côté action).
+    onOpenChange(false)
   }
 
   return (
@@ -110,7 +110,6 @@ function AddToPanierDialogContent({
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
-      {success && <p className="text-sm text-primary">{success}</p>}
 
       <p className="text-xs text-muted-foreground">
         {transactionIds.length} transaction{transactionIds.length > 1 ? "s" : ""} sélectionnée

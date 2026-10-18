@@ -98,7 +98,7 @@ export async function addTransactionsToPanier(input: {
     return { ok: false, error: "Seules les transactions analysées peuvent être ajoutées." }
   }
 
-  const added = await repoAddTransactions(parsed.data.panierId, ids)
+  const added = await repoAddTransactions(organisationId, parsed.data.panierId, ids)
   revalidatePath(`/paniers/${parsed.data.panierId}`)
   return { ok: true, added }
 }
@@ -111,7 +111,7 @@ export async function removeTransactionFromPanier(
   const panier = await findPanierById(organisationId, panierId)
   if (!panier) return { ok: false, error: "Panier introuvable." }
 
-  await repoRemoveTransaction(panierId, transactionId)
+  await repoRemoveTransaction(organisationId, panierId, transactionId)
   revalidatePath(`/paniers/${panierId}`)
   return { ok: true }
 }
@@ -123,9 +123,8 @@ export async function listPaniersForDossier(dossierId: string): Promise<Serializ
 
 export async function listTransactionsForPanier(panierId: string): Promise<SerializedTransaction[]> {
   const organisationId = getCurrentOrganisationId()
-  // Le repository `listTransactionsOfPanier` ne prend que panierId : on vérifie l'appartenance à
-  // l'organisation ici (garde-fou IDOR). Panier hors organisation → liste vide (action de lecture).
+  // Le repository scope lui-même la lecture par organisation ; le pré-contrôle conserve le 404 côté page.
   const panier = await findPanierById(organisationId, panierId)
   if (!panier) return []
-  return (await listTransactionsOfPanier(panierId)).map(serializeTransaction)
+  return (await listTransactionsOfPanier(organisationId, panierId)).map(serializeTransaction)
 }

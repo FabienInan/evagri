@@ -6,7 +6,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ChampsAdmin } from "@/components/champs-admin"
 import { SectionsEditor, type SectionsEditorHandle } from "@/components/sections-editor"
 import type { ChampEnrichissableConfig, FicheSection } from "@/types/champ"
-import type { TypologieOption } from "@/repositories/typologie.repository"
+import type { TypologieOption } from "@/types/typologie"
 
 type Tab = "champs" | "sections"
 
@@ -20,7 +20,10 @@ export function ChampsPageClient({
   initialSections: FicheSection[]
 }) {
   const [tab, setTab] = useState<Tab>("champs")
-  const saisissablesAffiches = champs.filter((c) => c.nature !== "CALCULE" && c.actif && c.estAffiche)
+  // État possédé ici pour que l'onglet « Disposition de la fiche » voie les champs créés dans l'onglet
+  // « Champs enrichissables » sans rechargement de page.
+  const [champsItems, setChampsItems] = useState<ChampEnrichissableConfig[]>(champs)
+  const saisissablesAffiches = champsItems.filter((c) => c.nature !== "CALCULE" && c.actif && c.estAffiche)
 
   const sectionsEditorRef = useRef<SectionsEditorHandle | null>(null)
   const [savingDisposition, setSavingDisposition] = useState(false)
@@ -69,7 +72,7 @@ export function ChampsPageClient({
 
       <div className="min-h-0 flex-1 overflow-hidden">
         {tab === "champs" ? (
-          <ChampsAdmin champs={champs} typologies={typologies} />
+          <ChampsAdmin champs={champsItems} typologies={typologies} onChampsChange={setChampsItems} />
         ) : (
           <SectionsEditor ref={sectionsEditorRef} champs={saisissablesAffiches} initialSections={initialSections} />
         )}

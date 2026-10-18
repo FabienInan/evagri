@@ -3,10 +3,10 @@ import {
   recommendFilterType,
   recommendedTypeForField,
   DEFAULT_OPERATEURS,
-  buildWhereClause,
   moveItemToIndex,
   orderRenteTransactions,
 } from "@/lib/filters"
+import { buildWhereClause } from "@/lib/filters/where"
 import type { FilterInput, FilterType } from "@/types/filter"
 
 describe("recommendFilterType", () => {

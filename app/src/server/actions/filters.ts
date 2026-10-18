@@ -1,9 +1,12 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { z } from "zod"
+import { Prisma } from "@prisma/client"
 import { getCurrentOrganisationId } from "@/repositories/organisation.repository"
-import { FILTER_OPERATORS, FILTER_TYPES, type FilterOperator, type FilterType } from "@/types/filter"
+import type { FilterConfig, FilterOperator, FilterType } from "@/types/filter"
+import { createFilterSchema, type CreateFilterInput } from "@/validators/filter.validator"
+
+export type { CreateFilterInput } from "@/validators/filter.validator"
 import {
   createFilter as createFilterRepo,
   deleteFilter as deleteFilterRepo,
@@ -26,22 +29,16 @@ export async function listChamps() {
   return findChampsByOrganisation(organisationId)
 }
 
-const createFilterSchema = z.object({
-  nomFiltre: z.string().min(1),
-  typeFiltre: z.enum(FILTER_TYPES),
-  champId: z.string().nullable(),
-  codeMachine: z.string().nullable(),
-  operateurs: z.array(z.enum(FILTER_OPERATORS)).nullable(),
-  ordreAffichage: z.number().int(),
-})
-
-export type CreateFilterInput = z.infer<typeof createFilterSchema>
-
 /** Server actions return errors instead of throwing them: in production Next.js masks the message of a
  *  thrown action error, so a validation message would reach the user as a generic error. */
 export type FilterActionResult = { ok: true } | { ok: false; error: string }
 
-export async function createFilter(input: CreateFilterInput): Promise<FilterActionResult> {
+/** A creation returns the created filter so callers can update local state without reloading. */
+export type CreateFilterResult =
+  | { ok: true; filter: FilterConfig & { champId: string | null } }
+  | { ok: false; error: string }
+
+export async function createFilter(input: CreateFilterInput): Promise<CreateFilterResult> {
   const organisationId = getCurrentOrganisationId()
   const parsed = createFilterSchema.safeParse(input)
   if (!parsed.success) {
@@ -80,9 +77,37 @@ export async function createFilter(input: CreateFilterInput): Promise<FilterActi
     ordreAffichage: parsed.data.ordreAffichage,
   }
 
-  await createFilterRepo(data)
+  let created
+  try {
+    created = await createFilterRepo(data)
+  } catch (error) {
+    // A concurrent request can win the uniqueness race after the pre-checks above.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return {
+        ok: false,
+        error: parsed.data.champId
+          ? "Un filtre existe déjà pour ce champ."
+          : "Un filtre existe déjà pour ce code virtuel.",
+      }
+    }
+    throw error
+  }
+
   revalidatePath("/admin/filters")
-  return { ok: true }
+  return {
+    ok: true,
+    filter: {
+      id: created.id,
+      nomFiltre: created.nomFiltre,
+      typeFiltre: created.typeFiltre as FilterType,
+      champId: created.champId,
+      codeMachine: created.codeMachine,
+      operateursDisponibles: (created.operateursDisponibles as FilterOperator[] | null) ?? null,
+      ordreAffichage: created.ordreAffichage,
+      estActif: created.estActif,
+      champ: created.champ,
+    },
+  }
 }
 
 export async function publishFilters(

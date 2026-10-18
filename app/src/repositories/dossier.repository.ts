@@ -71,29 +71,60 @@ export async function findPanierById(organisationId: string, id: string) {
   })
 }
 
-/** Renvoie le nombre de lignes réellement insérées : `skipDuplicates` rend l'ajout idempotent. */
+/**
+ * Renvoie le nombre de lignes réellement insérées : `skipDuplicates` rend l'ajout idempotent.
+ * Le panier et les transactions doivent appartenir à l'organisation : une mutation inter-organisation
+ * n'insère rien, même si l'appelant a oublié son pré-contrôle.
+ */
 export async function addTransactionsToPanier(
+  organisationId: string,
   panierId: string,
   transactionIds: string[]
 ): Promise<number> {
-  const result = await prisma.panierTransaction.createMany({
-    data: transactionIds.map((transactionId) => ({ panierId, transactionId })),
-    skipDuplicates: true,
+  const ids = Array.from(new Set(transactionIds))
+  return prisma.$transaction(async (tx) => {
+    const panier = await tx.panier.findFirst({
+      where: { id: panierId, organisationId },
+      select: { id: true },
+    })
+    if (!panier) return 0
+
+    const owned = await tx.transaction.findMany({
+      where: { id: { in: ids }, organisationId },
+      select: { id: true },
+    })
+    if (owned.length === 0) return 0
+
+    const result = await tx.panierTransaction.createMany({
+      data: owned.map(({ id }) => ({ panierId, transactionId: id })),
+      skipDuplicates: true,
+    })
+    return result.count
   })
-  return result.count
 }
 
 /** `deleteMany` plutôt que `delete` : un retrait d'une transaction déjà absente reste un no-op silencieux. */
 export async function removeTransactionFromPanier(
+  organisationId: string,
   panierId: string,
   transactionId: string
 ): Promise<void> {
-  await prisma.panierTransaction.deleteMany({ where: { panierId, transactionId } })
+  await prisma.panierTransaction.deleteMany({
+    where: {
+      panierId,
+      transactionId,
+      panier: { organisationId },
+      transaction: { organisationId },
+    },
+  })
 }
 
-export async function listTransactionsOfPanier(panierId: string) {
+export async function listTransactionsOfPanier(organisationId: string, panierId: string) {
   return prisma.transaction.findMany({
-    where: { paniers: { some: { panierId } } },
+    where: {
+      organisationId,
+      paniers: { some: { panierId, panier: { organisationId } } },
+    },
     include: { valeurs: { include: { champ: true } } },
   })
 }

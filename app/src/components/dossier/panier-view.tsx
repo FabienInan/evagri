@@ -6,10 +6,10 @@ import { Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DataTable, type DataTableColumn } from "@/components/data-table"
 import { removeTransactionFromPanier } from "@/server/actions/dossier"
-import { renderFieldValue } from "@/components/transaction-table"
-import { sortTransactionRows } from "@/lib/panier"
-import { isImportedFieldCode, type ImportedField } from "@/lib/imported-fields"
-import type { SerializedTransaction } from "@/serializers/transaction.serializer"
+import { sortTransactionRows } from "@/lib/transaction-sort"
+import { buildTransactionFieldColumns } from "@/lib/transaction-columns"
+import type { ImportedField } from "@/lib/imported-fields"
+import type { SerializedTransaction } from "@/types/transaction"
 import type { ChampEnrichissableConfig } from "@/types/champ"
 
 // Leaflet touche `window` : la carte d'export est rendue côté client uniquement, comme la carte générale.
@@ -24,30 +24,9 @@ function usePanierColumns(
   onRemove: (row: SerializedTransaction) => void
 ): DataTableColumn<SerializedTransaction>[] {
   return useMemo(() => {
-    const importedCols: DataTableColumn<SerializedTransaction>[] = importedFields.map((field) => ({
-      key: field.code,
-      label: field.label,
-      numeric: field.numeric,
-      sortable: field.display.sortable,
-      defaultVisible: field.display.defaultVisible,
-      minWidth: field.display.minWidth,
-      render: (row) => renderFieldValue(row.fields[field.code], field.typeDonnees),
-    }))
-
-    // Mêmes colonnes visibles par défaut que la liste des transactions : seuls les champs importés
-    // apparaissent ; les champs enrichissables (saisissables comme calculés) sont masqués par défaut et
-    // réactivables via « Colonnes ».
-    const champCols: DataTableColumn<SerializedTransaction>[] = champs
-      .filter((champ) => champ.actif && !isImportedFieldCode(champ.codeMachine))
-      .map((champ) => ({
-        key: champ.codeMachine,
-        label: champ.nomAffichage,
-        numeric: champ.typeDonnees === "DECIMAL" || champ.typeDonnees === "ENTIER",
-        defaultVisible: false,
-        minWidth: 130,
-        priority: 1,
-        render: (row) => renderFieldValue(row.fields[champ.codeMachine], champ.typeDonnees),
-      }))
+    // Mêmes colonnes et visibilité par défaut que la liste des transactions : seuls les champs importés
+    // apparaissent ; les champs enrichissables sont masqués par défaut et réactivables via « Colonnes ».
+    const fieldCols = buildTransactionFieldColumns({ importedFields, champs })
 
     const actionCol: DataTableColumn<SerializedTransaction> = {
       key: "retirer",
@@ -70,7 +49,7 @@ function usePanierColumns(
       ),
     }
 
-    return [...importedCols, ...champCols, actionCol]
+    return [...fieldCols, actionCol]
   }, [importedFields, champs, onRemove])
 }
 

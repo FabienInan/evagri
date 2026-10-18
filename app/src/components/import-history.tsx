@@ -95,7 +95,7 @@ export function ImportHistory({ initialImports }: { initialImports: Importation[
   async function handleRetry(id: string) {
     try {
       const res = await retryImport(id)
-      if ("error" in res) {
+      if (!res.ok) {
         setMessage(res.error)
         return
       }

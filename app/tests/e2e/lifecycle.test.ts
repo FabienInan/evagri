@@ -216,6 +216,8 @@ describe("E2E — cycle de vie import → recherche → fiche → statut → act
     formData.append("files", new File([Buffer.from("%PDF-1.4 acte de test")], `${numeroInscription}.pdf`, { type: "application/pdf" }))
 
     const result = await importActesPDF(formData)
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error(result.error)
     expect(result.matchedCount).toBe(1)
     expect(result.matched[0].transactionId).toBe(txId)
 
@@ -283,7 +285,8 @@ describe("E2E — administration des champs", () => {
       estAffiche: true,
       estObligatoire: false,
     })
-    expect(created).toEqual({ ok: true })
+    expect(created.ok).toBe(true)
+    if (!created.ok) throw new Error(created.error)
 
     const afterCreate = await listChamps()
     const champ = afterCreate.find((c) => c.codeMachine === "commentaire_e2e")
@@ -349,7 +352,8 @@ describe("E2E — filtres", () => {
       operateurs: ["="],
       ordreAffichage: 5,
     })
-    expect(created).toEqual({ ok: true })
+    expect(created.ok).toBe(true)
+    if (!created.ok) throw new Error(created.error)
 
     const filters = await listFilters()
     const filter = filters.find((f) => f.nomFiltre === "Filtre E2E")

@@ -24,19 +24,9 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-export type DataTableColumn<T> = {
-  key: string
-  label: string
-  numeric?: boolean
-  sortable?: boolean
-  /** Column is shown by default when no user preference/auto-collapse has run. Defaults to true. */
-  defaultVisible?: boolean
-  minWidth?: number
-  priority?: number
-  /** Column can't be hidden or dragged (e.g. a trailing actions column). */
-  locked?: boolean
-  render: (row: T) => ReactNode
-}
+import type { DataTableColumn } from "@/types/table"
+
+export type { DataTableColumn } from "@/types/table"
 
 /** Applies a saved key order to the current column list, appending any unknown columns at the end. */
 function applySavedOrder<T>(columns: DataTableColumn<T>[], order: string[] | null): DataTableColumn<T>[] {

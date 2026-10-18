@@ -7,49 +7,17 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { DataTable, type DataTableColumn } from "@/components/data-table"
 import { AddToPanierDialog } from "@/components/dossier/add-to-panier-dialog"
-import type { SerializedTransaction, SerializedValue } from "@/serializers/transaction.serializer"
-import { isImportedFieldCode, type ImportedField } from "@/lib/imported-fields"
-import type { ChampEnrichissableConfig, TypeDonneesChamp } from "@/types/champ"
+import type { SerializedTransaction } from "@/types/transaction"
+import type { ImportedField } from "@/lib/imported-fields"
+import type { ChampEnrichissableConfig } from "@/types/champ"
+import { formatCurrency } from "@/lib/format"
+import { buildTransactionFieldColumns } from "@/lib/transaction-columns"
 
 export type TransactionRow = SerializedTransaction
 
 type TableData = {
   transactions: TransactionRow[]
   total: number
-}
-
-export function formatCurrency(value: number | null | undefined) {
-  if (value === null || value === undefined) return "—"
-  return new Intl.NumberFormat("fr-CA", {
-    style: "currency",
-    currency: "CAD",
-    maximumFractionDigits: 0,
-  }).format(value)
-}
-
-export function formatNumber(value: number | null | undefined, digits = 2) {
-  if (value === null || value === undefined) return "—"
-  return new Intl.NumberFormat("fr-CA", {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  }).format(value)
-}
-
-export function formatValue(value: SerializedValue | undefined): string {
-  if (value === null || value === undefined) return "—"
-  if (Array.isArray(value)) return value.length > 0 ? value.join(", ") : "—"
-  if (typeof value === "boolean") return value ? "Oui" : "Non"
-  if (typeof value === "number") return formatNumber(value)
-  return String(value)
-}
-
-/** Renders a stored flat value according to its champ's data type (dates locale-formatted, arrays joined). */
-export function renderFieldValue(value: SerializedValue | undefined, typeDonnees: TypeDonneesChamp): string {
-  if (typeDonnees === "DATE" && typeof value === "string" && value !== "") {
-    const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("fr-CA")
-  }
-  return formatValue(value)
 }
 
 /** Le taux global combine deux valeurs numériques de la carte plate `fields`. */
@@ -111,40 +79,14 @@ function Actions({ id, statut, onAddToPanier }: { id: string; statut: string; on
   )
 }
 
-function isNumericType(typeDonnees: string): boolean {
-  return typeDonnees === "DECIMAL" || typeDonnees === "ENTIER"
-}
-
-/** Colonnes construites depuis le catalogue `IMPORTED_FIELDS` (clé = codeMachine) puis les champs `Champ`
- *  non importés : les deux lisent la même carte plate `row.fields`. */
+/** Colonnes de champs partagées avec le panier, puis les colonnes calculées propres à la liste. */
 function useTableColumns(
   importedFields: ImportedField[],
   champs: ChampEnrichissableConfig[],
   onAddToPanier: (id: string) => void
 ): DataTableColumn<TransactionRow>[] {
   return useMemo(() => {
-    const importedCols: DataTableColumn<TransactionRow>[] = importedFields.map((field) => ({
-      key: field.code,
-      label: field.label,
-      numeric: field.numeric,
-      sortable: field.display.sortable,
-      defaultVisible: field.display.defaultVisible,
-      minWidth: field.display.minWidth,
-      priority: field.display.priority,
-      render: (row) => renderFieldValue(row.fields[field.code], field.typeDonnees),
-    }))
-
-    const champCols: DataTableColumn<TransactionRow>[] = champs
-      .filter((champ) => champ.actif && !isImportedFieldCode(champ.codeMachine))
-      .map((champ) => ({
-        key: champ.codeMachine,
-        label: champ.nomAffichage,
-        numeric: isNumericType(champ.typeDonnees),
-        defaultVisible: false,
-        minWidth: 130,
-        priority: 1,
-        render: (row) => renderFieldValue(row.fields[champ.codeMachine], champ.typeDonnees),
-      }))
+    const fieldCols = buildTransactionFieldColumns({ importedFields, champs })
 
     const computedCols: DataTableColumn<TransactionRow>[] = [
       {
@@ -176,7 +118,7 @@ function useTableColumns(
       },
     ]
 
-    return [...importedCols, ...champCols, ...computedCols]
+    return [...fieldCols, ...computedCols]
   }, [importedFields, champs, onAddToPanier])
 }
 

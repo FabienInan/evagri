@@ -1,6 +1,8 @@
-import { z } from "zod"
+import type { ZodError } from "zod"
 import { validateRuleSyntax } from "@/lib/calculator"
 import { hasOptions, type ChampEnrichissableInput, type NatureChamp } from "@/types/champ"
+import { formatZodError } from "@/validators/common"
+import { CHAMP_FIELD_LABELS } from "@/validators/champ.validator"
 
 export interface ChampValidationError {
   field: string
@@ -9,46 +11,12 @@ export interface ChampValidationError {
 
 const CODE_MACHINE_PATTERN = /^[a-z][a-z0-9_]*$/
 
-const CHAMP_FIELD_LABELS: Record<string, string> = {
-  codeMachine: "Code machine",
-  nomAffichage: "Nom affiché",
-  typeDonnees: "Type de données",
-  nature: "Nature",
-  unite: "Unité",
-  plageMin: "Plage minimale",
-  plageMax: "Plage maximale",
-  optionsListe: "Options de liste",
-  regleCalcul: "Règle de calcul",
-  applicableATypes: "Types de transaction applicables",
-  ordreAffichage: "Ordre d'affichage",
-  estAffiche: "Affiché sur la fiche",
-  estObligatoire: "Obligatoire",
-}
-
 /**
  * Renders Zod issues as readable French sentences. A bare ZodError's `.message` is the JSON-serialised
  * issues array, which is what ends up on screen when a server action lets it bubble up uncaught.
  */
-export function formatChampInputErrors(error: z.ZodError): string {
-  return error.issues
-    .map((issue) => {
-      const key = issue.path.join(".")
-      const label = CHAMP_FIELD_LABELS[key] ?? key
-
-      switch (issue.code) {
-        case "too_small":
-          return issue.origin === "array"
-            ? `« ${label} » : au moins une valeur doit être sélectionnée.`
-            : `« ${label} » est obligatoire.`
-        case "too_big":
-          return `« ${label} » contient trop de valeurs.`
-        case "invalid_value":
-          return `« ${label} » contient une valeur non autorisée.`
-        default:
-          return `« ${label} » est invalide.`
-      }
-    })
-    .join(" ")
+export function formatChampInputErrors(error: ZodError): string {
+  return formatZodError(error, { labels: CHAMP_FIELD_LABELS, allIssues: true })
 }
 
 /** est_lecture_seule is never client-supplied: it is entirely derived from nature (§6.5). */

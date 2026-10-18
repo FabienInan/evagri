@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { PanierFormDialog } from "@/components/dossier/panier-form-dialog"
-import type { TypologieOption } from "@/repositories/typologie.repository"
+import type { TypologieOption } from "@/types/typologie"
 import type { SerializedDossier, SerializedPanier } from "@/serializers/dossier.serializer"
 
 export function DossierDetailClient({

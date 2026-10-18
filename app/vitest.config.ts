@@ -7,6 +7,8 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: true,
+    // Les specs Playwright (e2e/) ne sont pas des tests Vitest : `npm run test:e2e` les exécute.
+    include: ["tests/**/*.{test,spec}.{ts,tsx}"],
   },
   resolve: {
     alias: {

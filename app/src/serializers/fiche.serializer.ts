@@ -1,5 +1,5 @@
 import type { ChampEnrichissableConfig, FicheSection } from "@/types/champ"
-import type { TypologieOption } from "@/repositories/typologie.repository"
+import type { TypologieOption } from "@/types/typologie"
 import { serializeTransaction, type SerializedTransaction } from "@/serializers/transaction.serializer"
 import type { FicheTransactionRecord } from "@/repositories/fiche.repository"
 import { deriveFicheMode, type FicheMode } from "@/lib/fiche"

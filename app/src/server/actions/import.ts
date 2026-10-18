@@ -118,7 +118,7 @@ export async function listImports() {
   return listImportRecords(organisationId)
 }
 
-export type RetryImportResult = { success: true; message: string } | { ok: false; error: string }
+export type RetryImportResult = { ok: true; message: string } | { ok: false; error: string }
 
 export async function retryImport(importationId: string): Promise<RetryImportResult> {
   const organisationId = getCurrentOrganisationId()
@@ -132,5 +132,5 @@ export async function retryImport(importationId: string): Promise<RetryImportRes
   }
 
   await resetImportForRetry(importationId)
-  return { success: true, message: "Importation marquée pour relance." }
+  return { ok: true, message: "Importation marquée pour relance." }
 }

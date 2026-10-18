@@ -46,14 +46,16 @@ describe("createChamp estLectureSeule", () => {
   it("persists estLectureSeule:false for an IMPORTE champ (admin re-opens an imported field)", async () => {
     const { createChamp } = await import("@/server/actions/champs")
     const result = await createChamp({ ...baseInput, codeMachine: "champ_importe_libre", estLectureSeule: false })
-    expect(result).toEqual({ ok: true })
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.champ.codeMachine).toBe("champ_importe_libre")
     expect((await findChamp("champ_importe_libre"))?.estLectureSeule).toBe(false)
   })
 
   it("derives estLectureSeule true for an IMPORTE champ when the field is omitted", async () => {
     const { createChamp } = await import("@/server/actions/champs")
     const result = await createChamp({ ...baseInput, codeMachine: "champ_importe_derive" })
-    expect(result).toEqual({ ok: true })
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.champ.codeMachine).toBe("champ_importe_derive")
     expect((await findChamp("champ_importe_derive"))?.estLectureSeule).toBe(true)
   })
 
@@ -68,7 +70,8 @@ describe("createChamp estLectureSeule", () => {
       regleCalcul: "prix_vente",
       estLectureSeule: false,
     })
-    expect(result).toEqual({ ok: true })
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.champ.codeMachine).toBe("indicateur_test_calc")
     expect((await findChamp("indicateur_test_calc"))?.estLectureSeule).toBe(true)
   })
 })

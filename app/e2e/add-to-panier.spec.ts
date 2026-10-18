@@ -16,7 +16,10 @@ test("ajoute une transaction au panier depuis la liste", async ({ page }) => {
   await page.getByLabel("Panier").selectOption({ label: "Cible e2e" })
   await page.getByRole("button", { name: "Ajouter", exact: true }).click()
 
-  await expect(page.getByText(/ajoutée/)).toBeVisible()
+  // Succès : la modale se referme et la transaction est bien présente dans le panier cible.
+  await expect(page.getByRole("heading", { name: "Ajouter au panier" })).toHaveCount(0)
+  await page.goto(`/paniers/${fx.paniers.cible}`)
+  await expect(page.getByText(fx.numeros.t1)).toBeVisible()
 })
 
 test("ajoute une transaction au panier depuis la fiche", async ({ page }) => {

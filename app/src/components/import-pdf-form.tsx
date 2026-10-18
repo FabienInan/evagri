@@ -15,7 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
-type Report = Awaited<ReturnType<typeof importActesPDF>>
+type Report = Extract<Awaited<ReturnType<typeof importActesPDF>>, { ok: true }>
 
 export function ImportPdfForm({ onImported }: { onImported?: () => void }) {
   const router = useRouter()
@@ -28,6 +28,10 @@ export function ImportPdfForm({ onImported }: { onImported?: () => void }) {
     setError(null)
     try {
       const res = await importActesPDF(formData)
+      if (!res.ok) {
+        setError(res.error)
+        return
+      }
       setReport(res)
       onImported?.()
       router.refresh()

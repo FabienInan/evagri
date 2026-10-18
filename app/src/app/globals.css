@@ -100,3 +100,24 @@
 .scrollable-list:hover::-webkit-scrollbar-thumb {
   background-color: var(--muted-foreground);
 }
+
+/* Pin de l'export carte statique : pastille arrondie centrée sur la coordonnée, portant le numéro de vente. */
+.panier-export-pin {
+  background: transparent;
+  border: none;
+}
+
+.panier-export-pin-inner {
+  transform: translate(-50%, -50%);
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: 2px solid var(--primary-foreground);
+  box-shadow: 0 1px 4px var(--shadow-color);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}

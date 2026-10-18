@@ -1,11 +1,5 @@
 import { prisma } from "@/lib/prisma"
-
-export interface TypologieOption {
-  id: string
-  code: string
-  nom: string
-  parentId: string | null
-}
+import type { TypologieOption } from "@/types/typologie"
 
 export async function listTypologiesByOrganisation(organisationId: string): Promise<TypologieOption[]> {
   const typologies = await prisma.typologie.findMany({

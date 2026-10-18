@@ -31,9 +31,10 @@ describe("AddToPanierDialog", () => {
     await waitFor(() => expect(listDossiers).toHaveBeenCalled())
   })
 
-  it("ajoute les transactions au panier choisi", async () => {
+  it("ajoute les transactions au panier choisi puis referme la modale", async () => {
     addTransactionsToPanier.mockResolvedValue({ ok: true, added: 1 })
-    render(<AddToPanierDialog transactionIds={["t1"]} open onOpenChange={() => {}} />)
+    const onOpenChange = vi.fn()
+    render(<AddToPanierDialog transactionIds={["t1"]} open onOpenChange={onOpenChange} />)
     await waitFor(() => expect(listDossiers).toHaveBeenCalled())
 
     fireEvent.change(screen.getByLabelText("Dossier"), { target: { value: "d1" } })
@@ -44,7 +45,7 @@ describe("AddToPanierDialog", () => {
     await waitFor(() =>
       expect(addTransactionsToPanier).toHaveBeenCalledWith({ panierId: "p1", transactionIds: ["t1"] })
     )
-    expect(await screen.findByText(/1 transaction ajoutée/i)).toBeTruthy()
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
   })
 
   it("affiche une erreur si aucun panier n'est choisi", async () => {

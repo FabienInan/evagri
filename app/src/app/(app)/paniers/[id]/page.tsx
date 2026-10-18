@@ -20,7 +20,7 @@ export default async function PanierPage({
   if (!panier) notFound()
 
   const [transactions, champs] = await Promise.all([
-    listTransactionsOfPanier(id),
+    listTransactionsOfPanier(organisationId, id),
     listChampsEnrichissablesByOrganisation(organisationId),
   ])
 

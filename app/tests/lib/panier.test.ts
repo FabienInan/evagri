@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { sortTransactionRows } from "@/lib/panier"
+import { sortTransactionRows } from "@/lib/transaction-sort"
 import type { SerializedTransaction } from "@/serializers/transaction.serializer"
 
 function tx(id: string, fields: Record<string, unknown>): SerializedTransaction {

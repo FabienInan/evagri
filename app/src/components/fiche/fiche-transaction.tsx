@@ -8,6 +8,8 @@ import { FieldValue } from "@/components/fiche/field-value"
 import { IndicateursPanel } from "@/components/fiche/indicateurs-panel"
 import { DocumentsPanel } from "@/components/fiche/documents-panel"
 import { AddToPanierDialog } from "@/components/dossier/add-to-panier-dialog"
+import { Modal } from "@/components/dossier/modal"
+import { Button } from "@/components/ui/button"
 import { saveFiche, setFicheStatut, type FicheFieldError } from "@/server/actions/fiche"
 import {
   TYPE_TRANSACTION_CODE,
@@ -35,6 +37,7 @@ export function FicheTransactionClient({ fiche }: { fiche: SerializedFiche }) {
   const [actionError, setActionError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FicheFieldError[]>([])
   const [addToPanierOpen, setAddToPanierOpen] = useState(false)
+  const [analyseConfirmOpen, setAnalyseConfirmOpen] = useState(false)
 
   const viewModel = buildFicheViewModel({
     sections: fiche.sections,
@@ -128,7 +131,7 @@ export function FicheTransactionClient({ fiche }: { fiche: SerializedFiche }) {
         typeError={errorsByChamp.get(TYPE_TRANSACTION_CODE) ?? null}
         onTypeChange={handleTypeChange}
         onSave={handleSave}
-        onAnalyse={handleAnalyse}
+        onAnalyse={() => setAnalyseConfirmOpen(true)}
         onAddToPanier={() => setAddToPanierOpen(true)}
       />
 
@@ -185,6 +188,32 @@ export function FicheTransactionClient({ fiche }: { fiche: SerializedFiche }) {
         open={addToPanierOpen}
         onOpenChange={setAddToPanierOpen}
       />
+
+      {analyseConfirmOpen && (
+        <Modal
+          title="Passer la transaction à « Analysée » ?"
+          onClose={() => setAnalyseConfirmOpen(false)}
+        >
+          <p className="text-sm text-muted-foreground">
+            L&apos;enregistrement et les contrôles bloquants seront exécutés. La transaction passera à
+            « Analysée » uniquement si toutes les règles sont respectées.
+          </p>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" size="sm" onClick={() => setAnalyseConfirmOpen(false)}>
+              Annuler
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                setAnalyseConfirmOpen(false)
+                void handleAnalyse()
+              }}
+            >
+              Confirmer l&apos;analyse
+            </Button>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

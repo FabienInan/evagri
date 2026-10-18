@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { formatZodError } from "@/validators/common"
 
 /** Numéro de dossier au format AA-RR-DDD (§7.7) : 2 chiffres, 2 majuscules, 3 chiffres. */
 export const NUMERO_DOSSIER_REGEX = /^\d{2}-[A-Z]{2}-\d{3}$/
@@ -28,5 +29,5 @@ export type AddTransactionsInput = z.infer<typeof addTransactionsSchema>
 
 /** Aplatit un ZodError en une phrase lisible (motif `formatChampInputErrors` de `lib/champs.ts`). */
 export function formatDossierInputErrors(error: z.ZodError): string {
-  return error.issues[0]?.message ?? "Entrée invalide."
+  return formatZodError(error, { preferIssueMessage: true, fallback: "Entrée invalide." })
 }

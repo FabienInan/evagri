@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import type { SerializedValue } from "@/serializers/transaction.serializer"
-import type { TypologieOption } from "@/repositories/typologie.repository"
+import type { TypologieOption } from "@/types/typologie"
 import type { FicheMode } from "@/lib/fiche"
 
 /** Libellés d'affichage du statut (le modèle stocke les codes "ANALYSEE"/"NON_ANALYSEE"). */

@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma"
-import { buildWhereClause, FilterInput, findRenteFilter } from "@/lib/filters"
+import { findRenteFilter } from "@/lib/filters"
+import { buildWhereClause } from "@/lib/filters/where"
+import type { FilterInput } from "@/types/filter"
 import type { Prisma, StatutTransaction } from "@prisma/client"
 import Decimal from "decimal.js"
 import type { CreateImportedTransactionInput } from "@/types/import"

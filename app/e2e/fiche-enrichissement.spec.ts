@@ -284,6 +284,7 @@ test("bloque Analyser quand une règle bloquante échoue", async ({ page }) => {
   await open(page, fx.transactions.t7)
 
   await page.getByRole("button", { name: "Analyser", exact: true }).click()
+  await page.getByRole("button", { name: "Confirmer l'analyse" }).click()
 
   await expect(
     page.getByText("Le champ « Champ obligatoire test » est obligatoire.")

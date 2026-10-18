@@ -1,16 +1,8 @@
 import { Prisma } from "@prisma/client"
 import Decimal from "decimal.js"
+import type { SerializedTransaction, SerializedValue } from "@/types/transaction"
 
-export type SerializedValue = string | number | boolean | string[] | null
-export type SerializedTransaction = {
-  id: string
-  statut: string
-  fields: Record<string, SerializedValue>
-  latitude: number | null
-  longitude: number | null
-  importationId: string | null
-  createdAt: string
-}
+export type { SerializedTransaction, SerializedValue } from "@/types/transaction"
 
 type TransactionWithValeurs = Prisma.TransactionGetPayload<{
   include: { valeurs: { include: { champ: true } } }

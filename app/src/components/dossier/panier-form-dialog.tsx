@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Modal } from "@/components/dossier/modal"
 import { createPanier } from "@/server/actions/dossier"
-import type { TypologieOption } from "@/repositories/typologie.repository"
+import type { TypologieOption } from "@/types/typologie"
 
 export function PanierFormDialog({
   dossierId,

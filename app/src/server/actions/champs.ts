@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { z } from "zod"
+import { Prisma } from "@prisma/client"
 import { getCurrentOrganisationId } from "@/repositories/organisation.repository"
 import {
   createChampEnrichissable,
@@ -14,8 +14,10 @@ import {
 import { listTypologiesByOrganisation } from "@/repositories/typologie.repository"
 import { deriveEstLectureSeule, formatChampInputErrors, normalizeChampInput, validateChampConfig } from "@/lib/champs"
 import { IMPORTED_FIELD_BY_CODE } from "@/lib/imported-fields"
-import { NATURE_CHAMP, TYPE_DONNEES_CHAMP } from "@/types/champ"
-import type { ChampEnrichissableInput } from "@/types/champ"
+import type { ChampEnrichissableConfig, ChampEnrichissableInput } from "@/types/champ"
+import { champInputSchema, type ChampInput } from "@/validators/champ.validator"
+
+export type { ChampInput } from "@/validators/champ.validator"
 
 export async function listChamps() {
   const organisationId = getCurrentOrganisationId()
@@ -27,30 +29,16 @@ export async function listTypologies() {
   return listTypologiesByOrganisation(organisationId)
 }
 
-const champInputSchema = z.object({
-  codeMachine: z.string().min(1),
-  nomAffichage: z.string().min(1),
-  typeDonnees: z.enum(TYPE_DONNEES_CHAMP),
-  nature: z.enum(NATURE_CHAMP),
-  unite: z.string(),
-  plageMin: z.number().nullable(),
-  plageMax: z.number().nullable(),
-  optionsListe: z.array(z.string()).nullable(),
-  regleCalcul: z.string().nullable(),
-  applicableATypes: z.array(z.string()),
-  ordreAffichage: z.number().int(),
-  estAffiche: z.boolean(),
-  estObligatoire: z.boolean(),
-  estLectureSeule: z.boolean().optional(),
-})
-
-export type ChampInput = z.infer<typeof champInputSchema>
-
 /**
  * Server actions return errors instead of throwing them: in production Next.js masks the message of a
  * thrown action error, so a validation message would reach the user as a generic error.
  */
 export type ChampActionResult = { ok: true } | { ok: false; error: string }
+
+/** A creation returns the created champ so callers can update local state without reloading. */
+export type CreateChampResult =
+  | { ok: true; champ: ChampEnrichissableConfig }
+  | { ok: false; error: string }
 
 /** safeParse so a ZodError is never surfaced as raw JSON, and its issues become a readable sentence. */
 function parseChampInput(
@@ -71,7 +59,7 @@ async function buildKnownFieldCodes(organisationId: string, excludeCodeMachine: 
   return codes
 }
 
-export async function createChamp(input: ChampInput): Promise<ChampActionResult> {
+export async function createChamp(input: ChampInput): Promise<CreateChampResult> {
   const organisationId = getCurrentOrganisationId()
   const parsed = parseChampInput(input)
   if (!parsed.ok) return parsed
@@ -88,18 +76,27 @@ export async function createChamp(input: ChampInput): Promise<ChampActionResult>
     return { ok: false, error: errors[0].message }
   }
 
-  await createChampEnrichissable(organisationId, {
-    ...normalized,
-    // CALCULE is forced read-only regardless of the request (§6.5); other natures honor an explicit
-    // value from the admin form and otherwise derive it from nature.
-    estLectureSeule:
-      normalized.nature === "CALCULE"
-        ? true
-        : parsed.data.estLectureSeule ?? deriveEstLectureSeule(normalized.nature),
-  })
+  let champ: ChampEnrichissableConfig
+  try {
+    champ = await createChampEnrichissable(organisationId, {
+      ...normalized,
+      // CALCULE is forced read-only regardless of the request (§6.5); other natures honor an explicit
+      // value from the admin form and otherwise derive it from nature.
+      estLectureSeule:
+        normalized.nature === "CALCULE"
+          ? true
+          : parsed.data.estLectureSeule ?? deriveEstLectureSeule(normalized.nature),
+    })
+  } catch (error) {
+    // A concurrent request can win the uniqueness race after the pre-check above.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return { ok: false, error: "Un champ existe déjà avec ce code machine." }
+    }
+    throw error
+  }
 
   revalidatePath("/admin/champs")
-  return { ok: true }
+  return { ok: true, champ }
 }
 
 export async function updateChamp(id: string, input: ChampInput): Promise<ChampActionResult> {

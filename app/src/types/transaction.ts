@@ -1,9 +1,21 @@
-import type { SerializedTransaction } from "@/serializers/transaction.serializer"
+import type { FilterInput } from "@/types/filter"
+
+export type SerializedValue = string | number | boolean | string[] | null
+
+export type SerializedTransaction = {
+  id: string
+  statut: string
+  fields: Record<string, SerializedValue>
+  latitude: number | null
+  longitude: number | null
+  importationId: string | null
+  createdAt: string
+}
 
 export interface TransactionSearchInput {
   page?: number
   pageSize?: number
-  filters?: import("@/types/filter").FilterInput[]
+  filters?: FilterInput[]
   sortField?: string
   sortOrder?: "asc" | "desc"
 }
