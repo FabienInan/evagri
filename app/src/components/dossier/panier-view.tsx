@@ -8,6 +8,7 @@ import { DataTable, type DataTableColumn } from "@/components/data-table"
 import { removeTransactionFromPanier } from "@/server/actions/dossier"
 import { sortTransactionRows } from "@/lib/transaction-sort"
 import { buildTransactionFieldColumns } from "@/lib/transaction-columns"
+import { PanierExcelExport } from "@/components/dossier/panier-excel-export"
 import type { ImportedField } from "@/lib/imported-fields"
 import type { SerializedTransaction } from "@/types/transaction"
 import type { ChampEnrichissableConfig } from "@/types/champ"
@@ -107,7 +108,17 @@ export function PanierView({
       reorderable={false}
       title={nom}
       totalCount={rows.length}
-      toolbar={<PanierMapExport transactions={rows} nom={nom} />}
+      toolbar={
+        <>
+          <PanierExcelExport
+            transactions={rows}
+            nom={nom}
+            importedFields={importedFields}
+            champs={champs}
+          />
+          <PanierMapExport transactions={rows} nom={nom} />
+        </>
+      }
       emptyMessage="Aucune transaction dans ce panier"
     />
   )
