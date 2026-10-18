@@ -6,9 +6,14 @@ import {
   buildTransactionWhere,
   findRenteLotNumbers,
   findTransactions,
+  findTransactionsForSorting,
   withRenteLots,
 } from "@/repositories/transaction.repository"
-import { serializeTransaction, type SerializedTransaction } from "@/serializers/transaction.serializer"
+import {
+  serializeTransaction,
+  serializeTransactionSummary,
+  type SerializedTransaction,
+} from "@/serializers/transaction.serializer"
 import type { TransactionSearchInput } from "@/types/transaction"
 import { sortTransactionRows } from "@/lib/transaction-sort"
 
@@ -26,32 +31,50 @@ export async function searchTransactions(input: TransactionSearchInput) {
   const sortField = input.sortField ?? "date_vente"
   const sortOrder = input.sortOrder ?? "desc"
 
-  // No sortable business column exists on the unified model, so every matching row is loaded, serialized
-  // and ordered in memory; the geo polygon and revente grouping post-processing runs on the same collection
-  // before pagination is applied (a geo/rente set needs the whole set in memory anyway).
-  const allTransactions = await findTransactions({ where })
-  let serialized: SerializedTransaction[] = sortTransactionRows(
-    allTransactions.map(serializeTransaction),
+  // No sortable business column exists on the unified model, so every matching row is ordered in memory.
+  // Only the codes needed for that order and the post-filters (geo polygon, revente grouping) are loaded;
+  // the displayed page is then fetched with its full set of values. Loading every value of every matching
+  // row just to render 25 of them was the dominant cost of returning to the list.
+  const codes = new Set<string>([sortField])
+  if (geoFilter) {
+    codes.add("latitude")
+    codes.add("longitude")
+  }
+  if (duplicatedLots) codes.add("lots_cadastraux")
+
+  let ordered: SerializedTransaction[] = sortTransactionRows(
+    (await findTransactionsForSorting(orgId, where, [...codes])).map(serializeTransactionSummary),
     sortField,
     sortOrder
   )
 
-  if (geoFilter) serialized = filterByPolygon(serialized, geoFilter.value)
+  if (geoFilter) ordered = filterByPolygon(ordered, geoFilter.value)
   // Keep the vente and its revente(s) on consecutive rows without altering either row. The serializer
   // exposes the lots under `fields.lots_cadastraux`; project them to the shape the helper expects.
   if (duplicatedLots) {
-    const withLots = serialized.map((row) => ({
+    const withLots = ordered.map((row) => ({
       ...row,
       lotsCadastraux: Array.isArray(row.fields.lots_cadastraux) ? row.fields.lots_cadastraux : [],
     }))
-    serialized = orderRenteTransactions(withLots, new Set(duplicatedLots))
+    ordered = orderRenteTransactions(withLots, new Set(duplicatedLots))
   }
 
-  const total = serialized.length
-  const paginated = serialized.slice((page - 1) * pageSize, page * pageSize)
+  const total = ordered.length
+  const pageIds = ordered
+    .slice((page - 1) * pageSize, page * pageSize)
+    .map((row) => row.id)
+  const transactions: SerializedTransaction[] = []
+  if (pageIds.length > 0) {
+    const fullRows = await findTransactions({ where: { id: { in: pageIds } } })
+    const byId = new Map(fullRows.map((row) => [row.id, serializeTransaction(row)]))
+    for (const id of pageIds) {
+      const row = byId.get(id)
+      if (row) transactions.push(row)
+    }
+  }
 
   return {
-    transactions: paginated,
+    transactions,
     total,
     page,
     pageSize,

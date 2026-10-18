@@ -32,6 +32,75 @@ export async function countTransactions(where?: Prisma.TransactionWhereInput) {
   return prisma.transaction.count({ where })
 }
 
+export type SortableTransaction = {
+  id: string
+  statut: StatutTransaction
+  importationId: string | null
+  createdAt: Date
+  valeurs: {
+    valeurNombre: Prisma.Decimal | null
+    valeurTexte: string | null
+    valeurTexteMultiple: string[]
+    valeurBooleen: boolean | null
+    valeurDate: Date | null
+    champ: { codeMachine: string }
+  }[]
+}
+
+/**
+ * Première passe de la liste des transactions : charge, pour toutes les lignes filtrées, uniquement les
+ * valeurs utiles au tri et aux post-filtres (géométrie, lots). Évite de joindre la table champ à chaque
+ * valeur et de charger les 15 champs de chaque transaction alors que 25 lignes sont affichées.
+ */
+export async function findTransactionsForSorting(
+  organisationId: string,
+  where: Prisma.TransactionWhereInput,
+  codes: string[]
+): Promise<SortableTransaction[]> {
+  const champs = await prisma.champ.findMany({
+    where: { organisationId, codeMachine: { in: codes } },
+    select: { id: true, codeMachine: true },
+  })
+  if (champs.length === 0) return []
+
+  const codeById = new Map(champs.map((champ) => [champ.id, champ.codeMachine]))
+  const rows = await prisma.transaction.findMany({
+    where,
+    select: {
+      id: true,
+      statut: true,
+      importationId: true,
+      createdAt: true,
+      valeurs: {
+        where: { champId: { in: [...codeById.keys()] } },
+        select: {
+          champId: true,
+          valeurNombre: true,
+          valeurTexte: true,
+          valeurTexteMultiple: true,
+          valeurBooleen: true,
+          valeurDate: true,
+        },
+      },
+    },
+  })
+
+  return rows.map((row) => ({
+    id: row.id,
+    statut: row.statut,
+    importationId: row.importationId,
+    createdAt: row.createdAt,
+    valeurs: row.valeurs.map((valeur) => ({
+      valeurNombre: valeur.valeurNombre,
+      valeurTexte: valeur.valeurTexte,
+      valeurTexteMultiple: valeur.valeurTexteMultiple,
+      valeurBooleen: valeur.valeurBooleen,
+      valeurDate: valeur.valeurDate,
+      champ: { codeMachine: codeById.get(valeur.champId)! },
+    })),
+  }))
+}
+
 export function buildTransactionWhere(
   filters: FilterInput[],
   organisationId: string
