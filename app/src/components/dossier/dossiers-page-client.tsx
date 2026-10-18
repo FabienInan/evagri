@@ -3,9 +3,9 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { FolderPlus } from "lucide-react"
+import { ChevronRight, FolderPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { DossierFormDialog } from "@/components/dossier/dossier-form-dialog"
 import type { SerializedDossier } from "@/serializers/dossier.serializer"
 
@@ -28,21 +28,27 @@ export function DossiersPageClient({ dossiers }: { dossiers: SerializedDossier[]
       {dossiers.length === 0 ? (
         <p className="text-sm text-muted-foreground">Aucun dossier. Créez-en un pour commencer.</p>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {dossiers.map((d) => (
-            <Link key={d.id} href={`/dossiers/${d.id}`}>
-              <Card className="h-full transition-colors hover:border-primary/60">
-                <CardContent className="space-y-1 p-4">
-                  <p className="text-base font-semibold tabular-nums text-foreground">{d.numeroDossier}</p>
-                  <p className="text-sm text-muted-foreground">{d.nom ?? "—"}</p>
-                  <p className="text-xs text-muted-foreground">
+        <Card className="gap-0 overflow-hidden p-0 pb-0">
+          <ul className="divide-y divide-border">
+            {dossiers.map((d) => (
+              <li key={d.id}>
+                <Link
+                  href={`/dossiers/${d.id}`}
+                  className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-accent/50"
+                >
+                  <span className="w-32 shrink-0 text-sm font-semibold tabular-nums text-foreground">
+                    {d.numeroDossier}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{d.nom ?? "—"}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
                     {d.panierCount} panier{d.panierCount > 1 ? "s" : ""}
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
       )}
 
       {showForm && (
