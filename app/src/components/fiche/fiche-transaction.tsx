@@ -29,7 +29,7 @@ export function FicheTransactionClient({
   detailQuery,
 }: {
   fiche: SerializedFiche
-  /** Voisins dans la liste filtrée ; null quand la fiche est ouverte hors contexte filtré. */
+  /** Voisins dans la liste affichée ; null quand la fiche est ouverte hors de cette liste. */
   navigation: TransactionNavigation | null
   /** Query string à conserver pour rester dans la même liste et le même tri. */
   detailQuery: string
@@ -137,32 +137,33 @@ export function FicheTransactionClient({
   }
 
   return (
-    <div className="relative space-y-4">
+    <div className="space-y-4">
       {navigation && (
-        // Flèches de navigation contextuelle, sur les bords, centrées verticalement dans le viewport
-        // tant que la fiche est visible. Elles ne s'affichent que dans une liste filtrée.
-        <div className="pointer-events-none sticky top-[calc(50vh-4rem)] z-20 h-0">
+        // Navigation contextuelle au-dessus de la première carte, aux couleurs de la charte.
+        <div className="flex items-center justify-between gap-2">
           <Button
-            variant="outline"
-            size="icon"
-            className="pointer-events-auto absolute -left-4 top-0 -translate-y-1/2 rounded-full bg-card shadow-md"
+            variant="default"
+            size="sm"
+            className="gap-1"
             aria-label="Transaction précédente"
             title="Transaction précédente"
             disabled={!navigation.prevId}
             onClick={() => goToTransaction(navigation.prevId)}
           >
-            <ChevronLeft className="h-5 w-5" />
+            <ChevronLeft className="h-4 w-4" />
+            Précédent
           </Button>
           <Button
-            variant="outline"
-            size="icon"
-            className="pointer-events-auto absolute -right-4 top-0 -translate-y-1/2 rounded-full bg-card shadow-md"
+            variant="default"
+            size="sm"
+            className="gap-1"
             aria-label="Transaction suivante"
             title="Transaction suivante"
             disabled={!navigation.nextId}
             onClick={() => goToTransaction(navigation.nextId)}
           >
-            <ChevronRight className="h-5 w-5" />
+            Suivant
+            <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       )}

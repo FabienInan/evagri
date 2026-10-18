@@ -7,6 +7,7 @@ import { findTransactionFiche, listDocuments } from "@/repositories/fiche.reposi
 import { serializeDocument, serializeFiche } from "@/serializers/fiche.serializer"
 import { FicheTransactionClient } from "@/components/fiche/fiche-transaction"
 import {
+  LISTE_PARAM,
   buildPanierDetailQuery,
   buildTransactionDetailQuery,
   parseFiltersParam,
@@ -49,7 +50,7 @@ export default async function FicheTransactionPage({
 
   // Deux contextes de navigation possibles, transmis par les liens d'origine :
   // - panier : uniquement les transactions déjà dans le panier (ordre de sa liste) ;
-  // - liste filtrée : les transactions correspondant aux filtres actifs.
+  // - liste des transactions : liste affichée, filtrée ou complète.
   const panierId = typeof sp.panier === "string" && sp.panier ? sp.panier : null
   let navigation: TransactionNavigation | null = null
   let detailQuery: string
@@ -65,11 +66,13 @@ export default async function FicheTransactionPage({
     detailQuery = buildPanierDetailQuery({ panierId, sortField, sortOrder })
   } else {
     const filters = parseFiltersParam(typeof sp.filters === "string" ? sp.filters : null)
-    navigation =
-      filters.length > 0
-        ? await getTransactionNavigation({ organisationId, currentId: id, filters, sortField, sortOrder })
-        : null
-    detailQuery = buildTransactionDetailQuery({ filters, sortField, sortOrder })
+    // `liste=1` : fiche ouverte depuis la liste ; la navigation parcourt alors la liste complète
+    // quand aucun filtre n'est actif. Une URL directe reste sans navigation.
+    const fromListe = sp[LISTE_PARAM] === "1" || filters.length > 0
+    navigation = fromListe
+      ? await getTransactionNavigation({ organisationId, currentId: id, filters, sortField, sortOrder })
+      : null
+    detailQuery = fromListe ? buildTransactionDetailQuery({ filters, sortField, sortOrder }) : ""
   }
 
   return (

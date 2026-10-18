@@ -21,6 +21,27 @@ test("n'affiche pas les flèches quand la fiche est ouverte hors liste filtrée"
   await expect(page.getByRole("button", { name: "Transaction suivante" })).toHaveCount(0)
 })
 
+test("navigue dans la liste complète depuis la liste globale des transactions", async ({ page }) => {
+  await page.goto("/transactions")
+
+  // Liste non filtrée, date de vente décroissante : t6, t5, t4, t3, t2, t9, t1, t7.
+  await page
+    .getByRole("row")
+    .filter({ hasText: fx.numeros.t3 })
+    .getByRole("button", { name: "Voir" })
+    .click()
+
+  await expect(page).toHaveURL(new RegExp(`/transactions/${fx.transactions.t3}\\?liste=1`))
+  const previous = page.getByRole("button", { name: "Transaction précédente" })
+  await expect(previous).toBeEnabled()
+  // Boutons de navigation aux couleurs de la charte (Gazon).
+  await expect(previous).toHaveClass(/bg-primary/)
+
+  await page.getByRole("button", { name: "Transaction suivante" }).click()
+  await expect(page).toHaveURL(new RegExp(`/transactions/${fx.transactions.t2}\\?liste=1`))
+  await expect(page.getByText(fx.numeros.t2).first()).toBeVisible()
+})
+
 test("navigue vers la transaction suivante de la liste filtrée", async ({ page }) => {
   await filterAnalysees(page)
 

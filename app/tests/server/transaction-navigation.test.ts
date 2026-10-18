@@ -93,7 +93,7 @@ describe("getTransactionNavigation", () => {
     expect(navigation).toEqual({ prevId: null, nextId: analyseeOldId, index: 0, total: 2 })
   })
 
-  it("ne propose aucune navigation sans filtre actif", async () => {
+  it("navigue dans la liste complète quand aucun filtre n'est actif", async () => {
     const navigation = await getTransactionNavigation({
       organisationId: orgId,
       currentId: analyseeOldId,
@@ -102,7 +102,8 @@ describe("getTransactionNavigation", () => {
       sortOrder: "desc",
     })
 
-    expect(navigation).toBeNull()
+    // Liste complète, date desc : récente, non analysée, ancienne.
+    expect(navigation).toEqual({ prevId: nonAnalyseeId, nextId: null, index: 2, total: 3 })
   })
 
   it("renvoie null quand la fiche est hors de la liste filtrée", async () => {

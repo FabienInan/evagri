@@ -55,8 +55,8 @@ export async function getOrderedTransactionIds(
 }
 
 /**
- * Voisins de la transaction courante dans la liste filtrée. Renvoie null sans filtre actif :
- * la navigation contextuelle n'a de sens que dans une liste restreinte.
+ * Voisins de la transaction courante dans la liste affichée (filtrée ou complète), dans le même ordre.
+ * Renvoie null quand la fiche n'appartient pas à cette liste.
  */
 export async function getTransactionNavigation(input: {
   organisationId: string
@@ -65,8 +65,6 @@ export async function getTransactionNavigation(input: {
   sortField: string
   sortOrder: "asc" | "desc"
 }): Promise<TransactionNavigation | null> {
-  if (input.filters.length === 0) return null
-
   const ids = await getOrderedTransactionIds(
     input.organisationId,
     input.filters,

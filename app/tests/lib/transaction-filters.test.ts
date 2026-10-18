@@ -21,13 +21,15 @@ describe("paramètres de filtres de la liste", () => {
     expect(parseFiltersParam(JSON.stringify({ not: "an array" }))).toEqual([])
   })
 
-  it("ne construit un contexte de fiche qu'avec des filtres actifs", () => {
-    expect(buildTransactionDetailQuery({ filters: [], sortField: "date_vente", sortOrder: "desc" })).toBe("")
+  it("marque le contexte liste même sans filtre actif", () => {
+    expect(
+      buildTransactionDetailQuery({ filters: [], sortField: "date_vente", sortOrder: "desc" })
+    ).toBe("?liste=1&sort=date_vente&order=desc")
   })
 
   it("transmet les filtres, le tri et l'ordre aux liens vers la fiche", () => {
     expect(
       buildTransactionDetailQuery({ filters, sortField: "prix_vente", sortOrder: "asc" })
-    ).toBe(`?filters=${stringifyFilters(filters)}&sort=prix_vente&order=asc`)
+    ).toBe(`?filters=${stringifyFilters(filters)}&liste=1&sort=prix_vente&order=asc`)
   })
 })

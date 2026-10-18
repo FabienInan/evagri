@@ -1,6 +1,8 @@
 import type { FilterInput } from "@/types/filter"
 
 export const FILTERS_PARAM = "filters"
+/** Marqueur « la fiche a été ouverte depuis la liste des transactions » (même sans filtre actif). */
+export const LISTE_PARAM = "liste"
 
 /** Lit le paramètre `filters` (JSON encodé) de la liste des transactions. */
 export function parseFiltersParam(raw: string | null): FilterInput[] {
@@ -19,15 +21,18 @@ export function stringifyFilters(filters: FilterInput[]): string {
 
 /**
  * Query string à joindre aux liens vers une fiche, pour que la navigation contextuelle
- * (précédent/suivant) reste dans la même liste filtrée et le même tri. Vide sans filtre actif.
+ * (précédent/suivant) reste dans la même liste et le même tri. `liste=1` marque l'origine même
+ * sans filtre actif : la fiche navigue alors dans la liste complète, dans l'ordre affiché.
  */
 export function buildTransactionDetailQuery(input: {
   filters: FilterInput[]
   sortField?: string
   sortOrder?: "asc" | "desc"
 }): string {
-  if (input.filters.length === 0) return ""
-  return buildQuery({ filters: stringifyFilters(input.filters) }, input.sortField, input.sortOrder)
+  const params: Record<string, string> = {}
+  if (input.filters.length > 0) params.filters = stringifyFilters(input.filters)
+  params[LISTE_PARAM] = "1"
+  return buildQuery(params, input.sortField, input.sortOrder)
 }
 
 /**
