@@ -44,9 +44,8 @@ async function main() {
     })
   }
 
-  const importedChampIds: string[] = []
   for (const [index, f] of IMPORTED_FIELDS.entries()) {
-    const champ = await prisma.champ.upsert({
+    await prisma.champ.upsert({
       where: { organisationId_codeMachine: { organisationId: org.id, codeMachine: f.code } },
       update: { nature: "IMPORTE", estLectureSeule: true, typeFiltreRecommande: f.typeFiltreRecommande, entetesImport: f.entetesImport },
       create: {
@@ -64,7 +63,6 @@ async function main() {
         estLectureSeule: true,
       },
     })
-    importedChampIds.push(champ.id)
   }
 
   const typeTransaction = await prisma.champ.upsert({
@@ -220,18 +218,9 @@ async function main() {
     },
   })
 
-  await prisma.vueFicheEvaluation.deleteMany({ where: { organisationId: org.id, typeVue: "FICHE_TRANSACTION" } })
-  await prisma.vueFicheEvaluation.create({
-    data: {
-      organisationId: org.id,
-      typeVue: "FICHE_TRANSACTION",
-      contenu: {
-        sections: [
-          { id: "00000000-0000-0000-0000-0000000000a1", nom: "Données de l'acte", ordre: 0, champs: importedChampIds },
-        ],
-      },
-    },
-  })
+  // Aucune disposition n'est enregistrée : getEffectiveFicheLayout propose alors la disposition par
+  // défaut (section des champs importés + section « Champs à enrichir »), que l'admin peut modifier.
+  // Écrire une disposition ici la ferait passer pour un choix explicite et désactiverait ce défaut.
 
   console.log("Seed completed.")
 }

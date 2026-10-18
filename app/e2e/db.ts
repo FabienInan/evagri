@@ -1,6 +1,6 @@
 import { rm } from "node:fs/promises"
 import { join } from "node:path"
-import { Prisma, PrismaClient } from "@prisma/client"
+import { PrismaClient } from "@prisma/client"
 import { ALL_TEST_CODES } from "./test-champs"
 
 export const ORG_ID =
@@ -70,32 +70,18 @@ export async function cleanup(prisma: PrismaClient): Promise<void> {
   await prisma.valeurChamp.deleteMany({ where: { champId: { in: testChampIds } } })
   await prisma.champ.deleteMany({ where: { id: { in: testChampIds } } })
 
-  // Les specs de disposition remplacent la VueFicheEvaluation entière : on repose la disposition de
-  // référence pour que la suite reparte d'un état connu, même si un test a échoué avant son afterAll.
-  await restoreBaseLayout(prisma)
+  // Les specs de disposition remplacent la VueFicheEvaluation entière : on efface la disposition
+  // enregistrée pour que la suite reparte de la disposition par défaut, même si un test a échoué avant
+  // son afterAll.
+  await restoreDefaultLayout(prisma)
 }
 
-/** Réécrit la disposition de la fiche telle que la sème `prisma/seed.ts` : une section « Données de l'acte »
- *  contenant tous les champs importés, dans l'ordre d'affichage. */
-export async function restoreBaseLayout(prisma: PrismaClient): Promise<void> {
-  const imported = await prisma.champ.findMany({
-    where: { organisationId: ORG_ID, nature: "IMPORTE" },
-    orderBy: { ordreAffichage: "asc" },
-    select: { id: true },
-  })
-  const sections = [
-    {
-      id: "00000000-0000-0000-0000-0000000000a1",
-      nom: "Données de l'acte",
-      ordre: 0,
-      champs: imported.map((c) => c.id),
-    },
-  ] as unknown as Prisma.InputJsonValue
-
+/**
+ * Efface la disposition enregistrée : `getEffectiveFicheLayout` propose alors la disposition par défaut
+ * (champs importés + « Champs à enrichir »), comme sur une organisation qui n'a jamais enregistré la sienne.
+ */
+export async function restoreDefaultLayout(prisma: PrismaClient): Promise<void> {
   await prisma.vueFicheEvaluation.deleteMany({
     where: { organisationId: ORG_ID, typeVue: "FICHE_TRANSACTION" },
-  })
-  await prisma.vueFicheEvaluation.create({
-    data: { organisationId: ORG_ID, typeVue: "FICHE_TRANSACTION", contenu: { sections } },
   })
 }

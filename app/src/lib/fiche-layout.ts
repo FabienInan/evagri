@@ -5,6 +5,9 @@ export const UNASSIGNED = "__UNASSIGNED__"
 /** Section proposée tant qu'aucune disposition n'a été enregistrée pour l'organisation. */
 export const DEFAULT_SECTION_ID = "section_default"
 export const DEFAULT_SECTION_NAME = "Champs à enrichir"
+/** Section de base des champs importés, reprise de la disposition historique du seed. */
+export const DEFAULT_IMPORTED_SECTION_ID = "00000000-0000-0000-0000-0000000000a1"
+export const DEFAULT_IMPORTED_SECTION_NAME = "Données de l'acte"
 
 /** Maps a container id (UNASSIGNED or a section id) to its ordered champ ids. */
 export type Containers = Record<string, string[]>
@@ -23,10 +26,32 @@ export function newSectionId(): string {
   return `section_${Date.now()}_${Math.round(Math.random() * 1_000_000)}`
 }
 
-/** Disposition par défaut : une seule section modifiable regroupant les champs à enrichir prioritaires. */
-export function buildDefaultFicheLayout(champIds: string[]): FicheSection[] {
-  if (champIds.length === 0) return []
-  return [{ id: DEFAULT_SECTION_ID, nom: DEFAULT_SECTION_NAME, ordre: 0, champs: champIds }]
+/**
+ * Disposition par défaut : les champs importés dans leur section de base, puis une section modifiable
+ * regroupant les champs à enrichir prioritaires. Chaque section n'existe que si elle contient des champs.
+ */
+export function buildDefaultFicheLayout(input: {
+  importedChampIds: string[]
+  enrichChampIds: string[]
+}): FicheSection[] {
+  const sections: FicheSection[] = []
+  if (input.importedChampIds.length > 0) {
+    sections.push({
+      id: DEFAULT_IMPORTED_SECTION_ID,
+      nom: DEFAULT_IMPORTED_SECTION_NAME,
+      ordre: sections.length,
+      champs: input.importedChampIds,
+    })
+  }
+  if (input.enrichChampIds.length > 0) {
+    sections.push({
+      id: DEFAULT_SECTION_ID,
+      nom: DEFAULT_SECTION_NAME,
+      ordre: sections.length,
+      champs: input.enrichChampIds,
+    })
+  }
+  return sections
 }
 
 /** Rebuilds drag state from a persisted layout: drops stale/duplicated ids and pools champs not yet assigned. */

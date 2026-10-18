@@ -1,12 +1,13 @@
 import { expect, test, type Locator, type Page } from "@playwright/test"
 import { PrismaClient } from "@prisma/client"
-import { restoreBaseLayout } from "./db"
+import { restoreDefaultLayout } from "./db"
 
 /**
- * Éditeur de disposition de la fiche (§6.5). Chaque test repart de la disposition de référence — une
- * section « Données de l'acte » contenant les champs importés — reposée en base par `restoreBaseLayout`.
- * Les champs de test semés par le setup restent non assignés : c'est la réserve dans laquelle les tests
- * viennent piocher pour vérifier le glisser-déposer.
+ * Éditeur de disposition de la fiche (§6.5). Chaque test repart de la disposition par défaut — les champs
+ * importés dans « Données de l'acte » et le champ saisissable obligatoire dans « Champs à enrichir » —
+ * calculée par `getEffectiveFicheLayout` après l'effacement opéré par `restoreDefaultLayout`. Les autres
+ * champs de test restent non assignés : c'est la réserve dans laquelle les tests viennent piocher pour
+ * vérifier le glisser-déposer.
  */
 
 let prisma: PrismaClient
@@ -82,17 +83,18 @@ test.beforeAll(async () => {
 })
 
 test.afterAll(async () => {
-  await restoreBaseLayout(prisma)
+  await restoreDefaultLayout(prisma)
   await prisma.$disconnect()
 })
 
 test.beforeEach(async ({ page }) => {
-  await restoreBaseLayout(prisma)
+  await restoreDefaultLayout(prisma)
   await openLayout(page)
 })
 
-test("affiche la section de référence et le compteur des champs non assignés", async ({ page }) => {
+test("affiche les sections de référence et le compteur des champs non assignés", async ({ page }) => {
   await expect(sectionInputs(page).first()).toHaveValue("Données de l'acte")
+  await expect(sectionInputs(page).last()).toHaveValue("Champs à enrichir")
   await expect(page.getByText(/^Champs non assignés \(\d+\)$/)).toBeVisible()
   await expect(page.getByText("Déposez des champs ici")).toHaveCount(0)
 })
@@ -107,7 +109,7 @@ test("regroupe dans les non assignés les champs saisissables hors disposition",
 test("crée une section via le bouton Ajouter une section", async ({ page }) => {
   await addSection(page, "Nouvelle zone")
 
-  await expect(sectionInputs(page)).toHaveCount(2)
+  await expect(sectionInputs(page)).toHaveCount(3)
   await expect(sectionInputs(page).last()).toHaveValue("Nouvelle zone")
 })
 
@@ -116,7 +118,7 @@ test("crée une section avec la touche Entrée", async ({ page }) => {
   await input.fill("Zone clavier")
   await input.press("Enter")
 
-  await expect(sectionInputs(page)).toHaveCount(2)
+  await expect(sectionInputs(page)).toHaveCount(3)
   await expect(sectionInputs(page).last()).toHaveValue("Zone clavier")
 })
 
@@ -124,7 +126,7 @@ test("ignore une section dont le nom est vide", async ({ page }) => {
   await page.getByPlaceholder("Nom de la nouvelle section (ex. : Superficies)").fill("   ")
   await page.getByRole("button", { name: "Ajouter une section" }).click()
 
-  await expect(sectionInputs(page)).toHaveCount(1)
+  await expect(sectionInputs(page)).toHaveCount(2)
 })
 
 test("renomme une section et conserve le nom après rechargement", async ({ page }) => {
@@ -142,7 +144,7 @@ test("supprime une section", async ({ page }) => {
   await addSection(page, "Zone à supprimer")
   await page.getByRole("button", { name: "Supprimer la section Zone à supprimer" }).click()
 
-  await expect(sectionInputs(page)).toHaveCount(1)
+  await expect(sectionInputs(page)).toHaveCount(2)
   await expect(
     page.locator('input[aria-label="Nom de la section"][value="Zone à supprimer"]')
   ).toHaveCount(0)

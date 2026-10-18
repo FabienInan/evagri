@@ -23,10 +23,14 @@ describe("unified schema", () => {
     expect(mrc?.entetesImport).not.toBeNull()
   })
 
-  it("seeds a default fiche section holding the imported champs", async () => {
+  it("propose la disposition par défaut quand aucune n'est enregistrée", async () => {
     const vue = await prisma.vueFicheEvaluation.findFirst({ where: { organisationId: ORG, typeVue: "FICHE_TRANSACTION" } })
-    const contenu = vue?.contenu as { sections?: { nom: string; champs: string[] }[] } | undefined
-    expect(contenu?.sections?.[0]?.nom).toBe("Données de l'acte")
-    expect(contenu?.sections?.[0]?.champs.length).toBe(12)
+    expect(vue).toBeNull()
+
+    const { getEffectiveFicheLayout } = await import("@/server/fiche-layout")
+    const sections = await getEffectiveFicheLayout(ORG)
+    expect(sections[0]).toMatchObject({ nom: "Données de l'acte" })
+    expect(sections[0].champs).toHaveLength(12)
+    expect(sections.map((s) => s.nom)).toContain("Champs à enrichir")
   })
 })

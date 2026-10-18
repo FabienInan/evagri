@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest"
 import {
+  DEFAULT_IMPORTED_SECTION_ID,
+  DEFAULT_IMPORTED_SECTION_NAME,
   DEFAULT_SECTION_ID,
   DEFAULT_SECTION_NAME,
   UNASSIGNED,
@@ -16,14 +18,38 @@ import {
 } from "@/lib/fiche-layout"
 
 describe("buildDefaultFicheLayout", () => {
-  it("groups the given champs into a single editable default section", () => {
-    expect(buildDefaultFicheLayout(["a", "b"])).toEqual([
-      { id: DEFAULT_SECTION_ID, nom: DEFAULT_SECTION_NAME, ordre: 0, champs: ["a", "b"] },
+  it("place les champs importés puis les champs à enrichir dans deux sections", () => {
+    expect(
+      buildDefaultFicheLayout({ importedChampIds: ["i1", "i2"], enrichChampIds: ["a", "b"] })
+    ).toEqual([
+      {
+        id: DEFAULT_IMPORTED_SECTION_ID,
+        nom: DEFAULT_IMPORTED_SECTION_NAME,
+        ordre: 0,
+        champs: ["i1", "i2"],
+      },
+      { id: DEFAULT_SECTION_ID, nom: DEFAULT_SECTION_NAME, ordre: 1, champs: ["a", "b"] },
     ])
   })
 
-  it("returns no section when there is no champ to enrich", () => {
-    expect(buildDefaultFicheLayout([])).toEqual([])
+  it("omet une section vide et garde l'ordre à zéro", () => {
+    expect(
+      buildDefaultFicheLayout({ importedChampIds: [], enrichChampIds: ["a"] })
+    ).toEqual([{ id: DEFAULT_SECTION_ID, nom: DEFAULT_SECTION_NAME, ordre: 0, champs: ["a"] }])
+    expect(
+      buildDefaultFicheLayout({ importedChampIds: ["i1"], enrichChampIds: [] })
+    ).toEqual([
+      {
+        id: DEFAULT_IMPORTED_SECTION_ID,
+        nom: DEFAULT_IMPORTED_SECTION_NAME,
+        ordre: 0,
+        champs: ["i1"],
+      },
+    ])
+  })
+
+  it("renvoie aucune section quand il n'y a rien à placer", () => {
+    expect(buildDefaultFicheLayout({ importedChampIds: [], enrichChampIds: [] })).toEqual([])
   })
 })
 

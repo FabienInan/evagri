@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test"
 import { PrismaClient } from "@prisma/client"
 import { fixtures } from "./fixtures"
-import { restoreBaseLayout } from "./db"
+import { restoreDefaultLayout } from "./db"
 import { resetTestValues, setEnrichLayout } from "./support"
 
 /**
@@ -56,7 +56,7 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await resetTestValues(prisma, fx.transactions.t7)
-  await restoreBaseLayout(prisma)
+  await restoreDefaultLayout(prisma)
   await prisma.$disconnect()
 })
 
