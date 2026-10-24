@@ -225,19 +225,22 @@ export interface ExportTable {
   rows: (string | number | null)[][]
 }
 
-/** Construit la feuille de calcul (en-tête + lignes) pour les colonnes choisies. */
+/**
+ * Construit la feuille de calcul (en-tête + lignes) pour les colonnes choisies. Les indicateurs ajustés
+ * proviennent de l'Analyse de Dossier stockée, indexée par identifiant de transaction.
+ */
 export function buildExportTable(input: {
   transactions: SerializedTransaction[]
   importedFields: ImportedField[]
   champs: ChampEnrichissableConfig[]
-  params: ExportAnalysisParams
+  adjustedByTransaction: Record<string, Record<string, number | null>>
   selectedKeys: Iterable<string>
 }): ExportTable {
   const selected = new Set(input.selectedKeys)
   const columns = buildExportColumns(input.importedFields, input.champs).filter((column) => selected.has(column.key))
 
   const rows = input.transactions.map((transaction) => {
-    const adjusted = computeAdjustedValues(transaction.fields, input.params)
+    const adjusted = input.adjustedByTransaction[transaction.id] ?? {}
     return columns.map((column) =>
       column.nature === "ajuste"
         ? adjusted[column.key] ?? null

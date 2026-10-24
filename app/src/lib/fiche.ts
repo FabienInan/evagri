@@ -2,7 +2,7 @@ import type { ChampEnrichissableConfig, FicheSection, TypeDonneesChamp } from "@
 import { evaluateRule, roundToInteger, type CalculationContext } from "@/lib/calculator"
 import { formatCellValue } from "@/lib/format"
 import type { TypologieOption } from "@/types/typologie"
-import { validateEnrichment, validateSaleDate, type RangeCheck } from "@/lib/validation"
+import { validateEnrichment, validateSaleDate, warnSuperficieCoherence, type RangeCheck } from "@/lib/validation"
 import { joinMultiValue, parseMultiValue } from "@/lib/multi-value"
 
 export type FicheMode = "edition" | "consultation"
@@ -258,26 +258,46 @@ function pickNumber(valeurs: Record<string, FicheValeur>, aliases: readonly stri
   return null
 }
 
-/** Blocking rules (§7.8.3): V-001..V-007, mandatory sale type (§7.5.3) and est_obligatoire fields. */
-export function validateFiche(input: {
+type FicheCheckInput = {
   champs: ChampEnrichissableConfig[]
   sections: FicheSection[]
   valeurs: Record<string, FicheValeur>
   fields: Record<string, FicheValeur>
   typeCode: string | null
   dateVente: string | null
-}): FicheValidationError[] {
-  const errors: FicheValidationError[] = []
+}
 
+/** Champs visibles et valeurs saisies pour ces champs. Validation et avertissements utilisent le MÊME
+ *  prédicat de visibilité que le rendu : un champ invisible ne doit jamais bloquer ni avertir. */
+function visibleFicheValues(input: FicheCheckInput) {
   const placedChampIds = new Set(input.sections.flatMap((s) => s.champs))
-  // Validation uses the SAME visibility predicate as rendering: a champ the user cannot see must never
-  // block the save (an obligatory-but-hidden or unplaced champ would brick Enregistrer/Analyser forever),
-  // and a stale value of a hidden champ must not raise spurious V-003/V-006/V-007.
   const champs = input.champs.filter((c) => isChampVisible(c, input.typeCode, placedChampIds))
   const visibleCodes = new Set(champs.map((c) => c.codeMachine))
   const valeursVisibles: Record<string, FicheValeur> = Object.fromEntries(
     Object.entries(input.valeurs).filter(([code]) => visibleCodes.has(code))
   )
+  return { champs, valeursVisibles }
+}
+
+/** Avertissements non bloquants (§7.8.3) : l'évaluateur peut forcer la sauvegarde. */
+export function warningsFiche(input: FicheCheckInput): FicheValidationError[] {
+  const { valeursVisibles } = visibleFicheValues(input)
+  return warnSuperficieCoherence({
+    superficieTotaleHectare: pickNumber(input.fields, ["superficie_totale_hectare"]),
+    superficieCultivee: pickSuperficie(valeursVisibles, SUPERFICIE_ROOTS.superficieCultivee)?.valeur ?? null,
+    superficieBoisee: pickSuperficie(valeursVisibles, SUPERFICIE_ROOTS.superficieBoisee)?.valeur ?? null,
+    superficieConstructible: pickSuperficie(valeursVisibles, SUPERFICIE_ROOTS.superficieConstructible)?.valeur ?? null,
+  })
+}
+
+/** Blocking rules (§7.8.3): V-001..V-007, mandatory sale type (§7.5.3) and est_obligatoire fields. */
+export function validateFiche(input: FicheCheckInput): FicheValidationError[] {
+  const errors: FicheValidationError[] = []
+
+  // Validation uses the SAME visibility predicate as rendering: a champ the user cannot see must never
+  // block the save (an obligatory-but-hidden or unplaced champ would brick Enregistrer/Analyser forever),
+  // and a stale value of a hidden champ must not raise spurious V-003/V-006/V-007.
+  const { champs, valeursVisibles } = visibleFicheValues(input)
 
   if (!input.typeCode) {
     errors.push({ code: "V-TYPE", champ: TYPE_TRANSACTION_CODE, message: "Le type de transaction est obligatoire." })

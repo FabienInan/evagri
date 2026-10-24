@@ -9,17 +9,21 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useHeaderActions } from "@/components/header-actions"
 import { PanierFormDialog } from "@/components/dossier/panier-form-dialog"
+import { AnalysesSection } from "@/components/dossier/analyses-section"
 import type { TypologieOption } from "@/types/typologie"
 import type { SerializedDossier, SerializedPanier } from "@/serializers/dossier.serializer"
+import type { SerializedAnalyse } from "@/serializers/analyse-dossier.serializer"
 
 export function DossierDetailClient({
   dossier,
   paniers,
   typologies,
+  analyses,
 }: {
   dossier: SerializedDossier
   paniers: SerializedPanier[]
   typologies: TypologieOption[]
+  analyses: SerializedAnalyse[]
 }) {
   const router = useRouter()
   const [showForm, setShowForm] = useState(false)
@@ -64,6 +68,8 @@ export function DossierDetailClient({
           </ul>
         </Card>
       )}
+
+      <AnalysesSection dossierId={dossier.id} analyses={analyses} />
 
       {showForm && (
         <PanierFormDialog

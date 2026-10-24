@@ -34,7 +34,12 @@ export async function cleanup(prisma: PrismaClient): Promise<void> {
     where: { OR: [{ panierId: { in: panierIds } }, { transactionId: { in: txIds } }] },
   })
   await prisma.panier.deleteMany({ where: { id: { in: panierIds } } })
-  await prisma.dossier.deleteMany({ where: { id: { in: dossiers.map((d) => d.id) } } })
+  const dossierIds = dossiers.map((d) => d.id)
+  await prisma.indicateursAjustes.deleteMany({
+    where: { OR: [{ transactionId: { in: txIds } }, { analyseDossier: { dossierId: { in: dossierIds } } }] },
+  })
+  await prisma.analyseDossier.deleteMany({ where: { dossierId: { in: dossierIds } } })
+  await prisma.dossier.deleteMany({ where: { id: { in: dossierIds } } })
   await prisma.documentActe.deleteMany({ where: { transactionId: { in: txIds } } })
   await prisma.valeurChamp.deleteMany({ where: { transactionId: { in: txIds } } })
   await prisma.transaction.deleteMany({ where: { id: { in: txIds } } })

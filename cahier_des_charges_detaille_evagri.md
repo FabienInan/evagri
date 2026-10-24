@@ -13,19 +13,21 @@ Le présent document constitue la spécification fonctionnelle exhaustive de la 
 
 | Terme | Définition |
 |---|---|
-| **Transaction** | Vente enregistrée d’un bien agricole. Elle possède une **donnée brute** (importée de l’acte de vente) et un **enrichissement** (analyse approfondie EVAGRI). |
-| **Donnée brute / Source** | Information issue d’un flux externe (fichier CSV JLR hebdomadaire) ou du fichier Excel EVAGRI historique, constituant la référence factuelle de l’acte de vente. |
-| **Enrichissement** | Couche analytique propre à EVAGRI, constituée des champs configurables saisis ou calculés. |
-| **Champ enrichissable** | Champ paramétré par l’administrateur et affiché sur la fiche transaction. Il existe deux natures : **Saisissable** (l’évaluateur intervient) et **Calculé** (valeur déterminée automatiquement par une règle arithmétique). |
-| **Champ saisissable** | Champ enrichissable modifiable par l’évaluateur. Peut être initialisé par une règle de calcul, mais reste éditable. |
-| **Champ calculé (Indicateur de base)** | Champ enrichissable non modifiable, dont la valeur est recalculée automatiquement par le système à chaque modification d’un champ saisissable impactant. Affiché dans la section latérale des indicateurs de la fiche. |
-| **Règle de calcul** | Expression arithmétique simple (`+`, `-`, `*`, `/`, `(`, `)`) composée de codes de champs sources (données brutes) et/ou de codes d’autres champs enrichissables (saisissables ou calculés). Permet d’initialiser ou de recalculer automatiquement la valeur d’un champ enrichissable. |
+| **Transaction** | Vente enregistrée d’un bien agricole. Toutes ses informations (données de l’acte importées, analyse EVAGRI saisie, indicateurs calculés) sont portées par des **valeurs de champ**. |
+| **Champ** | Unité d’information paramétrée dans l’application et pouvant être affichée sur la fiche transaction. Chaque champ porte une **nature** (libellé de provenance) : **Importé**, **Saisissable** (enrichi) ou **Calculé**. Il n’existe plus de notion distincte de « champ source » : les données de l’acte sont des champs de nature Importé. |
+| **Nature d’un champ** | Libellé définissant la provenance de la valeur : `IMPORTE` (issue d’un fichier d’import), `SAISISSABLE` (saisie par l’évaluateur — enrichissement) ou `CALCULE` (déterminée par une règle de calcul). |
+| **Champ importé** | Champ dont la valeur provient d’un import (fichier CSV JLR hebdomadaire ou fichier Excel EVAGRI) et constitue la référence factuelle de l’acte de vente (n° d’inscription, date de vente, prix, vendeur, acheteur, lots, MRC, municipalité, adresse, superficie totale, latitude, longitude). En lecture seule par défaut. |
+| **Enrichissement** | Couche analytique propre à EVAGRI, constituée des champs saisissables et calculés. |
+| **Champ saisissable** | Champ enrichi par l’évaluateur. Peut être initialisé par une règle de calcul ou par l’import du fichier EVAGRI, et reste éditable sauf s’il est configuré en lecture seule. |
+| **Champ calculé (Indicateur de base)** | Champ toujours en lecture seule, dont la valeur est recalculée automatiquement par le système à chaque modification d’un champ impactant. Affiché dans la section latérale des indicateurs de la fiche. |
+| **Lecture seule** | Attribut d’un champ, configurable par l’administrateur : le champ est affiché sur la fiche mais ne peut pas être modifié par l’évaluateur. Coché par défaut pour les champs importés, décoché pour les champs saisissables, toujours actif pour les champs calculés. |
+| **Règle de calcul** | Expression arithmétique simple (`+`, `-`, `*`, `/`, `(`, `)`) composée de codes de champs de toute nature (importés, saisissables ou calculés). Permet d’initialiser ou de recalculer automatiquement la valeur d’un champ saisissable ou calculé. |
 | **Contributeur** | Dernier évaluateur ayant passé une transaction au statut « Analysée ». |
 | **Dossier** | Regroupement métier représentant une mission ou un client. Identifié par un numéro formel. Un Dossier contient un ou plusieurs Paniers. |
 | **Panier** | Liste de transactions sélectionnées par un évaluateur au sein d’un Dossier. Relation hiérarchique : **Dossier → Panier → Transactions**. |
 | **Analyse de Dossier** | Snapshot temporel d’un Dossier comprenant une date d’évaluation, un taux de croissance et des valeurs de marché de référence. Permet de calculer les indicateurs ajustés dans le temps. |
 | **Résultat d’analyse par transaction** | Enregistrement stockant les valeurs des indicateurs ajustés calculés pour une transaction donnée, au sein d’une Analyse de Dossier spécifique. |
-| **Indicateur ajusté dans le temps** | **Résultat de calcul** appliqué à une transaction dans le contexte d’une Analyse de Dossier (instant T). Il n’est ni un champ enrichi, ni une donnée brute. Stocké séparément. |
+| **Indicateur ajusté dans le temps** | **Résultat de calcul** appliqué à une transaction dans le contexte d’une Analyse de Dossier (instant T). Il n’est pas un champ (ni importé, ni saisissable, ni calculé). Stocké séparément. |
 | **Organisation** | Entité propriétaire des données. Dans le MVP, EVAGRI constitue l’organisation unique, mais l’architecture doit isoler les données par organisation. |
 | **MRC** | Municipalité régionale de comté. |
 | **Loi 25** | Loi québécoise sur la protection des renseignements personnels. |
@@ -36,8 +38,8 @@ Le présent document constitue la spécification fonctionnelle exhaustive de la 
 
 | Acteur | Rôle fonctionnel | Permissions clés |
 |---|---|---|
-| **Administrateur** | Gère la configuration métier de l’organisation. | CRUD champs enrichissables (saisissables et calculés), CRUD filtres de recherche, CRUD utilisateurs de son organisation, relance des imports en échec, consultation des journaux d’audit, paramétrage des listes déroulantes. |
-| **Évaluateur (Utilisateur)** | Effectue les analyses terrain et constitue les rapports. | Recherche multicritères, saisie d’enrichissements, consultation des champs calculés, création de Dossiers et Paniers (partagés), export Excel et carte, consultation des fiches. |
+| **Administrateur** | Gère la configuration métier de l’organisation. | CRUD champs saisissables et calculés, configuration des champs importés (libellé, affichage, lecture seule, section — sans création ni suppression), CRUD filtres de recherche, CRUD utilisateurs de son organisation, relance des imports en échec, consultation des journaux d’audit, paramétrage des listes déroulantes. |
+| **Évaluateur (Utilisateur)** | Effectue les analyses terrain et constitue les rapports. | Recherche multicritères, saisie des champs non en lecture seule, consultation des champs importés et calculés, création de Dossiers et Paniers (partagés), export Excel et carte, consultation des fiches. |
 | **Développeur** | Supervise les flux techniques et l’infrastructure applicative. | Accès à l’interface de relance des imports, aux logs système, à la supervision du connecteur JLR. |
 
 **Règle de partage** : Tous les évaluateurs d’une même organisation accèdent librement à l’ensemble des Dossiers et Paniers de cette organisation. Il n’existe pas de restriction de propriété sur les Dossiers (un évaluateur peut créer un panier dans un dossier qu’il n’a pas créé, et modifier un panier existant).
@@ -49,14 +51,14 @@ Le présent document constitue la spécification fonctionnelle exhaustive de la 
     Import JLR hebdo (CSV) + Import Excel EVAGRI
              │
              ▼
-    Données brutes (Transaction Source) ──────┐
-             │                                  │
-             │    ┌─────────────────────────────┘
+    Transaction ──── valeurs des champs IMPORTE (données de l'acte) ──┐
+             │                                                         │
+             │    ┌────────────────────────────────────────────────────┘
              │    │ (référencés par règles de calcul)
              ▼    ▼
-    Configuration Admin (Champs enrichissables & Filtres)
+    Configuration Admin (Champs : Importés / Saisissables / Calculés, Lecture seule, Filtres)
              │
-             ├──────────▶ Champs saisissables ────▶ Fiche transaction (Drag-and-drop zone principale)
+             ├──────────▶ Champs importés + saisissables ────▶ Fiche transaction (Drag-and-drop zone principale)
              │
              └──────────▶ Champs calculés ──────────▶ Section Indicateurs (fixe, latérale droite)
                                │
@@ -82,14 +84,15 @@ Le présent document constitue la spécification fonctionnelle exhaustive de la 
 
 ### 5.1 Dans le périmètre Phase 1
 
-- Import manuel et automatique des données sources : **fichier CSV JLR hebdomadaire** + fichier Excel EVAGRI (migration initiale et compléments futurs via template téléchargeable).
+- Import manuel et automatique des données de l’acte : **fichier CSV JLR hebdomadaire** (incluant MRC, latitude et longitude) + fichier Excel EVAGRI (migration initiale et compléments futurs via template téléchargeable). Les valeurs importées alimentent les **champs de nature Importé**.
 - Migration de la base Excel existante d’EVAGRI (~1 600 transactions) incluant les **documents d’acte (PDF)** associés.
-- Configuration par l’administrateur de l’ensemble des **champs enrichissables**, saisissables et calculés. Chaque champ peut être configuré avec une **règle de calcul arithmétique**.
+- Modèle de champs unifié : tous les champs (importés, saisissables, calculés) sont décrits par une même entité **Champ**, distingués par leur **nature**.
+- Configuration par l’administrateur des champs saisissables et calculés (création, modification, suppression), et des champs importés (libellé, affichage, lecture seule, section). Un champ saisissable ou calculé peut être configuré avec une **règle de calcul arithmétique**.
 - Configuration par l’administrateur des **filtres de recherche**.
 - Fiche transaction affichant **deux zones distinctes** :
-  - **Zone principale (gauche/centre)** : champs enrichissables **saisissables** (configurables par drag-and-drop multi-niveaux).
-  - **Zone latérale (droite)** : champs enrichissables **calculés** (indicateurs de base), position fixe, affichage configurable par l’administrateur (coché par défaut).
-- Les données sources strictes sont masquées de la fiche de saisie (sauf numéro d’inscription et numéro de lot en en-tête).
+  - **Zone principale (gauche/centre)** : champs **importés** et **saisissables** affichés (configurables par drag-and-drop multi-niveaux).
+  - **Zone latérale (droite)** : champs **calculés** (indicateurs de base), position fixe, affichage configurable par l’administrateur (coché par défaut).
+- Attribut **Lecture seule** par champ : un champ en lecture seule est affiché sur la fiche sans être modifiable (par défaut : champs importés).
 - Pré-remplissage automatique des champs saisissables dotés d’une règle de calcul.
 - Statut de transaction : Non analysée / Analysée, avec enregistrement du Contributeur.
 - Typologie transactionnelle : Terres cultivées, Terres boisées, Érablières, Bâtiments agricoles, Ferme.
@@ -148,33 +151,27 @@ Le présent document constitue la spécification fonctionnelle exhaustive de la 
 | `region_administrative` | VARCHAR(100) | NOT NULL |
 | `code_postal_prefix` | VARCHAR(10) | |
 
-### 6.4 Entité : Transaction Source (Données brutes)
+### 6.4 Entité : Transaction
 
-Immuables après insertion.
+*Fusionne les anciennes entités « Transaction Source » et « TransactionEnrichie ». La transaction ne porte plus de colonnes métier : toutes ses informations (données de l’acte importées, enrichissement, indicateurs calculés) sont stockées dans **ValeurChamp** (§6.8).*
 
-| Attribut | Type | Contrainte | Source |
-|---|---|---|---|
-| `id` | UUID | PK | |
-| `id_organisation` | UUID | FK → Organisation, NOT NULL | |
-| `id_importation` | UUID | FK | Importation parente |
-| `systeme_source` | VARCHAR(20) | `JLR`, `EXISTANT_EVAGRI` | |
-| `numero_inscription` | VARCHAR(50) | NOT NULL | `No d'enregistrement` |
-| `date_vente` | DATE | NOT NULL | `Date de L'acte` |
-| `vendeur` | VARCHAR(255) | | `Vendeur` |
-| `acheteur` | VARCHAR(255) | | `Acheteur` |
-| `lots_cadastraux` | TEXT[] | | `Lots` |
-| `prix_vente` | NUMERIC(15,2) | | `Prix de vente` |
-| `mrc` | VARCHAR(100) | | `MRC` |
-| `municipalite` | VARCHAR(255) | | `Ville/Municipalité` |
-| `adresse` | TEXT | | `Adresse complete` |
-| `superficie_totale_hectare` | NUMERIC(12,4) | | `Superficie Totale (ha)` |
-| `date_creation` | TIMESTAMPTZ | DEFAULT `now()` | |
+| Attribut | Type | Contrainte |
+|---|---|---|
+| `id` | UUID | PK |
+| `id_organisation` | UUID | FK → Organisation, NOT NULL |
+| `id_importation` | UUID | FK → Importation, NULLABLE (importation d’origine) |
+| `systeme_source` | VARCHAR(20) | `JLR`, `EXISTANT_EVAGRI` |
+| `statut` | ENUM | `NON_ANALYSEE`, `ANALYSEE` |
+| `id_contributeur` | UUID | FK → Utilisateur, NULLABLE |
+| `date_statut` | TIMESTAMPTZ | |
+| `date_creation` | TIMESTAMPTZ | DEFAULT `now()` |
+| `date_modification` | TIMESTAMPTZ | DEFAULT `now()` |
 
-**Contrainte** : `UNIQUE(id_organisation, numero_inscription, date_vente)`.
+**Unicité** : le couple (`numero_inscription`, `date_vente`) — valeurs des champs importés correspondants — est unique par organisation. Cette unicité n’est pas garantie par une contrainte de base de données : elle est **vérifiée par le processus d’import avant insertion** (§7.1.3), en s’appuyant sur les index de **ValeurChamp**.
 
-### 6.5 Entité : Configuration des champs enrichissables (ChampEnrichissable)
+### 6.5 Entité : Champ
 
-*Unifié : saisissables et calculés partagent la même entité, différenciés par `est_modifiable`.*
+*Unifié : champs importés, saisissables et calculés partagent la même entité, différenciés par leur `nature`. La notion de « champ source » distincte disparaît.*
 
 | Attribut | Type | Contrainte |
 |---|---|---|
@@ -182,25 +179,45 @@ Immuables après insertion.
 | `id_organisation` | UUID | FK → Organisation, NOT NULL |
 | `code_machine` | VARCHAR(50) | NOT NULL, UNIQUE(org, code), snake_case |
 | `nom_affichage` | VARCHAR(100) | NOT NULL |
-| `type_donnees` | ENUM | `DECIMAL`, `ENTIER`, `LISTE`, `TEXTE`, `BOOLEAN`, `DATE` |
-| `nature` | ENUM | `SAISISSABLE`, `CALCULE` |
+| `type_donnees` | ENUM | `DECIMAL`, `ENTIER`, `LISTE`, `MULTI_SELECT`, `TEXTE`, `TEXTE_MULTIPLE`, `BOOLEAN`, `DATE` |
+| `nature` | ENUM | `IMPORTE`, `SAISISSABLE`, `CALCULE` — libellé affiché : « Importé », « Saisissable », « Calculé » |
 | `unite` | VARCHAR(20) | Obligatoire si `DECIMAL`/`ENTIER`, sinon `N/A` |
 | `plage_min` | NUMERIC(18,4) | |
 | `plage_max` | NUMERIC(18,4) | |
 | `options_liste` | JSONB | |
-| `regle_calcul` | TEXT | Expression `+ - * / ( )` avec codes champs sources et/ou enrichis. Obligatoire si `nature = CALCULE`. Optionnel si `nature = SAISISSABLE`. |
+| `regle_calcul` | TEXT | Expression `+ - * / ( )` avec codes de champs de toute nature. Obligatoire si `nature = CALCULE`. Optionnel si `nature = SAISISSABLE`. Interdit si `nature = IMPORTE`. |
+| `entetes_import` | JSONB | Pertinent uniquement si `nature = IMPORTE`. Correspondance des en-têtes de colonnes par système source, ex. : `{ "JLR": ["MRC"], "EXISTANT_EVAGRI": ["MRC"] }`. |
 | `applicable_a_types` | JSONB | NOT NULL |
-| `ordre_affichage` | INTEGER | DEFAULT `0`. Pertinent uniquement pour `SAISISSABLE` (ordre par défaut avant personnalisation drag-and-drop). |
+| `ordre_affichage` | INTEGER | DEFAULT `0`. Pertinent pour `IMPORTE` et `SAISISSABLE` (ordre par défaut avant personnalisation drag-and-drop). |
 | `est_affiche` | BOOLEAN | DEFAULT `true`. Détermine si le champ apparaît sur la fiche transaction. |
-| `est_obligatoire` | BOOLEAN | DEFAULT `false`. Pertinent uniquement pour `SAISISSABLE`. |
-| `est_modifiable` | BOOLEAN | DEFAULT `true`. `false` = champ calculé (indicateur de base). |
+| `est_lecture_seule` | BOOLEAN | DEFAULT `true` si `IMPORTE`, `false` si `SAISISSABLE`, toujours `true` si `CALCULE`. Un champ en lecture seule est affiché sur la fiche mais n’est pas modifiable par l’évaluateur. |
+| `est_obligatoire` | BOOLEAN | DEFAULT `false`. Pertinent uniquement pour un champ non en lecture seule. |
 | `actif` | BOOLEAN | DEFAULT `true` |
 
 **Règles métier sur cette entité** :
-- Si `nature = CALCULE`, alors `est_modifiable` doit être `false`, `regle_calcul` est obligatoire, `est_obligatoire` est ignoré.
-- Si `nature = SAISISSABLE` et `regle_calcul` est renseigné, la valeur initiale est calculée à la création de l’enrichissement mais reste modifiable.
-- Si `nature = SAISISSABLE` et `regle_calcul` est NULL, le champ est vierge à l’ouverture.
-- Les champs `CALCULE` sont exclus du drag-and-drop de la fiche transaction ; leur affichage est conditionné par `est_affiche`.
+- Si `nature = IMPORTE` : le champ est créé par le système (catalogue ci-dessous) ; l’administrateur ne peut ni le supprimer, ni modifier son `code_machine`, sa `nature` ou son `type_donnees`. Il peut modifier `nom_affichage`, `est_affiche`, `est_lecture_seule`, `ordre_affichage` et la section d’appartenance. `regle_calcul` est interdite.
+- Si `nature = SAISISSABLE` et `regle_calcul` est renseigné, la valeur initiale est calculée à la création de la transaction mais reste modifiable (sauf si `est_lecture_seule = true`).
+- Si `nature = SAISISSABLE` et `regle_calcul` est NULL, le champ est vierge à l’ouverture (ou initialisé par l’import EVAGRI).
+- Si `nature = CALCULE`, alors `est_lecture_seule` est forcé à `true`, `regle_calcul` est obligatoire, `est_obligatoire` est ignoré.
+- Si `est_lecture_seule = true`, `est_obligatoire` est ignoré.
+- Les champs `CALCULE` sont exclus du drag-and-drop de la fiche transaction ; leur affichage est conditionné par `est_affiche`. Les champs `IMPORTE` et `SAISISSABLE` participent au drag-and-drop.
+
+**Catalogue initial des champs importés** (données de l’acte communes aux imports JLR et EVAGRI) :
+
+| `code_machine` | Libellé | Type | En-tête(s) fichier EVAGRI | En-tête(s) fichier JLR |
+|---|---|---|---|---|
+| `numero_inscription` | N° d’inscription | `TEXTE` | `No d'enregistrement`, `No d'enr.` | À confirmer selon le format JLR |
+| `date_vente` | Date de vente | `DATE` | `Date de L'acte`, `Date de l'acte ou de l'avant contrat` | À confirmer |
+| `vendeur` | Vendeur | `TEXTE` | `Vendeur` | À confirmer |
+| `acheteur` | Acheteur | `TEXTE` | `Acheteur` | À confirmer |
+| `lots_cadastraux` | Lots cadastraux | `TEXTE_MULTIPLE` | `Lots` | À confirmer |
+| `prix_vente` | Prix à l’acte | `DECIMAL` ($) | `Prix de vente`, `Prix de vente ($)` | À confirmer |
+| `mrc` | MRC | `TEXTE` | `MRC` | `MRC` (à confirmer) |
+| `municipalite` | Municipalité | `TEXTE` | `Ville/Municipalité` | À confirmer |
+| `adresse` | Adresse | `TEXTE` | `Adresse complete`, `Adresse complète` | À confirmer |
+| `superficie_totale_hectare` | Superficie totale | `DECIMAL` (ha) | `Superficie Totale (ha)` | À confirmer |
+| `latitude` | Latitude | `DECIMAL` (°) | `Latitude`, `Lat` | `Latitude` (à confirmer) |
+| `longitude` | Longitude | `DECIMAL` (°) | `Longitude`, `Long`, `Lng` | `Longitude` (à confirmer) |
 
 ### 6.6 Entité : Configuration des filtres de recherche (FiltreRecherche)
 
@@ -208,7 +225,7 @@ Immuables après insertion.
 |---|---|---|
 | `id` | UUID | PK |
 | `id_organisation` | UUID | FK → Organisation, NOT NULL |
-| `id_champ_enrichissable` | UUID | FK → ChampEnrichissable, NULLABLE |
+| `id_champ` | UUID | FK → Champ, NULLABLE (NULL uniquement pour les filtres virtuels, ex. statut) |
 | `nom_filtre` | VARCHAR(100) | NOT NULL |
 | `type_filtre` | ENUM | `PLAGE_NUMERIQUE`, `PLAGE_DATE`, `LISTE`, `MULTI_SELECT`, `RECHERCHE_TEXTE`, `BOOLEEN` |
 | `operateurs_disponibles` | JSONB | |
@@ -230,37 +247,31 @@ Immuables après insertion.
 | `ordre` | INTEGER | DEFAULT `0` |
 | `actif` | BOOLEAN | DEFAULT `true` |
 
-### 6.8 Entité : Enrichissement de transaction (TransactionEnrichie)
+### 6.8 Entité : Valeur de champ (ValeurChamp)
+
+*Stocke toutes les valeurs d’une transaction, quelle que soit la nature du champ : importées (`IMPORTE`), saisies (`SAISISSABLE`) ou calculées automatiquement (`CALCULE`).*
 
 | Attribut | Type | Contrainte |
 |---|---|---|
 | `id` | UUID | PK |
-| `id_organisation` | UUID | FK → Organisation, NOT NULL |
-| `id_transaction_source` | UUID | FK → Transaction Source, NOT NULL, UNIQUE |
-| `statut` | ENUM | `NON_ANALYSEE`, `ANALYSEE` |
-| `id_contributeur` | UUID | FK → Utilisateur, NULLABLE |
-| `date_statut` | TIMESTAMPTZ | |
-| `date_creation` | TIMESTAMPTZ | DEFAULT `now()` |
-| `date_modification` | TIMESTAMPTZ | DEFAULT `now()` |
-
-### 6.9 Entité : Valeur d’enrichissement (ValeurEnrichissement)
-
-*Stocke toutes les valeurs enrichies : saisies manuellement pour les champs SAISISSABLES, calculées automatiquement pour les champs CALCULES.*
-
-| Attribut | Type | Contrainte |
-|---|---|---|
-| `id` | UUID | PK |
-| `id_transaction_enrichie` | UUID | FK → TransactionEnrichie, NOT NULL |
-| `id_champ_enrichissable` | UUID | FK → ChampEnrichissable, NOT NULL |
+| `id_transaction` | UUID | FK → Transaction, NOT NULL |
+| `id_champ` | UUID | FK → Champ, NOT NULL |
 | `valeur_nombre` | NUMERIC(18,4) | |
 | `valeur_texte` | TEXT | |
+| `valeur_texte_multiple` | TEXT[] | Valeurs multiples (ex. : lots cadastraux) |
 | `valeur_booleen` | BOOLEAN | |
+| `valeur_date` | DATE | |
 | `date_modification` | TIMESTAMPTZ | DEFAULT `now()` |
-| `id_modifie_par` | UUID | FK → Utilisateur, NULLABLE si calcul automatique |
+| `id_modifie_par` | UUID | FK → Utilisateur, NULL si valeur issue d’un import ou d’un calcul automatique |
 
-### 6.10 Entité : Personnalisation vue evaluation (VueFicheEvaluation)
+**Contraintes et index** :
+- `UNIQUE(id_transaction, id_champ)`.
+- Index sur (`id_champ`, `valeur_texte`) et (`id_champ`, `valeur_date`) : permettent la vérification rapide de l’unicité (`numero_inscription`, `date_vente`) lors de l’import et la recherche des reventes par lot.
+- Index GIN sur `valeur_texte_multiple` (recherche par numéro de lot).
 
-*Stocke l'ordre drag-and-drop et les sections créées par l'administrateur. Ne concerne que les champs SAISISSABLES.*
+### 6.9 Entité : Personnalisation vue evaluation (VueFicheEvaluation)
+
+*Stocke l'ordre drag-and-drop et les sections créées par l'administrateur. Concerne les champs IMPORTE et SAISISSABLE (les champs CALCULE restent dans la zone latérale).*
 
 | Attribut | Type | Contrainte |
 |---|---|---|
@@ -269,7 +280,7 @@ Immuables après insertion.
 | `type_vue` | VARCHAR(50) | `FICHE_TRANSACTION` |
 | `contenu` | JSONB | NOT NULL — structure : `{ sections: [{ nom, ordre, champs: [id_champ...] }] }` |
 
-### 6.11 Entité : Dossier
+### 6.10 Entité : Dossier
 
 | Attribut | Type | Contrainte |
 |---|---|---|
@@ -281,7 +292,7 @@ Immuables après insertion.
 | `date_creation` | TIMESTAMPTZ | DEFAULT `now()` |
 | `actif` | BOOLEAN | DEFAULT `true` |
 
-### 6.12 Entité : Panier
+### 6.11 Entité : Panier
 
 | Attribut | Type | Contrainte |
 |---|---|---|
@@ -293,19 +304,19 @@ Immuables après insertion.
 | `id_createur` | UUID | FK → Utilisateur |
 | `date_creation` | TIMESTAMPTZ | DEFAULT `now()` |
 
-### 6.13 Entité : Lien Panier-Transaction (PanierTransaction)
+### 6.12 Entité : Lien Panier-Transaction (PanierTransaction)
 
 | Attribut | Type | Contrainte |
 |---|---|---|
 | `id_panier` | UUID | FK → Panier |
-| `id_transaction_enrichie` | UUID | FK → TransactionEnrichie |
+| `id_transaction` | UUID | FK → Transaction |
 | `date_ajout` | TIMESTAMPTZ | DEFAULT `now()` |
 
 **Contrainte** : transaction au statut `ANALYSEE` uniquement.
 
-## 6.14 Entité : Analyse de Dossier (AnalyseDossier)
+### 6.13 Entité : Analyse de Dossier (AnalyseDossier)
 
-*Ne contient que les paramètres globaux de l’analyse. Les valeurs de marché de référence par transaction ont été extraites vers une entité dédiée (section 6.15).*
+*Ne contient que les paramètres globaux de l’analyse. Les valeurs de marché de référence par transaction ont été extraites vers une entité dédiée (section 6.14).*
 
 | Attribut | Type | Contrainte |
 |---|---|---|
@@ -320,31 +331,31 @@ Immuables après insertion.
 
 ---
 
-## 6.15 Entité : Paramètres d’analyse par transaction (ParametresAnalyseTransaction)
+### 6.14 Entité : Paramètres d’analyse par transaction (ParametresAnalyseTransaction)
 
 
 | Attribut | Type | Contrainte |
 |---|---|---|
 | `id` | UUID | PK |
 | `id_analyse_dossier` | UUID | FK → AnalyseDossier, NOT NULL |
-| `id_transaction_source` | UUID | FK → Transaction Source, NOT NULL |
+| `id_transaction` | UUID | FK → Transaction, NOT NULL |
 | `taux_boise_ref` | NUMERIC(15,2) | |
 | `taux_cultive_ref` | NUMERIC(15,2) | |
 | `valeur_batiment_ref` | NUMERIC(15,2) | |
 | `valeur_maison_ref` | NUMERIC(15,2) | |
 | `valeur_terrain_residentiel_ref` | NUMERIC(15,2) | |
-| | | **UNIQUE** (`id_analyse_dossier`, `id_transaction_source`) |
+| | | **UNIQUE** (`id_analyse_dossier`, `id_transaction`) |
 
 ---
 
-## 6.16 Entité : Résultat d’analyse par transaction (IndicateursAjustes)
+### 6.15 Entité : Résultat d’analyse par transaction (IndicateursAjustes)
 
 
 | Attribut | Type | Contrainte |
 |---|---|---|
 | `id` | UUID | PK |
 | `id_analyse_dossier` | UUID | FK → AnalyseDossier, NOT NULL |
-| `id_transaction_source` | UUID | FK → Transaction Source, NOT NULL |
+| `id_transaction` | UUID | FK → Transaction, NOT NULL |
 | `prix_vente_ajuste` | NUMERIC(15,2) | |
 | `taux_global_ajuste` | NUMERIC(15,2) | |
 | `taux_residuel_cultive_ajuste` | NUMERIC(15,2) | |
@@ -353,18 +364,18 @@ Immuables après insertion.
 | `taux_par_entaille_ajuste` | NUMERIC(15,2) | |
 
 
-### 6.17 Entité : Document (DocumentActe)
+### 6.16 Entité : Document (DocumentActe)
 
 | Attribut | Type | Contrainte |
 |---|---|---|
 | `id` | UUID | PK |
-| `id_transaction_source` | UUID | FK → Transaction Source, NOT NULL |
+| `id_transaction` | UUID | FK → Transaction, NOT NULL |
 | `nom_fichier` | VARCHAR(255) | NOT NULL |
 | `chemin_stockage` | VARCHAR(500) | NOT NULL |
 | `date_upload` | TIMESTAMPTZ | DEFAULT `now()` |
 | `id_uploadeur` | UUID | FK → Utilisateur |
 
-### 6.18 Entité : Journal d’audit (JournalAudit)
+### 6.17 Entité : Journal d’audit (JournalAudit)
 
 | Attribut | Type | Contrainte |
 |---|---|---|
@@ -382,22 +393,32 @@ Immuables après insertion.
 
 ## 7. Spécifications fonctionnelles détaillées par module
 
-### 7.1 Module Import des données sources
+### 7.1 Module Import des données de l’acte
 
 #### 7.1.1 Sources et fréquences
 
 - **JLR (CSV)** : import automatique **hebdomadaire** nocturne.
 - **Excel EVAGRI** : import manuel (migration + compléments futurs).
 
-#### 7.1.2 Traitement des doublons
+#### 7.1.2 Champs alimentés par l’import
 
-Si `(numero_inscription, date_vente)` existe déjà, la ligne est **silencieusement ignorée**.
+Chaque ligne importée crée une **Transaction** et une **ValeurChamp** pour chaque champ de nature `IMPORTE` dont la colonne est présente et non vide dans le fichier. La correspondance colonne → champ est définie par l’attribut `entetes_import` du champ (catalogue §6.5).
 
-#### 7.1.3 Déduction géographique
+Champs importés depuis le **fichier JLR** : n° d’inscription, date de vente, vendeur, acheteur, lots cadastraux, prix de vente, **MRC**, municipalité, adresse, superficie totale, **latitude** et **longitude**.
 
-Municipalité croisée avec **Référentiel géographique**.
+Champs importés depuis le **fichier EVAGRI** : les mêmes champs (la colonne `MRC` est déjà lue par l’import EVAGRI ; la latitude et la longitude sont lues si les colonnes sont présentes).
 
-#### 7.1.4 Suivi
+#### 7.1.3 Traitement des doublons
+
+Si une transaction possédant les mêmes valeurs de champs importés `(numero_inscription, date_vente)` existe déjà dans l’organisation, la ligne est **silencieusement ignorée**. Cette vérification est effectuée **par le processus d’import avant insertion** (il n’existe pas de contrainte d’unicité en base, les valeurs étant stockées dans **ValeurChamp**) ; elle s’appuie sur les index de ValeurChamp (§6.8).
+
+#### 7.1.4 Déduction géographique
+
+- **MRC** : lue dans le fichier d’import. Si elle est absente, elle est déduite de la municipalité par croisement avec le **Référentiel géographique**.
+- **Latitude / longitude** : lues dans le fichier d’import. Si elles sont absentes, elles sont calculées par géocodage à partir des lots cadastraux, à défaut à partir de l’adresse.
+- Une valeur déduite ou géocodée est stockée comme valeur du champ importé correspondant.
+
+#### 7.1.5 Suivi
 
 Interface Admin + Dev : statut, lignes, erreurs, relance, template vierge.
 
@@ -405,38 +426,40 @@ Interface Admin + Dev : statut, lignes, erreurs, relance, template vierge.
 
 #### 7.2.1 Mapping des données et documents
 
-- **Colonnes sources** : importées dans **Transaction Source**.
-- **Colonnes enrichies** : initialisent **ChampEnrichissable** (saisissables et calculés) et importées comme **ValeurEnrichissement** initiales. Les colonnes qui ne sont pas dans l'entité des transactions sources, sont dans les champs enrichis. Un champ enrichie est Type : Terres cultivées, Terres boisées, Érablières, Bâtiments agricoles, Ferme. Pour l'import Evagri, on définit le type en fonction de l'onglet :
+- **Colonnes de l’acte** (n° d’inscription, date, vendeur, acheteur, lots, prix, MRC, municipalité, adresse, superficie totale, latitude, longitude) : importées comme valeurs des **champs de nature `IMPORTE`** du catalogue (§6.5).
+- **Autres colonnes** : initialisent des **champs de nature `SAISISSABLE`** et sont importées comme **ValeurChamp** initiales (modifiables ensuite par l’évaluateur). Les types de transaction possibles sont : Terres cultivées, Terres boisées, Érablières, Bâtiments agricoles, Ferme. Pour l'import Evagri, on définit le type en fonction de l'onglet :
 Erablières -> type érablière
 Bois -> type terre boisée
-Terre  -> type terre cultivée
-- **Colonnes vides**: les colonnes vides sont ignorés et aucun champ source ou enrichie n'est ajouté dans le modèle si la colonne est vide. La latitude/longitude sera calculé à partir d'une API à partir de l'adresse seulement si elle n'est pas présente dans le fichier d'import.
+Terre  -> type terre cultivée
+- **Colonnes vides**: les colonnes vides sont ignorées et aucun champ n'est ajouté dans le modèle si la colonne est vide. La latitude/longitude est géocodée (§7.1.4) seulement si elle n'est pas présente dans le fichier d'import.
 - **Documents d'acte (PDF)** : lors de la migration initiale, les fichiers PDF d'actes de vente associés aux transactions historiques d'EVAGRI sont importés en masse. Ils se trouvent dans le dossier Base de données\Actes. Le système tente l'association automatique par correspondance `numero_inscription` avec le nom de fichier (selon une convention à définir, ex. : `numero_inscription.pdf`). Les PDF non appariés sont listés dans un rapport pour association manuelle. 
 
 #### 7.2.2 Rapport
 
 Rapport détaillé : traitées, insérées, échecs, incohérences, documents associés, appariements réussis/échoués.
 
-### 7.3 Module Configuration des champs enrichissables
+### 7.3 Module Configuration des champs
 
 #### 7.3.1 Interface administrateur
 
-L’administrateur CRUD les entités **ChampEnrichissable** sans distinction d’entité. Un même écran permet de gérer les champs **saisissables** et **calculés**.
+L’administrateur gère les entités **Champ** dans un écran unique, qui liste les champs des trois natures. Chaque champ y est présenté avec le libellé de sa nature : **Importé**, **Saisissable** ou **Calculé**.
 
 Pour chaque champ, l’administrateur définit :
-- **Nature** : `SAISISSABLE` ou `CALCULE`.
-- **Règle de calcul** : obligatoire si `CALCULE` ; optionnel si `SAISISSABLE` (alors c’est un pré-remplissage).
+- **Nature** : `IMPORTE`, `SAISISSABLE` ou `CALCULE`. Les champs `IMPORTE` sont créés par le système (catalogue §6.5) : l’administrateur ne peut ni en créer, ni en supprimer, ni changer leur nature, leur code ou leur type. Il crée, modifie et supprime librement les champs `SAISISSABLE` et `CALCULE`.
+- **Règle de calcul** : obligatoire si `CALCULE` ; optionnelle si `SAISISSABLE` (pré-remplissage) ; interdite si `IMPORTE`.
 - **Est affiché** : case à cocher, `true` par défaut. Détermine si le champ apparaît sur la fiche transaction.
-  - Pour un champ `SAISISSABLE`, masquer le champ le retire de la zone de saisie.
+  - Pour un champ `IMPORTE` ou `SAISISSABLE`, masquer le champ le retire de la zone principale.
   - Pour un champ `CALCULE`, masquer le champ le retire de la section latérale des indicateurs.
-- **Est obligatoire** : actif uniquement si `SAISISSABLE`.
+- **Lecture seule** : case à cocher. Cochée par défaut pour un champ `IMPORTE`, décochée par défaut pour un champ `SAISISSABLE`, toujours cochée (non modifiable) pour un champ `CALCULE`. Un champ en lecture seule est affiché sur la fiche mais ne peut pas être modifié par l’évaluateur.
+- **Est obligatoire** : actif uniquement si le champ n’est pas en lecture seule.
 
 #### 7.3.2 Règles de calcul arithmétiques
 
 Expression utilisant :
-- Les **codes des champs sources** (ex. : `prix_vente`, `superficie_totale_hectare`).
-- Les **codes des autres champs enrichissables** (saisissables ou calculés).
+- Les **codes des champs**, quelle que soit leur nature : importés (ex. : `prix_vente`, `superficie_totale_hectare`), saisissables ou calculés.
 - Les opérateurs : **+, -, *, /, (, )**.
+
+Les champs de type `TEXTE_MULTIPLE` (ex. : `lots_cadastraux`) ne sont pas utilisables dans une règle de calcul.
 
 **Exemples de règles valides** :
 - `prix_vente / superficie_totale_hectare` — pour un champ calculé « Taux global ».
@@ -444,19 +467,23 @@ Expression utilisant :
 - `superficie_drainee / superficie_cultivee` — pour un champ calculé « Terres drainées ».
 
 **Comportement des champs calculés (`CALCULE`)** :
-- La règle est évaluée à chaque modification d’un champ saisissable impactant (perte de focus).
-- La valeur est stockée dans **ValeurEnrichissement**.
+- La règle est évaluée à chaque modification d’un champ impactant (perte de focus).
+- La valeur est stockée dans **ValeurChamp**.
 - L’évaluateur **ne peut pas modifier** cette valeur directement sur la fiche.
 
 #### 7.3.3 Champs saisissables sans règle de calcul
 
-Si `nature = SAISISSABLE` et `regle_calcul` est NULL, le champ est vierge à l’ouverture.
+Si `nature = SAISISSABLE` et `regle_calcul` est NULL, le champ est vierge à l’ouverture (ou porte la valeur initialisée par l’import EVAGRI).
+
+#### 7.3.4 Champs importés rendus modifiables
+
+Si l’administrateur décoche « Lecture seule » sur un champ `IMPORTE`, l’évaluateur peut corriger la valeur importée. Toute modification est tracée dans le journal d’audit (ancienne valeur importée, nouvelle valeur, auteur, date) afin que la valeur d’origine reste consultable (§7.12.2).
 
 ### 7.4 Module Configuration des filtres de recherche
 
 #### 7.4.1 Interface administrateur
 
-CRUD des entités **FiltreRecherche**. Un filtre peut référencer un **ChampEnrichissable** de toute nature (saisissable ou calculé), ou une donnée source pure.
+CRUD des entités **FiltreRecherche**. Un filtre référence un **Champ** de toute nature (importé, saisissable ou calculé). Seuls les filtres virtuels (ex. : statut) n’ont pas de champ associé.
 
 #### 7.4.2 Types de contrôle
 
@@ -481,10 +508,10 @@ Par défaut : **ET**. Groupes **OU** possibles.
 
 La fiche transaction est divisée en **deux zones visuelles distinctes** :
 
-1. **Zone principale (gauche/centre)** : contient **uniquement les champs enrichissables de nature `SAISISSABLE`** actifs (`est_affiche = true`). 
-2. **Zone latérale (droite)** : panneau fixe affichant **uniquement les champs enrichissables de nature `CALCULE`** (indicateurs de base) dont `est_affiche = true`. Cette zone n’est **pas** réorganisable par drag-and-drop. Son titre est « Indicateurs ».
+1. **Zone principale (gauche/centre)** : contient les champs de nature **`IMPORTE`** et **`SAISISSABLE`** actifs dont `est_affiche = true`, organisés en sections selon la configuration drag-and-drop de l’administrateur (ex. : une section « Données de l’acte » regroupant prix, vendeur, acheteur, MRC, municipalité, superficie totale…). Les champs en lecture seule y sont affichés sans pouvoir être modifiés.
+2. **Zone latérale (droite)** : panneau fixe affichant **uniquement les champs de nature `CALCULE`** (indicateurs de base) dont `est_affiche = true`. Cette zone n’est **pas** réorganisable par drag-and-drop. Son titre est « Indicateurs ».
 
-Les données sources brutes (prix, vendeur, acheteur, lots, superficie totale, etc.) sont **masquées** des deux zones, à l’exception de l’**en-tête** :
+L’**en-tête** de la fiche affiche en permanence :
 - **Numéro d’inscription**
 - **Numéro de lot**
 
@@ -492,29 +519,28 @@ Les données sources brutes (prix, vendeur, acheteur, lots, superficie totale, e
 
 ##### Analysée
 
-Contient les champs sources en lecture seul et les zones de la fiche à analyser (en lecture seule)
-
-
+Contient la même structure (zone principale et zone latérale), entièrement en lecture seule.
 
 #### 7.5.2 Affichage des valeurs
 
+- **Champ importé** : affiche la valeur issue de l’import. En lecture seule par défaut (modifiable seulement si l’administrateur a décoché « Lecture seule »).
 - **Champ saisissable avec règle de calcul** : affiche la valeur pré-calculée. L’évaluateur peut conserver ou modifier.
-- **Champ saisissable sans règle** : vierge ou valeur précédemment saisie.
-- **Champ calculé (`CALCULE`)** : affiche la valeur calculée en temps réel. **Non modifiable**. Grisé ou en lecture seule visuelle.
+- **Champ saisissable sans règle** : vierge, valeur initialisée par l’import ou valeur précédemment saisie.
+- **Champ en lecture seule** (importé, saisissable configuré en lecture seule, ou calculé) : affiché grisé / en lecture seule visuelle, **non modifiable**.
+- **Champ calculé (`CALCULE`)** : affiche la valeur calculée en temps réel.
 
-**Aucun badge de provenance** n’est affiché.
-
+**Aucun badge de provenance** n’est affiché sur la fiche (la nature n’est visible que dans l’administration des champs).
 
 #### 7.5.3 Ergonomie
 
 - Type de transaction : obligatoire. Plusieurs types/sous-types possibles.
-- Tabulation : passe d’un champ **saisissable** au suivant selon l’ordre du drag-and-drop. Ignore la zone latérale calculée.
+- Tabulation : passe d’un champ **modifiable** au suivant selon l’ordre du drag-and-drop. Ignore les champs en lecture seule et la zone latérale calculée.
 - Listes déroulantes : empêchent la saisie de valeurs arbitraires.
 - Numériques : décimales selon config.
 
 #### 7.5.4 Recalcul des champs calculés (perte de focus)
 
-Dès qu’un champ **saisissable** est modifié et quitté (`onBlur`), le système recalcule **tous les champs `CALCULE`** dont la règle dépend de ce champ modifié.
+Dès qu’un champ modifiable (saisissable, ou importé non en lecture seule) est modifié et quitté (`onBlur`), le système recalcule **tous les champs `CALCULE`** dont la règle dépend de ce champ modifié.
 
 Les champs calculés affichés en zone latérale comprennent (liste non exhaustive, configurable par l’administrateur) :
 
@@ -542,9 +568,8 @@ Chaque fiche possède un statut binaire :
 #### 7.5.6 Vue consultation après analyse
 
 Affichage lecture seule :
-- Données brutes (sources).
-- Données enrichies (saisies + calculées).
-- Positionnement conservé : zone principale vs zone latérale.
+- Champs importés, saisissables et calculés affichés (`est_affiche = true`).
+- Positionnement conservé : zone principale (sections drag-and-drop) vs zone latérale.
 
 **Les indicateurs ajustés n’y figurent pas.**
 
@@ -565,11 +590,11 @@ Boutons **Précédent / Suivant**. Ajout au panier → auto passage à la suivan
 
 #### 7.6.1 Formulaire de filtres
 
-Panneau latéral alimenté par **FiltreRecherche**. Les filtres peuvent cibler des champs saisissables **ou** des champs calculés.
+Panneau latéral alimenté par **FiltreRecherche**. Les filtres peuvent cibler des champs importés, saisissables ou calculés.
 
 #### 7.6.2 Recherche des reventes
 
-Fonction dédiée permettant de saisir un numéro de lot pour lister l’ensemble des **Transactions Source** associées.
+Fonction dédiée permettant de saisir un numéro de lot pour lister l’ensemble des **Transactions** dont le champ importé `lots_cadastraux` contient ce lot.
 
 #### 7.6.3 Tableau de résultats
 
@@ -581,7 +606,7 @@ Fonction dédiée permettant de saisir un numéro de lot pour lister l’ensembl
 
 #### 7.6.4 Carte interactive OpenStreetMap
 
-Affichage des résultats sous forme de pins. Popup : taux/ha, année, superficie, type de bâtiment (si enrichi), prix de vente, types/sous-types. Clustering automatique si concentration de points. Il est possible de sélectionner plusieurs pins en traçant un polygone, quand le polygone sera tracé, on pourra ajouter les transactions circonscrits dans le polygone  dans un des paniers du dossier en cours
+Affichage des résultats sous forme de pins, positionnés selon les champs importés `latitude` / `longitude`. Popup : taux/ha, année, superficie, type de bâtiment (si enrichi), prix de vente, types/sous-types. Clustering automatique si concentration de points. Il est possible de sélectionner plusieurs pins en traçant un polygone, quand le polygone sera tracé, on pourra ajouter les transactions circonscrits dans le polygone  dans un des paniers du dossier en cours
 
 ### 7.7 Module Dossiers et Paniers de comparables
 
@@ -621,9 +646,9 @@ La structure Dossier/Panier est conçue pour permettre, en Phase 2, l’associat
 
 ### 7.8 Module Calculs automatiques et contrôles de qualité
 
-#### 7.8.1 Indicateurs de base = Champs enrichissables calculés
+#### 7.8.1 Indicateurs de base = Champs calculés
 
-Les indicateurs de base ne sont pas des entités séparées. Ils sont des **champs enrichissables** (`nature = CALCULE`) configurés par l’administrateur. Le système les recalcule à chaque modification d’un champ saisissable impactant (perte de focus) et stocke le résultat dans **ValeurEnrichissement**.
+Les indicateurs de base ne sont pas des entités séparées. Ils sont des **champs** de nature `CALCULE` configurés par l’administrateur. Le système les recalcule à chaque modification d’un champ impactant (perte de focus) et stocke le résultat dans **ValeurChamp**.
 
 Le catalogue initial proposé à l’administrateur (coché par défaut, modifiable) :
 
@@ -675,15 +700,15 @@ Le système interdit la sauvegarde d’un champ ou de la fiche si l’une des r�
 
 | Code | Règle | Portée |
 |---|---|---|
-| **V-001** | Superficie cultivée + superficie boisée + superficie constructible ≤ superficie totale. | Saisie enrichissement |
-| **V-002** | Superficie drainée ≤ superficie cultivée. | Saisie enrichissement |
-| **V-003** | Les champs exprimés en pourcentage ne peuvent excéder 100 %. | Saisie enrichissement |
+| **V-001** | Superficie cultivée + superficie boisée + superficie constructible ≤ superficie totale. | Saisie fiche (champs modifiables) |
+| **V-002** | Superficie drainée ≤ superficie cultivée. | Saisie fiche (champs modifiables) |
+| **V-003** | Les champs exprimés en pourcentage ne peuvent excéder 100 %. | Saisie fiche (champs modifiables) |
 | **V-004** | La date de vente ne peut être postérieure à la date du jour. | Import / Saisie |
-| **V-005** | Superficie acéricole ≤ superficie boisée. | Saisie enrichissement |
-| **V-006** | Les valeurs numériques ne peuvent être négatives (sauf la longitude). | Saisie numérique |
-| **V-007** | La valeur saisie doit être comprise dans la plage configurée (min / max) si une plage est définie pour le champ. | Saisie enrichissement |
+| **V-005** | Superficie acéricole ≤ superficie boisée. | Saisie fiche (champs modifiables) |
+| **V-006** | Les valeurs numériques ne peuvent être négatives (sauf la longitude). | Import / Saisie numérique |
+| **V-007** | La valeur saisie doit être comprise dans la plage configurée (min / max) si une plage est définie pour le champ. | Saisie fiche (champs modifiables) |
 
-**Warnings non bloquants** : écart inhabituel entre prix de vente et évaluation municipale ; superficie totale très différente de la somme des composantes (l’évaluateur peut forcer la sauvegarde).
+**Warning non bloquant** : superficie totale très différente de la somme des composantes (superficie cultivée + boisée + constructible), c’est-à-dire un écart supérieur à 10 % de la superficie totale. L’évaluateur peut forcer la sauvegarde.
 
 ### 7.9 Module Export Excel pour rapports
 
@@ -700,9 +725,9 @@ Le système calcule alors le **prix actualisé** pour chaque transaction du Pani
 #### 7.9.2 Contenu de l’export
 
 L’export produit un fichier au format Excel respectant la mise en page du modèle de rapport EVAGRI. L’évaluateur choisit préalablement les colonnes à inclure parmi :
-- Les champs source.
-- Les champs enrichissables saisissables.
-- Les champs enrichissables calculés (indicateurs de base).
+- Les champs importés (données de l’acte).
+- Les champs saisissables.
+- Les champs calculés (indicateurs de base).
 - Les indicateurs ajustés dans le temps (issus d’une Analyse de Dossier sélectionnée).
 
 #### 7.9.3 Taux résiduel dans l’export
@@ -723,12 +748,13 @@ L’administrateur est le seul habilité à créer des comptes (invitation manue
 - Mot de passe temporaire transmis au nouvel utilisateur, avec changement obligatoire à la première connexion.
 - Un utilisateur peut être supprimé. Ses données appartiennent toujours à l’organisation.
 
-#### 7.11.2 Gestion des champs enrichissables
+#### 7.11.2 Gestion des champs
 
-Interface unique permettant de configurer :
-- Les champs **saisissables** (nature, type, plage, règle optionnelle, obligation, drag-and-drop activé implicitement).
-- Les champs **calculés** (nature, type, règle obligatoire, affichage par défaut coché).
-- L'administrateur peut glisser-déposer les champs saisissables pour :
+Interface unique listant tous les champs, chacun accompagné du libellé de sa nature (**Importé**, **Saisissable**, **Calculé**) :
+- Les champs **importés** apparaissent avec le libellé « Importé ». Ils ne peuvent être ni créés ni supprimés ; l’administrateur configure leur libellé, leur affichage (coché par défaut), leur lecture seule (cochée par défaut) et leur section.
+- Les champs **saisissables** (nature, type, plage, règle optionnelle, obligation, lecture seule, drag-and-drop activé implicitement).
+- Les champs **calculés** (nature, type, règle obligatoire, affichage par défaut coché, toujours en lecture seule).
+- L'administrateur peut glisser-déposer les champs importés et saisissables pour :
   - Réordonner les champs à l’intérieur d’une section.
   - Créer, renommer, réordonner des **sections** (ex. : « Superficies », « Bâtiments », « Acéricole »).
   - Déplacer un champ d’une section à une autre.
@@ -736,7 +762,7 @@ Interface unique permettant de configurer :
 
 #### 7.11.3 Gestion des filtres de recherche
 
-Activation / désactivation de chaque champ (saisissable ou calculé) comme critère de recherche.
+Activation / désactivation de chaque champ (importé, saisissable ou calculé) comme critère de recherche.
 
 #### 7.11.4 Suivi des imports
 
@@ -753,9 +779,9 @@ Interface réservée à l’Administrateur et au Développeur :
 
 Conformément à la Loi 25, les données personnelles et professionnelles sont hébergées sur le territoire canadien. Le système ne fait pas transiter les données d’identification ni les transactions vers des infrastructures situées en dehors du Canada sans accord explicite et analyse d’impact préalable.
 
-#### 7.12.2 Séparation Source / Enrichissement
+#### 7.12.2 Provenance et intégrité des données importées
 
-La donnée source brute (importée) et la donnée enrichie (saisie ou calculée) demeurent logiquement distinctes. La donnée source est conservée et auditable, même après modification de l’enrichissement.
+Chaque valeur est rattachée à un champ dont la **nature** (`IMPORTE`, `SAISISSABLE`, `CALCULE`) identifie sa provenance. Les valeurs des champs importés sont en lecture seule par défaut ; si l’administrateur rend un champ importé modifiable, toute correction est tracée dans le journal d’audit (§7.12.3) de sorte que la valeur importée d’origine reste conservée et auditable.
 
 #### 7.12.3 Traçabilité des modifications
 
@@ -800,6 +826,6 @@ L’Administrateur peut désactiver un compte utilisateur. Sur demande, il peut 
 | **Version alpha** | import evagri,<br>bd des transactions : vue dynamique et vue carte,<br>écran administrateur filtre, ecran administratif des imports | 17 juillet 2026 |
 | **Version beta** | Fiches transaction détaillé,<br>écran administrateur champs à enrichir,<br>Panier de dossiers comparables,<br>export Excel et export carte | fin octobre 2026 |
 | **Version gamma** | authentification et rôles,<br>écran administrateur gestion des utilisateurs | mi novembre 2026 |
-| **Version RC** | import JLR | fin novembre 2026 |
+| **Version RC** | import JLR (incluant MRC, latitude et longitude) | fin novembre 2026 |
 
 Phase de test intense la semaine du 19 au 23 décembre (import la fds, test en condition reelle de Simon et correction eventuelle des bugs)

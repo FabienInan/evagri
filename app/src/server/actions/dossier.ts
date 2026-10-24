@@ -16,6 +16,7 @@ import {
   listTransactionsOfPanier,
   removeTransactionFromPanier as repoRemoveTransaction,
 } from "@/repositories/dossier.repository"
+import { recalculateAnalysesForDossier } from "@/server/analyse-dossier"
 import {
   serializeDossier,
   serializePanier,
@@ -99,6 +100,7 @@ export async function addTransactionsToPanier(input: {
   }
 
   const added = await repoAddTransactions(organisationId, parsed.data.panierId, ids)
+  await recalculateAnalysesForDossier(organisationId, panier.dossierId)
   revalidatePath(`/paniers/${parsed.data.panierId}`)
   return { ok: true, added }
 }
@@ -112,6 +114,7 @@ export async function removeTransactionFromPanier(
   if (!panier) return { ok: false, error: "Panier introuvable." }
 
   await repoRemoveTransaction(organisationId, panierId, transactionId)
+  await recalculateAnalysesForDossier(organisationId, panier.dossierId)
   revalidatePath(`/paniers/${panierId}`)
   return { ok: true }
 }

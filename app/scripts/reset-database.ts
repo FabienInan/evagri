@@ -9,7 +9,6 @@ async function main() {
     prisma.filtreRecherche.deleteMany({}),
     prisma.champ.deleteMany({}),
     prisma.vueFicheEvaluation.deleteMany({}),
-    prisma.parametresAnalyseTransaction.deleteMany({}),
     prisma.indicateursAjustes.deleteMany({}),
     prisma.analyseDossier.deleteMany({}),
     prisma.panierTransaction.deleteMany({}),

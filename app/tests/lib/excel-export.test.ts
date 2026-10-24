@@ -166,7 +166,7 @@ describe("toCellValue", () => {
 })
 
 describe("buildExportTable", () => {
-  it("respecte les colonnes choisies et calcule les indicateurs ajustés", () => {
+  it("respecte les colonnes choisies et reprend les indicateurs ajustés de l'analyse", () => {
     const table = buildExportTable({
       transactions: [
         tx({
@@ -177,7 +177,7 @@ describe("buildExportTable", () => {
       ],
       importedFields: IMPORTED_FIELDS,
       champs: [],
-      params,
+      adjustedByTransaction: { t1: { prix_actualise: 105000 } },
       selectedKeys: ["numero_inscription", "date_vente", "prix_vente", "prix_actualise"],
     })
 

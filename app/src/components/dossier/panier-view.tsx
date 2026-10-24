@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useState, useTransition } from "react"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import { Eye, Trash2 } from "lucide-react"
@@ -10,10 +10,17 @@ import { removeTransactionFromPanier } from "@/server/actions/dossier"
 import { sortTransactionRows } from "@/lib/transaction-sort"
 import { buildPanierDetailQuery } from "@/lib/transaction-filters"
 import { buildTransactionFieldColumns } from "@/lib/transaction-columns"
+import {
+  DEFAULT_PANIER_SORT,
+  loadPanierSort,
+  panierSortStorageKey,
+  savePanierSort,
+} from "@/lib/panier-sort-preference"
 import { PanierExcelExport } from "@/components/dossier/panier-excel-export"
 import type { ImportedField } from "@/lib/imported-fields"
 import type { SerializedTransaction } from "@/types/transaction"
 import type { ChampEnrichissableConfig } from "@/types/champ"
+import type { SerializedAnalyse } from "@/serializers/analyse-dossier.serializer"
 
 // Leaflet touche `window` : la carte d'export est rendue côté client uniquement, comme la carte générale.
 const PanierMapExport = dynamic(
@@ -72,18 +79,37 @@ export function PanierView({
   transactions,
   importedFields,
   champs,
+  analyses,
 }: {
   panierId: string
   nom: string
   transactions: SerializedTransaction[]
   importedFields: ImportedField[]
   champs: ChampEnrichissableConfig[]
+  analyses: SerializedAnalyse[]
 }) {
   const [rows, setRows] = useState(transactions)
-  const [sortField, setSortField] = useState("date_vente")
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
+  const sortStorageKey = panierSortStorageKey(panierId)
+  const [sortField, setSortField] = useState(DEFAULT_PANIER_SORT.field)
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">(DEFAULT_PANIER_SORT.order)
   const [, startTransition] = useTransition()
   const router = useRouter()
+
+  // Lecture après montage : le rendu serveur et l'hydratation restent identiques.
+  useEffect(() => {
+    const saved = loadPanierSort(sortStorageKey)
+    if (saved) {
+      setSortField(saved.field)
+      setSortOrder(saved.order)
+    }
+  }, [sortStorageKey])
+
+  function handleSort(field: string) {
+    const nextOrder = field === sortField && sortOrder === "asc" ? "desc" : "asc"
+    setSortField(field)
+    setSortOrder(nextOrder)
+    savePanierSort(sortStorageKey, { field, order: nextOrder })
+  }
 
   // Contexte transmis à la fiche : la navigation Précédent/Suivant s'y limite aux transactions
   // déjà dans ce panier, dans le même ordre que la liste affichée ici.
@@ -122,13 +148,7 @@ export function PanierView({
       rowKey={(row) => row.id}
       sortField={sortField}
       sortOrder={sortOrder}
-      onSort={(field) => {
-        if (field === sortField) setSortOrder((o) => (o === "asc" ? "desc" : "asc"))
-        else {
-          setSortField(field)
-          setSortOrder("asc")
-        }
-      }}
+      onSort={handleSort}
       reorderable={false}
       title={nom}
       totalCount={rows.length}
@@ -139,6 +159,7 @@ export function PanierView({
             nom={nom}
             importedFields={importedFields}
             champs={champs}
+            analyses={analyses}
           />
           <PanierMapExport transactions={rows} nom={nom} />
         </>

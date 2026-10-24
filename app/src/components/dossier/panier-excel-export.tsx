@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react"
 import { FileSpreadsheet, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Modal } from "@/components/dossier/modal"
 import {
@@ -11,64 +10,54 @@ import {
   buildExportFileName,
   buildExportTable,
   EXPORT_NATURE_LABELS,
-  type ExportAnalysisParams,
   type ExportColumnNature,
 } from "@/lib/excel-export"
 import type { ImportedField } from "@/lib/imported-fields"
+import { getIndicateursAjustesForExport } from "@/server/actions/analyse-dossier"
+import type { SerializedAnalyse } from "@/serializers/analyse-dossier.serializer"
 import type { ChampEnrichissableConfig } from "@/types/champ"
 import type { SerializedTransaction } from "@/types/transaction"
 
 const NATURE_ORDER: ExportColumnNature[] = ["importe", "saisissable", "calcule", "ajuste"]
 
-function todayInputValue(): string {
-  const now = new Date()
-  const month = String(now.getMonth() + 1).padStart(2, "0")
-  const day = String(now.getDate()).padStart(2, "0")
-  return `${now.getFullYear()}-${month}-${day}`
-}
-
-function optionalNumber(value: string): number | undefined {
-  const trimmed = value.trim()
-  if (trimmed === "") return undefined
-  const n = Number(trimmed)
-  return Number.isFinite(n) ? n : Number.NaN
+function formatDate(isoDate: string): string {
+  const [year, month, day] = isoDate.split("-")
+  return `${day}/${month}/${year}`
 }
 
 /**
- * Export Excel d'un panier (§7.9) : l'évaluateur saisit le taux de croissance et la date d'évaluation,
- * choisit les colonnes, renseigne au besoin les valeurs de référence des indicateurs ajustés, puis
- * télécharge un classeur généré côté client.
+ * Export Excel d'un panier (§7.9) : l'évaluateur choisit une Analyse de Dossier stockée, qui fournit les
+ * indicateurs ajustés, puis les colonnes à inclure. Le classeur est généré côté client.
  */
 export function PanierExcelExport({
   transactions,
   nom,
   importedFields,
   champs,
+  analyses,
 }: {
   transactions: SerializedTransaction[]
   nom: string
   importedFields: ImportedField[]
   champs: ChampEnrichissableConfig[]
+  analyses: SerializedAnalyse[]
 }) {
   const columns = useMemo(() => buildExportColumns(importedFields, champs), [importedFields, champs])
   const [open, setOpen] = useState(false)
+  const [analyseId, setAnalyseId] = useState("")
   const [selected, setSelected] = useState<Set<string>>(
-    () => new Set(columns.filter((column) => column.defaultVisible).map((column) => column.key))
+    () =>
+      new Set(
+        columns
+          .filter((column) => column.defaultVisible && (column.nature !== "ajuste" || analyses.length > 0))
+          .map((column) => column.key)
+      )
   )
-  const [tauxCroissance, setTauxCroissance] = useState("")
-  const [dateEvaluation, setDateEvaluation] = useState("")
-  const [tauxBoiseRef, setTauxBoiseRef] = useState("")
-  const [tauxCultiveRef, setTauxCultiveRef] = useState("")
-  const [valeurBatiment, setValeurBatiment] = useState("")
-  const [valeurMaison, setValeurMaison] = useState("")
-  const [valeurTerrain, setValeurTerrain] = useState("")
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   function openModal() {
     setError(null)
-    // Date du jour proposée à la première ouverture, sans dépendre de l'heure du rendu serveur.
-    setDateEvaluation((current) => current || todayInputValue())
     setOpen(true)
   }
 
@@ -81,60 +70,38 @@ export function PanierExcelExport({
     })
   }
 
-  /** Valide la saisie et renvoie les paramètres, ou le message d'erreur à afficher. */
-  function readParams(): { ok: true; params: ExportAnalysisParams } | { ok: false; error: string } {
-    const taux = Number(tauxCroissance)
-    if (tauxCroissance.trim() === "" || !Number.isFinite(taux)) {
-      return { ok: false, error: "Le taux de croissance doit être un nombre." }
-    }
-    if (taux <= -100) {
-      return { ok: false, error: "Le taux de croissance doit être supérieur à -100 %." }
-    }
-    if (!dateEvaluation) {
-      return { ok: false, error: "La date d'évaluation est obligatoire." }
-    }
-    if (Number.isNaN(new Date(dateEvaluation).getTime())) {
-      return { ok: false, error: "La date d'évaluation est invalide." }
-    }
-    if (selected.size === 0) {
-      return { ok: false, error: "Sélectionnez au moins une colonne." }
-    }
-
-    const refs = [tauxBoiseRef, tauxCultiveRef, valeurBatiment, valeurMaison, valeurTerrain].map(optionalNumber)
-    if (refs.some((value) => value !== undefined && Number.isNaN(value))) {
-      return { ok: false, error: "Les paramètres d'analyse doivent être numériques." }
-    }
-    const [boise, cultive, batiment, maison, terrain] = refs
-
-    return {
-      ok: true,
-      params: {
-        tauxCroissancePct: taux,
-        dateEvaluation,
-        tauxBoiseRef: boise,
-        tauxCultiveRef: cultive,
-        valeurBatiment: batiment,
-        valeurMaison: maison,
-        valeurTerrainResidentiel: terrain,
-      },
-    }
-  }
-
   async function handleExport() {
-    const parsed = readParams()
-    if (!parsed.ok) {
-      setError(parsed.error)
+    if (selected.size === 0) {
+      setError("Sélectionnez au moins une colonne.")
+      return
+    }
+    const hasAdjustedColumn = columns.some((column) => column.nature === "ajuste" && selected.has(column.key))
+    if (hasAdjustedColumn && !analyseId) {
+      setError("Choisissez une analyse de dossier pour inclure les indicateurs ajustés.")
       return
     }
 
     setExporting(true)
     setError(null)
     try {
+      let adjustedByTransaction: Record<string, Record<string, number | null>> = {}
+      if (analyseId) {
+        const res = await getIndicateursAjustesForExport(
+          analyseId,
+          transactions.map((transaction) => transaction.id)
+        )
+        if (!res.ok) {
+          setError(res.error)
+          return
+        }
+        adjustedByTransaction = res.values
+      }
+
       const table = buildExportTable({
         transactions,
         importedFields,
         champs,
-        params: parsed.params,
+        adjustedByTransaction,
         selectedKeys: selected,
       })
       // Chargé à la demande : la génération du classeur ne pèse pas sur le chargement initial du panier.
@@ -177,89 +144,29 @@ export function PanierExcelExport({
           className="max-h-[90vh] max-w-2xl overflow-y-auto"
         >
           <div className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="export-taux-croissance">Taux de croissance (%)</Label>
-                <Input
-                  id="export-taux-croissance"
-                  type="number"
-                  step="0.01"
-                  value={tauxCroissance}
-                  onChange={(e) => setTauxCroissance(e.target.value)}
-                  placeholder="5"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="export-date-evaluation">Date d&apos;évaluation</Label>
-                <Input
-                  id="export-date-evaluation"
-                  type="date"
-                  value={dateEvaluation}
-                  onChange={(e) => setDateEvaluation(e.target.value)}
-                />
-              </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="export-analyse">Analyse de dossier</Label>
+              <select
+                id="export-analyse"
+                className="h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
+                value={analyseId}
+                onChange={(e) => setAnalyseId(e.target.value)}
+                disabled={analyses.length === 0}
+              >
+                <option value="">— Aucune —</option>
+                {analyses.map((analyse) => (
+                  <option key={analyse.id} value={analyse.id}>
+                    Évaluation du {formatDate(analyse.dateEvaluation)} (croissance {analyse.tauxCroissancePct} %)
+                  </option>
+                ))}
+              </select>
+              {analyses.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Aucune analyse pour ce dossier. Créez-en une depuis la page du dossier pour exporter les indicateurs
+                  ajustés.
+                </p>
+              )}
             </div>
-
-            <fieldset className="space-y-2 rounded-md border border-border p-3">
-              <legend className="px-1 text-xs font-semibold text-muted-foreground">Paramètres d&apos;analyse</legend>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="export-taux-boise">Taux boisé de référence ($/ha)</Label>
-                  <Input
-                    id="export-taux-boise"
-                    type="number"
-                    step="0.01"
-                    value={tauxBoiseRef}
-                    onChange={(e) => setTauxBoiseRef(e.target.value)}
-                    placeholder="0"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="export-taux-cultive">Taux cultivé de référence ($/ha)</Label>
-                  <Input
-                    id="export-taux-cultive"
-                    type="number"
-                    step="0.01"
-                    value={tauxCultiveRef}
-                    onChange={(e) => setTauxCultiveRef(e.target.value)}
-                    placeholder="0"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="export-valeur-batiment">Valeur bâtiment de référence ($)</Label>
-                  <Input
-                    id="export-valeur-batiment"
-                    type="number"
-                    step="0.01"
-                    value={valeurBatiment}
-                    onChange={(e) => setValeurBatiment(e.target.value)}
-                    placeholder="0"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="export-valeur-maison">Valeur maison de référence ($)</Label>
-                  <Input
-                    id="export-valeur-maison"
-                    type="number"
-                    step="0.01"
-                    value={valeurMaison}
-                    onChange={(e) => setValeurMaison(e.target.value)}
-                    placeholder="0"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="export-valeur-terrain">Valeur terrain résidentiel de référence ($)</Label>
-                  <Input
-                    id="export-valeur-terrain"
-                    type="number"
-                    step="0.01"
-                    value={valeurTerrain}
-                    onChange={(e) => setValeurTerrain(e.target.value)}
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-            </fieldset>
 
             <fieldset className="space-y-3">
               <legend className="text-xs font-semibold text-muted-foreground">Colonnes à inclure</legend>

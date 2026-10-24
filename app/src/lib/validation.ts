@@ -9,6 +9,13 @@ export interface ValidationError {
   champ: string | null
 }
 
+/** Avertissement non bloquant : la sauvegarde reste possible si l'évaluateur la force. */
+export interface ValidationWarning {
+  code: "W-001"
+  message: string
+  champ: null
+}
+
 export interface RangeCheck {
   min?: number | null
   max?: number | null
@@ -118,6 +125,34 @@ export function validateEnrichment(input: EnrichmentValidationInput): Validation
   }
 
   return errors
+}
+
+/** Écart relatif au-delà duquel W-001 avertit (cahier §7.8.3). */
+export const SEUIL_ECART_SUPERFICIE = 0.1
+
+export interface SuperficieCoherenceInput {
+  superficieTotaleHectare: number | null
+  superficieCultivee: number | null
+  superficieBoisee: number | null
+  superficieConstructible: number | null
+}
+
+/** W-001 (non bloquant) : la superficie totale s'écarte de plus de 10 % de la somme des composantes. */
+export function warnSuperficieCoherence(input: SuperficieCoherenceInput): ValidationWarning[] {
+  const { superficieTotaleHectare: total, superficieCultivee, superficieBoisee, superficieConstructible } = input
+  const composantes = [superficieCultivee, superficieBoisee, superficieConstructible]
+  if (total === null || total <= 0 || composantes.every((c) => c === null)) return []
+
+  const somme = composantes.reduce<number>((acc, c) => acc + (c ?? 0), 0)
+  if (Math.abs(total - somme) <= total * SEUIL_ECART_SUPERFICIE + EPSILON) return []
+
+  return [
+    {
+      code: "W-001",
+      champ: null,
+      message: `La superficie totale (${total} ha) s'écarte de plus de 10 % de la somme des composantes (${somme} ha).`,
+    },
+  ]
 }
 
 /** V-004: rejects a sale date in the future, compared at day granularity. */

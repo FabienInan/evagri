@@ -13,14 +13,22 @@ import {
   updateFicheStatut,
 } from "@/repositories/fiche.repository"
 import { serializeTransaction } from "@/serializers/transaction.serializer"
-import { buildStorageEntries, resolveTypeTransaction, validateFiche, withRecomputedIndicateurs } from "@/lib/fiche"
+import {
+  buildStorageEntries,
+  resolveTypeTransaction,
+  validateFiche,
+  warningsFiche,
+  withRecomputedIndicateurs,
+} from "@/lib/fiche"
 import { saveActePDF } from "@/lib/file-storage"
 import { saveFicheSchema } from "@/validators/fiche.validator"
 
 /** One blocking rule violation; `champ` is the codeMachine to display the message under, or null for a fiche-wide message. */
 export type FicheFieldError = { code: string; message: string; champ: string | null }
 
-export type FicheActionResult = { ok: true } | { ok: false; error: string; errors?: FicheFieldError[] }
+export type FicheActionResult =
+  | { ok: true }
+  | { ok: false; error: string; errors?: FicheFieldError[]; avertissements?: FicheFieldError[] }
 
 export async function saveFiche(input: unknown): Promise<FicheActionResult> {
   const organisationId = getCurrentOrganisationId()
@@ -46,6 +54,20 @@ export async function saveFiche(input: unknown): Promise<FicheActionResult> {
     dateVente: typeof fields.date_vente === "string" ? fields.date_vente : null,
   })
   if (errors.length > 0) return { ok: false, error: errors[0].message, errors }
+
+  if (!parsed.data.forcerSauvegarde) {
+    const avertissements = warningsFiche({
+      champs,
+      sections,
+      valeurs,
+      fields,
+      typeCode: parsed.data.typeTransactionCode,
+      dateVente: typeof fields.date_vente === "string" ? fields.date_vente : null,
+    })
+    if (avertissements.length > 0) {
+      return { ok: false, error: avertissements[0].message, avertissements }
+    }
+  }
 
   await saveFicheValues(
     record.id,

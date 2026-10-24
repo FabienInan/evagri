@@ -77,7 +77,6 @@ model Transaction {
   documents  DocumentActe[]
   paniers    PanierTransaction[]
   resultats  IndicateursAjustes[]
-  parametres ParametresAnalyseTransaction[]
   importation Importation?         @relation(fields: [importationId], references: [id])
   organisation Organisation        @relation(fields: [organisationId], references: [id])
 
@@ -210,7 +209,6 @@ model Panier {
   typeTransactionId String?             @map("id_type_transaction")
   createurId        String?             @map("id_createur")
   createdAt         DateTime            @default(now()) @map("date_creation")
-  analyses          AnalyseDossier[]
   dossier           Dossier             @relation(fields: [dossierId], references: [id])
   organisation      Organisation        @relation(fields: [organisationId], references: [id])
   typeTransaction   Typologie?          @relation(fields: [typeTransactionId], references: [id])
@@ -231,37 +229,23 @@ model PanierTransaction {
 }
 
 model AnalyseDossier {
-  id             String                         @id @default(uuid())
-  organisationId String                         @map("id_organisation")
-  dossierId      String                         @map("id_dossier")
-  panierId       String?                        @map("id_panier")
-  dateEvaluation DateTime                       @map("date_evaluation") @db.Date
-  tauxCroissance Decimal                        @map("taux_croissance") @db.Decimal(5, 4)
-  createurId     String?                        @map("id_createur")
-  createdAt      DateTime                       @default(now()) @map("date_creation")
-  dossier        Dossier                        @relation(fields: [dossierId], references: [id])
-  organisation   Organisation                   @relation(fields: [organisationId], references: [id])
-  panier         Panier?                        @relation(fields: [panierId], references: [id])
-  resultats      IndicateursAjustes[]
-  parametres     ParametresAnalyseTransaction[]
+  id                          String               @id @default(uuid())
+  organisationId              String               @map("id_organisation")
+  dossierId                   String               @map("id_dossier")
+  dateEvaluation              DateTime             @map("date_evaluation") @db.Date
+  tauxCroissance              Decimal              @map("taux_croissance") @db.Decimal(5, 4)
+  tauxBoiseRef                Decimal?             @map("taux_boise_ref") @db.Decimal(15, 2)
+  tauxCultiveRef              Decimal?             @map("taux_cultive_ref") @db.Decimal(15, 2)
+  valeurBatimentRef           Decimal?             @map("valeur_batiment_ref") @db.Decimal(15, 2)
+  valeurMaisonRef             Decimal?             @map("valeur_maison_ref") @db.Decimal(15, 2)
+  valeurTerrainResidentielRef Decimal?             @map("valeur_terrain_residentiel_ref") @db.Decimal(15, 2)
+  createurId                  String?              @map("id_createur")
+  createdAt                   DateTime             @default(now()) @map("date_creation")
+  dossier                     Dossier              @relation(fields: [dossierId], references: [id])
+  organisation                Organisation         @relation(fields: [organisationId], references: [id])
+  resultats                   IndicateursAjustes[]
 
   @@map("analyse_dossier")
-}
-
-model ParametresAnalyseTransaction {
-  id                          String            @id @default(uuid())
-  analyseDossierId            String         @map("id_analyse_dossier")
-  transactionId               String         @map("id_transaction")
-  tauxBoiseRef                Decimal?       @map("taux_boise_ref") @db.Decimal(15, 2)
-  tauxCultiveRef              Decimal?       @map("taux_cultive_ref") @db.Decimal(15, 2)
-  valeurBatimentRef           Decimal?       @map("valeur_batiment_ref") @db.Decimal(15, 2)
-  valeurMaisonRef             Decimal?       @map("valeur_maison_ref") @db.Decimal(15, 2)
-  valeurTerrainResidentielRef Decimal?       @map("valeur_terrain_residentiel_ref") @db.Decimal(15, 2)
-  analyseDossier              AnalyseDossier @relation(fields: [analyseDossierId], references: [id])
-  transaction                 Transaction    @relation(fields: [transactionId], references: [id])
-
-  @@unique([analyseDossierId, transactionId])
-  @@map("parametres_analyse_transaction")
 }
 
 model IndicateursAjustes {
