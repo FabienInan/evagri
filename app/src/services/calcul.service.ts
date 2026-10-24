@@ -1,5 +1,6 @@
 import Decimal from "decimal.js"
 import { recomputeIndicateurs } from "@/lib/fiche"
+import { ruleIdentifiers } from "@/lib/calculator"
 import { applyValeursCalculees, listTransactionValeursByOrganisation, type ValeurCalculee } from "@/repositories/calcul.repository"
 import { listChampsEnrichissablesByOrganisation } from "@/repositories/champs.repository"
 import type { ChampEnrichissableConfig } from "@/types/champ"
@@ -15,7 +16,12 @@ export async function recalculerChampsCalcules(organisationId: string): Promise<
   const calcules = champs.filter((champ) => champ.nature === "CALCULE")
   if (calcules.length === 0) return
 
-  const transactions = await listTransactionValeursByOrganisation(organisationId)
+  // Only the operands of the rules and the CALCULE values themselves can change a result.
+  const operandCodes = new Set(calcules.flatMap((champ) => ruleIdentifiers(champ.regleCalcul ?? "")))
+  const relevantIds = champs
+    .filter((champ) => champ.nature === "CALCULE" || operandCodes.has(champ.codeMachine))
+    .map((champ) => champ.id)
+  const transactions = await listTransactionValeursByOrganisation(organisationId, relevantIds)
   const changes: ValeurCalculee[] = []
 
   for (const transaction of transactions) {

@@ -1,13 +1,17 @@
 import { prisma } from "@/lib/prisma"
 import type { Prisma } from "@prisma/client"
 
-/** Every transaction of the organisation with its stored values, keyed by champ for the calculation pass. */
-export async function listTransactionValeursByOrganisation(organisationId: string) {
+/**
+ * Transactions of the organisation holding at least one of the given champs, with only those values: the
+ * calculation pass reads the operands of the rules and the stored CALCULE values, nothing else.
+ */
+export async function listTransactionValeursByOrganisation(organisationId: string, champIds: string[]) {
   return prisma.transaction.findMany({
-    where: { organisationId },
+    where: { organisationId, valeurs: { some: { champId: { in: champIds } } } },
     select: {
       id: true,
       valeurs: {
+        where: { champId: { in: champIds } },
         select: { champId: true, valeurNombre: true, champ: { select: { codeMachine: true } } },
       },
     },

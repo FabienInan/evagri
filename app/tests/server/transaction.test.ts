@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { serializeTransaction } from "@/serializers/transaction.serializer"
-import { findExistingTransaction } from "@/repositories/transaction.repository"
+import { findDedupKeysByNumeros } from "@/repositories/transaction.repository"
 
 let orgId: string
 
@@ -41,23 +41,22 @@ describe("createImportedTransaction / serializeTransaction", () => {
   })
 })
 
-describe("findExistingTransaction", () => {
-  it("dedups symmetric null dates", async () => {
+describe("findDedupKeysByNumeros", () => {
+  it("returns a null date for a row without date de vente", async () => {
     const numeroChamp = await prisma.champ.findFirstOrThrow({ where: { organisationId: orgId, codeMachine: "numero_inscription" } })
-    const tx = await prisma.transaction.create({
+    await prisma.transaction.create({
       data: { organisationId: orgId, systemeSource: "EXISTANT_EVAGRI", valeurs: { create: [{ champId: numeroChamp.id, valeurTexte: "DUP-1" }] } },
     })
-    const found = await findExistingTransaction(orgId, "DUP-1", null)
-    expect(found?.id).toBe(tx.id)
+    expect(await findDedupKeysByNumeros(orgId, ["DUP-1"])).toEqual([{ numero: "DUP-1", date: null }])
   })
 
-  it("does not treat a null-date query as matching a dated row", async () => {
+  it("returns the date of a dated row, so a query without a date cannot match it by key", async () => {
     const numeroChamp = await prisma.champ.findFirstOrThrow({ where: { organisationId: orgId, codeMachine: "numero_inscription" } })
     const dateChamp = await prisma.champ.create({
       data: { organisationId: orgId, codeMachine: "date_vente", nomAffichage: "Date de vente", typeDonnees: "DATE", nature: "IMPORTE", estLectureSeule: true },
     })
     const dateVente = new Date("2024-05-01T00:00:00.000Z")
-    const tx = await prisma.transaction.create({
+    await prisma.transaction.create({
       data: {
         organisationId: orgId,
         systemeSource: "EXISTANT_EVAGRI",
@@ -68,9 +67,8 @@ describe("findExistingTransaction", () => {
       },
     })
 
-    // A query without a date must not match a row that carries one...
-    expect(await findExistingTransaction(orgId, "ND-1", null)).toBeNull()
-    // ...while the same date does match it (the negative branch is what changed).
-    expect((await findExistingTransaction(orgId, "ND-1", dateVente))?.id).toBe(tx.id)
+    const keys = await findDedupKeysByNumeros(orgId, ["ND-1"])
+    expect(keys).toHaveLength(1)
+    expect(keys[0].date?.getTime()).toBe(dateVente.getTime())
   })
 })

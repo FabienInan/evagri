@@ -7,16 +7,24 @@ import { listChampsEnrichissablesByOrganisation } from "@/repositories/champs.re
 import { findChampByCodeMachine } from "@/repositories/enrichment.repository"
 import { incrementImportationCounters } from "@/repositories/import.repository"
 import {
-  createImportedTransaction,
-  findExistingTransaction,
+  createImportedTransactions,
+  findDedupKeysByNumeros,
 } from "@/repositories/transaction.repository"
 import { computeCalculatedEnrichment } from "@/services/calcul.service"
 import type {
+  CreateImportedTransactionInput,
   EnrichmentChamp,
   EnrichmentValueInput,
   ImportSheetResult,
   ParsedRow,
 } from "@/types/import"
+
+const WRITE_BATCH_SIZE = 200
+
+/** Dedup key of the importer: a re-import matches a stored transaction on numero and on date de vente. */
+function dedupKeyOf(numero: string, date: Date | null): string {
+  return `${numero}|${date ? date.getTime() : ""}`
+}
 
 const BUSINESS_FIELD_CODES = [
   "numero_inscription",
@@ -261,6 +269,40 @@ export async function importSheet(
 
   const resolvedCoordinates = await resolveCoordinatesBatch(rows, 10)
 
+  // Dedup keys of the sheet's numeros, loaded once. Rows queued below join the set, so a repeated row in the
+  // same file is ignored as a re-import would be.
+  const numeros = [
+    ...new Set(rows.map((raw) => normalizeNumeroInscription(raw.numero_inscription)).filter((n): n is string => n !== null)),
+  ]
+  const existingKeys = new Set(
+    (await findDedupKeysByNumeros(organisationId, numeros)).map((k) => dedupKeyOf(k.numero, k.date))
+  )
+
+  // Rows are validated one by one, then written in batches: a failing batch is retried row by row so that
+  // only the faulty rows are reported.
+  type PendingRow = { row: number; input: CreateImportedTransactionInput; key: string | null }
+  let pending: PendingRow[] = []
+
+  async function flushBatch() {
+    if (pending.length === 0) return
+    const batch = pending
+    pending = []
+    try {
+      await createImportedTransactions(batch.map((p) => p.input))
+      inserted += batch.length
+    } catch {
+      for (const item of batch) {
+        try {
+          await createImportedTransactions([item.input])
+          inserted++
+        } catch (e) {
+          if (item.key) existingKeys.delete(item.key)
+          errors.push({ row: item.row, message: (e as Error).message })
+        }
+      }
+    }
+  }
+
   for (let i = 0; i < rows.length; i++) {
     const raw = rows[i]
     const rawRow = rawRows[i]
@@ -295,12 +337,10 @@ export async function importSheet(
         throw new Error("V-004: date de vente postérieure à aujourd'hui")
       }
 
-      if (numeroInscription) {
-        const existing = await findExistingTransaction(organisationId, numeroInscription, dateVente)
-        if (existing) {
-          ignored++
-          continue
-        }
+      const key = numeroInscription ? dedupKeyOf(numeroInscription, dateVente) : null
+      if (key && existingKeys.has(key)) {
+        ignored++
+        continue
       }
 
       const statut =
@@ -346,19 +386,23 @@ export async function importSheet(
         if (!withCalcul.has(calcul.champId)) enrichmentValues.push(calcul)
       }
 
-      await createImportedTransaction({
-        organisationId,
-        importationId,
-        systemeSource,
-        statut,
-        enrichmentValues,
-        typologieValue:
-          typeChamp && typologieNom
-            ? { champId: typeChamp.id, valeurTexte: typologieNom }
-            : null,
+      if (key) existingKeys.add(key)
+      pending.push({
+        row: i + 2,
+        key,
+        input: {
+          organisationId,
+          importationId,
+          systemeSource,
+          statut,
+          enrichmentValues,
+          typologieValue:
+            typeChamp && typologieNom
+              ? { champId: typeChamp.id, valeurTexte: typologieNom }
+              : null,
+        },
       })
-
-      inserted++
+      if (pending.length >= WRITE_BATCH_SIZE) await flushBatch()
     } catch (e) {
       errors.push({ row: i + 2, message: (e as Error).message })
     }
@@ -368,6 +412,7 @@ export async function importSheet(
     }
   }
 
+  await flushBatch()
   await flushProgress()
 
   return { inserted, ignored, errors }

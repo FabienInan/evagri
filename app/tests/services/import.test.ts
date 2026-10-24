@@ -10,8 +10,8 @@ vi.mock("@/repositories/import.repository", () => ({
   incrementImportationCounters: vi.fn(async () => {}),
 }))
 vi.mock("@/repositories/transaction.repository", () => ({
-  createImportedTransaction: vi.fn(async () => ({ id: "tx-1" })),
-  findExistingTransaction: vi.fn(async () => null),
+  createImportedTransactions: vi.fn(async () => {}),
+  findDedupKeysByNumeros: vi.fn(async () => []),
 }))
 vi.mock("@/lib/cadastre", () => ({
   geocodeLotCadastral: vi.fn(async () => ({ latitude: 46.1, longitude: -71.2 })),
@@ -75,8 +75,8 @@ describe("parseFieldValue", () => {
 
 describe("importSheet enrichmentValues", () => {
   it("does not duplicate a latitude champId when the file provides only one axis and geocoding fills the rest", async () => {
-    const { createImportedTransaction } = await import("@/repositories/transaction.repository")
-    vi.mocked(createImportedTransaction).mockClear()
+    const { createImportedTransactions } = await import("@/repositories/transaction.repository")
+    vi.mocked(createImportedTransactions).mockClear()
 
     await importSheet({
       organisationId: "org-1",
@@ -88,7 +88,7 @@ describe("importSheet enrichmentValues", () => {
       importationId: "imp-1",
     })
 
-    const values = vi.mocked(createImportedTransaction).mock.calls.at(0)?.[0].enrichmentValues ?? []
+    const values = vi.mocked(createImportedTransactions).mock.calls.at(0)?.[0][0].enrichmentValues ?? []
     const ids = values.map((v) => v.champId)
 
     // No champId appears twice.
@@ -108,33 +108,26 @@ describe("importSheet enrichmentValues", () => {
 
 describe("importSheet dedup", () => {
   it("dedups a re-import by the normalized numero_inscription even with internal whitespace", async () => {
-    const { createImportedTransaction, findExistingTransaction } = await import(
+    const { createImportedTransactions, findDedupKeysByNumeros } = await import(
       "@/repositories/transaction.repository"
     )
-    const createMock = vi.mocked(createImportedTransaction)
-    const findMock = vi.mocked(findExistingTransaction)
+    const createMock = vi.mocked(createImportedTransactions)
+    const keysMock = vi.mocked(findDedupKeysByNumeros)
     const previousCreate = createMock.getMockImplementation()
-    const previousFind = findMock.getMockImplementation()
+    const previousKeys = keysMock.getMockImplementation()
 
     try {
-      // Mirror the real dedup: a re-import matches only when both the stored numero (as normalized at
-      // persist time) and the stored date equal the values the importer looks the row up by.
-      let storedNumero: string | null = null
-      let storedDate: number | null = null
-      createMock.mockImplementation(async (input) => {
-        storedNumero =
-          input.enrichmentValues.find((v) => v.champId === "champ-numero_inscription")?.valeurTexte ?? null
-        const date = input.enrichmentValues.find((v) => v.champId === "champ-date_vente")?.valeurDate ?? null
-        storedDate = date ? date.getTime() : null
-        return { transactionId: "tx-1" }
+      // Mirror the stored state: each written transaction contributes its (numero, date de vente) key, and the
+      // importer reads the keys of the sheet's numeros back before writing.
+      const stored: { numero: string; date: Date | null }[] = []
+      createMock.mockImplementation(async (inputs) => {
+        for (const input of inputs) {
+          const numero = input.enrichmentValues.find((v) => v.champId === "champ-numero_inscription")?.valeurTexte
+          const date = input.enrichmentValues.find((v) => v.champId === "champ-date_vente")?.valeurDate ?? null
+          if (numero) stored.push({ numero, date })
+        }
       })
-      findMock.mockImplementation(async (_org, numero, date) => {
-        if (storedNumero === null) return null
-        const sameDate = date ? storedDate === date.getTime() : storedDate === null
-        return numero === storedNumero && sameDate
-          ? ({ id: "existing" } as Awaited<ReturnType<typeof findExistingTransaction>>)
-          : null
-      })
+      keysMock.mockImplementation(async (_org, numeros) => stored.filter((k) => numeros.includes(k.numero)))
 
       const importOnce = () =>
         importSheet({
@@ -148,14 +141,63 @@ describe("importSheet dedup", () => {
 
       const first = await importOnce()
       expect(first.inserted).toBe(1)
-      expect(storedNumero).toBe("AB123")
+      expect(stored).toEqual([{ numero: "AB123", date: new Date("2024-05-01") }])
 
       const second = await importOnce()
       expect(second.inserted).toBe(0)
       expect(second.ignored).toBe(1)
     } finally {
       if (previousCreate) createMock.mockImplementation(previousCreate)
-      if (previousFind) findMock.mockImplementation(previousFind)
+      if (previousKeys) keysMock.mockImplementation(previousKeys)
+    }
+  })
+
+  it("ignores a repeated row within the same sheet", async () => {
+    const { createImportedTransactions } = await import("@/repositories/transaction.repository")
+    vi.mocked(createImportedTransactions).mockClear()
+
+    const result = await importSheet({
+      organisationId: "org-1",
+      rows: [
+        { numero_inscription: "CD 9", date_vente: "2024-05-01" },
+        { numero_inscription: "CD 9", date_vente: "2024-05-01" },
+      ],
+      rawRows: [{}, {}],
+      enrichmentChamps: [],
+      systemeSource: "JLR",
+      importationId: "imp-1",
+    })
+
+    expect(result.inserted).toBe(1)
+    expect(result.ignored).toBe(1)
+  })
+
+  it("reports a failing batch row by row without losing the other rows", async () => {
+    const { createImportedTransactions } = await import("@/repositories/transaction.repository")
+    const createMock = vi.mocked(createImportedTransactions)
+    const previous = createMock.getMockImplementation()
+
+    try {
+      // Whole-batch write fails; then the row whose numero is "BAD" fails alone and the others succeed.
+      createMock.mockImplementation(async (inputs) => {
+        if (inputs.length > 1) throw new Error("batch failed")
+        const numero = inputs[0].enrichmentValues.find((v) => v.champId === "champ-numero_inscription")?.valeurTexte
+        if (numero === "BAD") throw new Error("row failed")
+      })
+
+      const result = await importSheet({
+        organisationId: "org-1",
+        rows: [{ numero_inscription: "EF 1" }, { numero_inscription: "BAD" }, { numero_inscription: "EF 2" }],
+        rawRows: [{}, {}, {}],
+        enrichmentChamps: [],
+        systemeSource: "JLR",
+        importationId: "imp-1",
+      })
+
+      expect(result.inserted).toBe(2)
+      expect(result.errors).toEqual([{ row: 3, message: "row failed" }])
+    } finally {
+      if (previous) createMock.mockImplementation(previous)
     }
   })
 })

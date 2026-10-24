@@ -14,16 +14,23 @@ export async function findDistinctFieldValues(
   organisationId: string,
   codeMachine: string
 ): Promise<string[]> {
-  const rows = await prisma.valeurChamp.findMany({
-    where: { transaction: { organisationId }, champ: { codeMachine } },
-    select: { valeurTexte: true, valeurTexteMultiple: true },
-  })
-  const values = new Set<string>()
-  for (const r of rows) {
-    if (r.valeurTexte && r.valeurTexte.trim() !== "") values.add(r.valeurTexte)
-    for (const v of r.valeurTexteMultiple) values.add(v)
-  }
-  return Array.from(values).sort((a, b) => a.localeCompare(b, "fr"))
+  // DISTINCT in the database: only the distinct values travel, not one row per transaction.
+  const rows = await prisma.$queryRaw<{ valeur: string }[]>`
+    SELECT DISTINCT v.valeur
+    FROM valeur_champ vc
+    JOIN champ c ON c.id = vc.id_champ
+    JOIN transaction t ON t.id = vc.id_transaction
+    CROSS JOIN LATERAL (
+      SELECT vc.valeur_texte AS valeur
+      UNION ALL
+      SELECT unnest(vc.valeur_texte_multiple)
+    ) v
+    WHERE t.id_organisation = ${organisationId}
+      AND c.code_machine = ${codeMachine}
+      AND v.valeur IS NOT NULL
+      AND btrim(v.valeur) <> ''
+  `
+  return rows.map((row) => row.valeur).sort((a, b) => a.localeCompare(b, "fr"))
 }
 
 export async function findFiltersByOrganisation(

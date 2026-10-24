@@ -182,6 +182,16 @@ describe("recalculerChampsCalcules", () => {
     ])
   })
 
+  it("reads only the operands of the rules and the CALCULE champs", async () => {
+    const unrelated = champ({ id: "x", codeMachine: "commentaire", typeDonnees: "TEXTE" })
+    vi.mocked(listChampsEnrichissablesByOrganisation).mockResolvedValue([prixVente, superficie, unrelated, tauxEntier])
+    vi.mocked(listTransactionValeursByOrganisation).mockResolvedValue([])
+
+    await recalculerChampsCalcules("org-1")
+
+    expect(listTransactionValeursByOrganisation).toHaveBeenCalledWith("org-1", ["p", "s", "t"])
+  })
+
   it("does not write when every stored value is already up to date", async () => {
     vi.mocked(listChampsEnrichissablesByOrganisation).mockResolvedValue([prixVente, superficie, tauxEntier])
     vi.mocked(listTransactionValeursByOrganisation).mockResolvedValue([

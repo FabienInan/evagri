@@ -4,6 +4,7 @@ import { buildWhereClause } from "@/lib/filters/where"
 import type { FilterInput } from "@/types/filter"
 import type { Prisma, StatutTransaction } from "@prisma/client"
 import Decimal from "decimal.js"
+import { randomUUID } from "crypto"
 import type { CreateImportedTransactionInput } from "@/types/import"
 
 export const TRANSACTION_INCLUDE = {
@@ -254,51 +255,70 @@ export async function findTransactionsForMap(
   return transactions
 }
 
-export async function findExistingTransaction(
-  organisationId: string,
-  numeroInscription: string | null | undefined,
-  dateVente: Date | null | undefined
-) {
-  if (!numeroInscription) return null
-  return prisma.transaction.findFirst({
-    where: {
-      organisationId,
-      AND: [
-        { valeurs: { some: { champ: { codeMachine: "numero_inscription" }, valeurTexte: numeroInscription } } },
-        dateVente
-          ? { valeurs: { some: { champ: { codeMachine: "date_vente" }, valeurDate: dateVente } } }
-          : { NOT: { valeurs: { some: { champ: { codeMachine: "date_vente" }, valeurDate: { not: null } } } } },
-      ],
-    },
-  })
-}
+const DEDUP_CHUNK_SIZE = 1000
 
-export async function createImportedTransaction(
-  input: CreateImportedTransactionInput
-) {
-  return prisma.$transaction(async (tx) => {
-    const transaction = await tx.transaction.create({
-      data: {
-        organisationId: input.organisationId,
-        importationId: input.importationId ?? null,
-        systemeSource: input.systemeSource,
-        statut: input.statut as StatutTransaction,
+/**
+ * Stored (numero_inscription, date_vente) pairs for the given numeros: the importer's dedup keys, loaded in
+ * chunks once per import instead of one lookup per row.
+ */
+export async function findDedupKeysByNumeros(
+  organisationId: string,
+  numeros: string[]
+): Promise<{ numero: string; date: Date | null }[]> {
+  const keys: { numero: string; date: Date | null }[] = []
+  for (let start = 0; start < numeros.length; start += DEDUP_CHUNK_SIZE) {
+    const chunk = numeros.slice(start, start + DEDUP_CHUNK_SIZE)
+    const rows = await prisma.transaction.findMany({
+      where: {
+        organisationId,
+        valeurs: { some: { champ: { codeMachine: "numero_inscription" }, valeurTexte: { in: chunk } } },
+      },
+      select: {
+        valeurs: {
+          where: { champ: { codeMachine: { in: ["numero_inscription", "date_vente"] } } },
+          select: { valeurTexte: true, valeurDate: true, champ: { select: { codeMachine: true } } },
+        },
       },
     })
+    for (const row of rows) {
+      const numero = row.valeurs.find((v) => v.champ.codeMachine === "numero_inscription")?.valeurTexte
+      const date = row.valeurs.find((v) => v.champ.codeMachine === "date_vente")?.valeurDate ?? null
+      if (numero) keys.push({ numero, date })
+    }
+  }
+  return keys
+}
 
-    const values = input.enrichmentValues.map((v) => ({
-      transactionId: transaction.id,
-      champId: v.champId,
-      valeurNombre: v.valeurNombre ?? null,
-      valeurTexte: v.valeurTexte ?? null,
-      valeurTexteMultiple: v.valeurTexteMultiple ?? [],
-      valeurBooleen: v.valeurBooleen ?? null,
-      valeurDate: v.valeurDate ?? null,
-    }))
+/** Inserts transactions with their values in one database transaction: a failing batch is rolled back whole. */
+export async function createImportedTransactions(inputs: CreateImportedTransactionInput[]): Promise<void> {
+  const transactions: Prisma.TransactionCreateManyInput[] = []
+  const valeurs: Prisma.ValeurChampCreateManyInput[] = []
+
+  for (const input of inputs) {
+    const id = randomUUID()
+    transactions.push({
+      id,
+      organisationId: input.organisationId,
+      importationId: input.importationId ?? null,
+      systemeSource: input.systemeSource,
+      statut: input.statut as StatutTransaction,
+    })
+
+    for (const v of input.enrichmentValues) {
+      valeurs.push({
+        transactionId: id,
+        champId: v.champId,
+        valeurNombre: v.valeurNombre ?? null,
+        valeurTexte: v.valeurTexte ?? null,
+        valeurTexteMultiple: v.valeurTexteMultiple ?? [],
+        valeurBooleen: v.valeurBooleen ?? null,
+        valeurDate: v.valeurDate ?? null,
+      })
+    }
 
     if (input.typologieValue) {
-      values.push({
-        transactionId: transaction.id,
+      valeurs.push({
+        transactionId: id,
         champId: input.typologieValue.champId,
         valeurNombre: null,
         valeurTexte: input.typologieValue.valeurTexte,
@@ -307,11 +327,10 @@ export async function createImportedTransaction(
         valeurDate: null,
       })
     }
+  }
 
-    if (values.length > 0) {
-      await tx.valeurChamp.createMany({ data: values })
-    }
-
-    return { transactionId: transaction.id }
-  })
+  await prisma.$transaction([
+    prisma.transaction.createMany({ data: transactions }),
+    ...(valeurs.length > 0 ? [prisma.valeurChamp.createMany({ data: valeurs })] : []),
+  ])
 }

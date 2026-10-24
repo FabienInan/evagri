@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest"
 import { prisma } from "@/lib/prisma"
-import { findFiltersByOrganisation } from "@/repositories/filters.repository"
+import { findDistinctFieldValues, findFiltersByOrganisation } from "@/repositories/filters.repository"
 import { withRenteLots } from "@/repositories/transaction.repository"
 
 describe("findFiltersByOrganisation", () => {
@@ -61,6 +61,28 @@ describe("findFiltersByOrganisation", () => {
       await prisma.transaction.deleteMany({ where: { id: tx.id } })
       await prisma.champ.deleteMany({ where: { id: champ.id } })
     }
+  })
+})
+
+describe("findDistinctFieldValues on multi-valued and empty values", () => {
+  let orgId: string
+  beforeAll(async () => {
+    const org = await prisma.organisation.create({ data: { nom: "Test Distinct Org" } })
+    orgId = org.id
+    const champ = await prisma.champ.create({ data: { organisationId: orgId, codeMachine: "usages", nomAffichage: "Usages", typeDonnees: "TEXTE", nature: "IMPORTE", estLectureSeule: true } })
+    await prisma.transaction.create({ data: { organisationId: orgId, systemeSource: "EXISTANT_EVAGRI", valeurs: { create: [{ champId: champ.id, valeurTexteMultiple: ["Forêt", "Agricole"] }] } } })
+    await prisma.transaction.create({ data: { organisationId: orgId, systemeSource: "EXISTANT_EVAGRI", valeurs: { create: [{ champId: champ.id, valeurTexte: "  ", valeurTexteMultiple: ["Agricole", ""] }] } } })
+  })
+  afterAll(async () => {
+    await prisma.filtreRecherche.deleteMany({ where: { organisationId: orgId } })
+    await prisma.valeurChamp.deleteMany({ where: { transaction: { organisationId: orgId } } })
+    await prisma.transaction.deleteMany({ where: { organisationId: orgId } })
+    await prisma.champ.deleteMany({ where: { organisationId: orgId } })
+    await prisma.organisation.delete({ where: { id: orgId } })
+  })
+
+  it("returns each multi-valued element once, skipping blanks, sorted", async () => {
+    expect(await findDistinctFieldValues(orgId, "usages")).toEqual(["Agricole", "Forêt"])
   })
 })
 

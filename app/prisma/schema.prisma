@@ -80,6 +80,8 @@ model Transaction {
   importation Importation?         @relation(fields: [importationId], references: [id])
   organisation Organisation        @relation(fields: [organisationId], references: [id])
 
+  @@index([organisationId])
+  @@index([importationId])
   @@map("transaction")
 }
 
@@ -152,6 +154,7 @@ model ValeurChamp {
   @@unique([transactionId, champId])
   @@index([champId, valeurTexte])
   @@index([champId, valeurDate])
+  @@index([champId, valeurNombre])
   @@index([valeurTexteMultiple(ops: ArrayOps)], type: Gin)
   @@map("valeur_champ")
 }
