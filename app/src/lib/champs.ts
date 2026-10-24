@@ -1,6 +1,11 @@
 import type { ZodError } from "zod"
-import { validateRuleSyntax } from "@/lib/calculator"
-import { hasOptions, type ChampEnrichissableInput, type NatureChamp } from "@/types/champ"
+import { isNumericTypeDonnees, ruleIdentifiers, validateRuleSyntax } from "@/lib/calculator"
+import {
+  hasOptions,
+  type ChampEnrichissableInput,
+  type NatureChamp,
+  type TypeDonneesChamp,
+} from "@/types/champ"
 import { formatZodError } from "@/validators/common"
 import { CHAMP_FIELD_LABELS } from "@/validators/champ.validator"
 
@@ -43,20 +48,51 @@ export function parseListOptions(text: string): string[] | null {
  * unite forced to "N/A" for non-numeric types, est_obligatoire ignored for CALCULE fields.
  */
 export function normalizeChampInput(input: ChampEnrichissableInput): ChampEnrichissableInput {
-  const isNumeric = input.typeDonnees === "DECIMAL" || input.typeDonnees === "ENTIER"
-
   return {
     ...input,
-    unite: isNumeric ? input.unite : "N/A",
+    unite: isNumericTypeDonnees(input.typeDonnees) ? input.unite : "N/A",
     estObligatoire: input.nature === "SAISISSABLE" ? input.estObligatoire : false,
     regleCalcul: input.regleCalcul?.trim() ? input.regleCalcul.trim() : null,
   }
 }
 
-/** knownFieldCodes must contain every source field code and every other champ's codeMachine for the organisation. */
+/**
+ * True when giving `regle` to `codeMachine` makes the rules reference each other in a loop. `otherRules` holds
+ * the rules of every other champ of the organisation (the champ being saved is excluded).
+ */
+export function formsRuleCycle(
+  codeMachine: string,
+  regle: string,
+  otherRules: ReadonlyMap<string, string>
+): boolean {
+  const rules = new Map(otherRules)
+  rules.set(codeMachine, regle)
+
+  const visiting = new Set<string>()
+  const done = new Set<string>()
+  const visit = (code: string): boolean => {
+    if (done.has(code)) return false
+    if (visiting.has(code)) return true
+    visiting.add(code)
+    const rule = rules.get(code)
+    for (const dependency of rule ? ruleIdentifiers(rule) : []) {
+      if (visit(dependency)) return true
+    }
+    visiting.delete(code)
+    done.add(code)
+    return false
+  }
+  return visit(codeMachine)
+}
+
+/**
+ * knownFields maps every source field code and every other champ's codeMachine of the organisation to its
+ * typeDonnees (the champ being saved excluded). otherRules holds the regles de calcul of those other champs.
+ */
 export function validateChampConfig(
   input: ChampEnrichissableInput,
-  knownFieldCodes: Set<string>
+  knownFields: ReadonlyMap<string, TypeDonneesChamp>,
+  otherRules: ReadonlyMap<string, string>
 ): ChampValidationError[] {
   const errors: ChampValidationError[] = []
 
@@ -65,7 +101,7 @@ export function validateChampConfig(
       field: "codeMachine",
       message: "Le code machine doit etre en snake_case (minuscules, chiffres, underscores, commence par une lettre).",
     })
-  } else if (knownFieldCodes.has(input.codeMachine)) {
+  } else if (knownFields.has(input.codeMachine)) {
     // A champ whose code shadows an existing champ (imported codes included) would make a
     // regle_calcul ambiguous; imported codes are reserved.
     errors.push({ field: "codeMachine", message: "Ce code machine est déjà utilisé." })
@@ -75,8 +111,7 @@ export function validateChampConfig(
     errors.push({ field: "nomAffichage", message: "Le nom affiche est obligatoire." })
   }
 
-  const isNumeric = input.typeDonnees === "DECIMAL" || input.typeDonnees === "ENTIER"
-  if (isNumeric && (!input.unite || input.unite === "N/A")) {
+  if (isNumericTypeDonnees(input.typeDonnees) && (!input.unite || input.unite === "N/A")) {
     errors.push({ field: "unite", message: "L'unite est obligatoire pour un champ decimal ou entier." })
   }
 
@@ -102,9 +137,20 @@ export function validateChampConfig(
   }
 
   if (regleCalcul) {
-    const result = validateRuleSyntax(regleCalcul, knownFieldCodes)
-    if (!result.valid) {
-      errors.push({ field: "regleCalcul", message: result.error })
+    if (!isNumericTypeDonnees(input.typeDonnees)) {
+      errors.push({
+        field: "regleCalcul",
+        message: "Une règle de calcul ne peut porter que sur un champ décimal ou entier.",
+      })
+    } else if (ruleIdentifiers(regleCalcul).includes(input.codeMachine)) {
+      errors.push({ field: "regleCalcul", message: "Une règle de calcul ne peut pas utiliser son propre champ." })
+    } else {
+      const result = validateRuleSyntax(regleCalcul, knownFields)
+      if (!result.valid) {
+        errors.push({ field: "regleCalcul", message: result.error })
+      } else if (formsRuleCycle(input.codeMachine, regleCalcul, otherRules)) {
+        errors.push({ field: "regleCalcul", message: "Cette règle crée une boucle avec d'autres règles de calcul." })
+      }
     }
   }
 

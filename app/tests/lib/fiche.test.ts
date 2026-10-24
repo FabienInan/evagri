@@ -13,6 +13,7 @@ import {
   toNumericValues,
   toStorageValue,
   validateFiche,
+  withInitialValues,
   withRecomputedIndicateurs,
 } from "@/lib/fiche"
 import type { ChampEnrichissableConfig } from "@/types/champ"
@@ -81,7 +82,7 @@ describe("buildFicheViewModel", () => {
 
   it("splits SAISISSABLE into sections and CALCULE into indicateurs", () => {
     const saisi = champ({ id: "a", codeMachine: "a" })
-    const calcule = champ({ id: "k", codeMachine: "k", nature: "CALCULE", regleCalcul: "a * 1", estLectureSeule: true })
+    const calcule = champ({ id: "k", codeMachine: "k", typeDonnees: "ENTIER", nature: "CALCULE", regleCalcul: "a * 1", estLectureSeule: true })
     const vm = buildFicheViewModel({
       sections: [{ id: "s1", nom: "Un", ordre: 0, champs: ["a", "k"] }],
       champs: [saisi, calcule],
@@ -164,7 +165,7 @@ describe("buildCalculationContext and recomputeIndicateurs", () => {
   it("evaluates the rule and rounds the result to an integer", () => {
     const context = buildCalculationContext({ prix_vente: 100000, superficie_totale_hectare: 30 })
     const result = recomputeIndicateurs(
-      [champ({ id: "k", codeMachine: "taux_global", nature: "CALCULE", regleCalcul: "prix_vente / superficie_totale_hectare" })],
+      [champ({ id: "k", codeMachine: "taux_global", typeDonnees: "ENTIER", nature: "CALCULE", regleCalcul: "prix_vente / superficie_totale_hectare" })],
       context
     )
     expect(result.taux_global).toBe(3333)
@@ -173,7 +174,7 @@ describe("buildCalculationContext and recomputeIndicateurs", () => {
   it("leaves the indicator null on a division by zero", () => {
     const context = buildCalculationContext({ prix_vente: 1000, superficie_totale_hectare: 0 })
     const result = recomputeIndicateurs(
-      [champ({ id: "k", codeMachine: "taux_global", nature: "CALCULE", regleCalcul: "prix_vente / superficie_totale_hectare" })],
+      [champ({ id: "k", codeMachine: "taux_global", typeDonnees: "ENTIER", nature: "CALCULE", regleCalcul: "prix_vente / superficie_totale_hectare" })],
       context
     )
     expect(result.taux_global).toBeNull()
@@ -183,8 +184,8 @@ describe("buildCalculationContext and recomputeIndicateurs", () => {
     const context = buildCalculationContext({ prix_vente: 1000, superficie_totale_hectare: 10 })
     const result = recomputeIndicateurs(
       [
-        champ({ id: "a", codeMachine: "taux", nature: "CALCULE", regleCalcul: "prix_vente / superficie_totale_hectare" }),
-        champ({ id: "b", codeMachine: "double_taux", nature: "CALCULE", regleCalcul: "taux * 2" }),
+        champ({ id: "a", codeMachine: "taux", typeDonnees: "ENTIER", nature: "CALCULE", regleCalcul: "prix_vente / superficie_totale_hectare" }),
+        champ({ id: "b", codeMachine: "double_taux", typeDonnees: "ENTIER", nature: "CALCULE", regleCalcul: "taux * 2" }),
       ],
       context
     )
@@ -196,8 +197,8 @@ describe("buildCalculationContext and recomputeIndicateurs", () => {
     const context = buildCalculationContext({ prix_vente: 1000, superficie_totale_hectare: 10 })
     const result = recomputeIndicateurs(
       [
-        champ({ id: "b", codeMachine: "double_taux", nature: "CALCULE", regleCalcul: "taux * 2" }),
-        champ({ id: "a", codeMachine: "taux", nature: "CALCULE", regleCalcul: "prix_vente / superficie_totale_hectare" }),
+        champ({ id: "b", codeMachine: "double_taux", typeDonnees: "ENTIER", nature: "CALCULE", regleCalcul: "taux * 2" }),
+        champ({ id: "a", codeMachine: "taux", typeDonnees: "ENTIER", nature: "CALCULE", regleCalcul: "prix_vente / superficie_totale_hectare" }),
       ],
       context
     )
@@ -208,7 +209,7 @@ describe("buildCalculationContext and recomputeIndicateurs", () => {
 describe("withRecomputedIndicateurs", () => {
   it("computes the CALCULE indicators from the source columns, keeping the other values", () => {
     const champs = [
-      champ({ id: "k", codeMachine: "taux_global", nature: "CALCULE", regleCalcul: "prix_vente / superficie_totale_hectare" }),
+      champ({ id: "k", codeMachine: "taux_global", typeDonnees: "ENTIER", nature: "CALCULE", regleCalcul: "prix_vente / superficie_totale_hectare" }),
       champ({ id: "s", codeMachine: "superficie_boise_ha", nature: "SAISISSABLE" }),
     ]
     const valeurs = withRecomputedIndicateurs(champs, {
@@ -223,10 +224,48 @@ describe("withRecomputedIndicateurs", () => {
 
   it("leaves the indicator null when an operand is missing", () => {
     const champs = [
-      champ({ id: "k", codeMachine: "taux_global", nature: "CALCULE", regleCalcul: "prix_vente / superficie_totale_hectare" }),
+      champ({ id: "k", codeMachine: "taux_global", typeDonnees: "ENTIER", nature: "CALCULE", regleCalcul: "prix_vente / superficie_totale_hectare" }),
     ]
     const valeurs = withRecomputedIndicateurs(champs, { prix_vente: null, superficie_totale_hectare: null })
     expect(valeurs.taux_global).toBeNull()
+  })
+})
+
+describe("calculated precision follows the field type", () => {
+  it("keeps two decimals for a DECIMAL indicator", () => {
+    const result = recomputeIndicateurs(
+      [champ({ id: "k", codeMachine: "ratio", typeDonnees: "DECIMAL", nature: "CALCULE", regleCalcul: "prix_vente / superficie_totale_hectare" })],
+      buildCalculationContext({ prix_vente: 100000, superficie_totale_hectare: 30 })
+    )
+    expect(result.ratio).toBe(3333.33)
+  })
+})
+
+describe("withInitialValues", () => {
+  it("pre-fills an empty saisissable field from its rule, then derives the indicators from it", () => {
+    const champs = [
+      champ({ id: "s", codeMachine: "superficie_boise_ha", typeDonnees: "DECIMAL", nature: "SAISISSABLE", regleCalcul: "superficie_totale_hectare / 2" }),
+      champ({ id: "k", codeMachine: "taux_global", typeDonnees: "ENTIER", nature: "CALCULE", regleCalcul: "prix_vente / superficie_boise_ha" }),
+    ]
+    const valeurs = withInitialValues(champs, { prix_vente: 100000, superficie_totale_hectare: 30, superficie_boise_ha: null })
+    expect(valeurs.superficie_boise_ha).toBe(15)
+    expect(valeurs.taux_global).toBe(6667)
+  })
+
+  it("keeps a value the evaluator already entered", () => {
+    const champs = [
+      champ({ id: "s", codeMachine: "superficie_boise_ha", typeDonnees: "DECIMAL", nature: "SAISISSABLE", regleCalcul: "superficie_totale_hectare / 2" }),
+    ]
+    const valeurs = withInitialValues(champs, { superficie_totale_hectare: 30, superficie_boise_ha: 12 })
+    expect(valeurs.superficie_boise_ha).toBe(12)
+  })
+
+  it("leaves the field empty when its rule cannot be evaluated", () => {
+    const champs = [
+      champ({ id: "s", codeMachine: "superficie_boise_ha", typeDonnees: "DECIMAL", nature: "SAISISSABLE", regleCalcul: "superficie_totale_hectare / 2" }),
+    ]
+    const valeurs = withInitialValues(champs, { superficie_totale_hectare: null, superficie_boise_ha: null })
+    expect(valeurs.superficie_boise_ha).toBeNull()
   })
 })
 

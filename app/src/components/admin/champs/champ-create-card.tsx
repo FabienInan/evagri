@@ -59,6 +59,9 @@ export function ChampCreateCard({
         value={draft.regleCalcul ?? ""}
         onChange={(e) => onDraftChange((d) => ({ ...d, regleCalcul: e.target.value }))}
       />
+      <p className="text-xs text-muted-foreground">
+        Champs décimaux ou entiers seulement, codes machine, opérateurs + - * / et parenthèses. Pas de nombre négatif.
+      </p>
     </div>
   )
 

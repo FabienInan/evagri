@@ -206,7 +206,7 @@ test("refuse une règle référençant un champ inconnu", async ({ page }) => {
   await applyToTypes(page)
   await clickCreate(page)
 
-  await expect(page.getByText("Champ inconnu: champ_inconnu")).toBeVisible()
+  await expect(page.getByText("Champ inconnu : champ_inconnu")).toBeVisible()
 })
 
 test("refuse une règle syntaxiquement incomplète", async ({ page }) => {
@@ -218,7 +218,61 @@ test("refuse une règle syntaxiquement incomplète", async ({ page }) => {
   await applyToTypes(page)
   await clickCreate(page)
 
-  await expect(page.getByText("Expression incomplete")).toBeVisible()
+  await expect(page.getByText("Expression incomplète", { exact: false })).toBeVisible()
+})
+
+test("refuse une règle sur un champ qui n'est pas décimal ou entier", async ({ page }) => {
+  await fillName(page, "E2E Creation regle texte")
+  await pick(page, createCard(page), "Type de données", "Texte")
+  await fillRule(page, "prix_vente")
+  await applyToTypes(page)
+  await clickCreate(page)
+
+  await expect(page.getByText("Une règle de calcul ne peut porter que sur un champ décimal ou entier.")).toBeVisible()
+  await expect(row(page, "E2E Creation regle texte")).toHaveCount(0)
+})
+
+test("refuse une règle qui lit un champ non numérique", async ({ page }) => {
+  await fillName(page, "E2E Creation lit texte")
+  await pick(page, createCard(page), "Nature", "Calculé")
+  await pick(page, createCard(page), "Type de données", "Entier")
+  await fillUnit(page, "$")
+  await fillRule(page, "vendeur * 2")
+  await applyToTypes(page)
+  await clickCreate(page)
+
+  await expect(page.getByText("Le champ vendeur n'est pas numérique", { exact: false })).toBeVisible()
+})
+
+test("refuse une règle qui référence son propre champ", async ({ page }) => {
+  await fillName(page, "E2E Creation auto ref")
+  await pick(page, createCard(page), "Nature", "Calculé")
+  await pick(page, createCard(page), "Type de données", "Entier")
+  await fillUnit(page, "$")
+  await fillRule(page, "e2e_creation_auto_ref * 2")
+  await applyToTypes(page)
+  await clickCreate(page)
+
+  await expect(page.getByText("Une règle de calcul ne peut pas utiliser son propre champ.")).toBeVisible()
+})
+
+test("refuse de modifier une règle qui boucle sur une autre règle", async ({ page }) => {
+  for (const name of ["E2E Boucle A", "E2E Boucle B"]) {
+    await fillName(page, name)
+    await pick(page, createCard(page), "Nature", "Calculé")
+    await pick(page, createCard(page), "Type de données", "Entier")
+    await fillUnit(page, "$")
+    await fillRule(page, name === "E2E Boucle A" ? "prix_vente" : "e2e_boucle_a + 1")
+    await applyToTypes(page)
+    await clickCreate(page)
+    await expect(row(page, name)).toBeVisible()
+  }
+
+  await row(page, "E2E Boucle A").click()
+  await page.getByText(/^Règle de calcul/).last().locator("..").getByRole("textbox").fill("e2e_boucle_b * 2")
+  await page.getByRole("button", { name: "Enregistrer", exact: true }).click()
+
+  await expect(page.getByText("Cette règle crée une boucle avec d'autres règles de calcul.")).toBeVisible()
 })
 
 test("masque le switch Obligatoire pour un champ calculé", async ({ page }) => {

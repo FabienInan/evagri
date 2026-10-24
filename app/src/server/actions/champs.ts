@@ -6,15 +6,15 @@ import { getCurrentOrganisationId } from "@/repositories/organisation.repository
 import {
   createChampEnrichissable,
   findChampByOrganisationAndCode,
-  listChampCodesByOrganisation,
   listChampsEnrichissablesByOrganisation,
   setChampActif,
   updateChampEnrichissable,
 } from "@/repositories/champs.repository"
 import { listTypologiesByOrganisation } from "@/repositories/typologie.repository"
 import { deriveEstLectureSeule, formatChampInputErrors, normalizeChampInput, validateChampConfig } from "@/lib/champs"
-import { IMPORTED_FIELD_BY_CODE } from "@/lib/imported-fields"
-import type { ChampEnrichissableConfig, ChampEnrichissableInput } from "@/types/champ"
+import { IMPORTED_FIELDS } from "@/lib/imported-fields"
+import { recalculerChampsCalcules } from "@/services/calcul.service"
+import type { ChampEnrichissableConfig, ChampEnrichissableInput, TypeDonneesChamp } from "@/types/champ"
 import { champInputSchema, type ChampInput } from "@/validators/champ.validator"
 
 export type { ChampInput } from "@/validators/champ.validator"
@@ -51,12 +51,26 @@ function parseChampInput(
   return { ok: true, data: result.data }
 }
 
-/** Imported field codes plus every other champ's codeMachine in the organisation, minus the field being saved (avoids self-reference). */
-async function buildKnownFieldCodes(organisationId: string, excludeCodeMachine: string): Promise<Set<string>> {
-  const champCodes = await listChampCodesByOrganisation(organisationId)
-  const codes = new Set<string>([...Object.keys(IMPORTED_FIELD_BY_CODE), ...champCodes])
-  codes.delete(excludeCodeMachine)
-  return codes
+/**
+ * Catalogue the validation of a champ needs: the type of every imported field and of every other champ of the
+ * organisation, and the rules those other champs carry. The champ being saved (`selfId`, absent on creation) is
+ * excluded; its stored version is returned as `previous`.
+ */
+async function loadChampCatalogue(organisationId: string, selfId?: string) {
+  const champs = await listChampsEnrichissablesByOrganisation(organisationId)
+  const previous = champs.find((champ) => champ.id === selfId)
+  // A champ can carry the code of an imported field (its own row); that code is not a conflict for itself.
+  const knownFields = new Map<string, TypeDonneesChamp>(
+    IMPORTED_FIELDS.filter((f) => f.code !== previous?.codeMachine).map((f) => [f.code, f.typeDonnees])
+  )
+  const otherRules = new Map<string, string>()
+
+  for (const champ of champs) {
+    if (champ.id === selfId) continue
+    knownFields.set(champ.codeMachine, champ.typeDonnees)
+    if (champ.regleCalcul) otherRules.set(champ.codeMachine, champ.regleCalcul)
+  }
+  return { knownFields, otherRules, previous }
 }
 
 export async function createChamp(input: ChampInput): Promise<CreateChampResult> {
@@ -70,8 +84,8 @@ export async function createChamp(input: ChampInput): Promise<CreateChampResult>
   }
 
   const normalized = normalizeChampInput(parsed.data)
-  const knownFieldCodes = await buildKnownFieldCodes(organisationId, parsed.data.codeMachine)
-  const errors = validateChampConfig(normalized, knownFieldCodes)
+  const { knownFields, otherRules } = await loadChampCatalogue(organisationId)
+  const errors = validateChampConfig(normalized, knownFields, otherRules)
   if (errors.length > 0) {
     return { ok: false, error: errors[0].message }
   }
@@ -95,6 +109,10 @@ export async function createChamp(input: ChampInput): Promise<CreateChampResult>
     throw error
   }
 
+  if (normalized.regleCalcul) {
+    await recalculerChampsCalcules(organisationId)
+  }
+
   revalidatePath("/admin/champs")
   return { ok: true, champ }
 }
@@ -105,8 +123,8 @@ export async function updateChamp(id: string, input: ChampInput): Promise<ChampA
   if (!parsed.ok) return parsed
 
   const normalized = normalizeChampInput(parsed.data)
-  const knownFieldCodes = await buildKnownFieldCodes(organisationId, parsed.data.codeMachine)
-  const errors = validateChampConfig(normalized, knownFieldCodes)
+  const { knownFields, otherRules, previous } = await loadChampCatalogue(organisationId, id)
+  const errors = validateChampConfig(normalized, knownFields, otherRules)
   if (errors.length > 0) {
     return { ok: false, error: errors[0].message }
   }
@@ -122,6 +140,11 @@ export async function updateChamp(id: string, input: ChampInput): Promise<ChampA
   })
   if (!updated) {
     return { ok: false, error: "Champ introuvable." }
+  }
+
+  // Stored CALCULE values depend on the rules: recompute when the rule was set, changed or removed.
+  if (normalized.regleCalcul || previous?.regleCalcul) {
+    await recalculerChampsCalcules(organisationId)
   }
 
   revalidatePath("/admin/champs")

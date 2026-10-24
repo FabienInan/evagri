@@ -3,12 +3,14 @@ import { geocodeLotCadastral } from "@/lib/cadastre"
 import { IMPORTED_FIELDS } from "@/lib/imported-fields"
 import { parseBooleanish, parseFrenchNumber } from "@/lib/normalization/parsing"
 import { normalizeEnrichmentText, normalizeNumeroInscription } from "@/lib/normalization/transforms"
+import { listChampsEnrichissablesByOrganisation } from "@/repositories/champs.repository"
 import { findChampByCodeMachine } from "@/repositories/enrichment.repository"
 import { incrementImportationCounters } from "@/repositories/import.repository"
 import {
   createImportedTransaction,
   findExistingTransaction,
 } from "@/repositories/transaction.repository"
+import { computeCalculatedEnrichment } from "@/services/calcul.service"
 import type {
   EnrichmentChamp,
   EnrichmentValueInput,
@@ -221,6 +223,7 @@ export async function importSheet(
   input: ImportSheetInput
 ): Promise<ImportSheetResult> {
   const { organisationId, rows, rawRows, enrichmentChamps, systemeSource, importationId, typologieNom } = input
+  const champsCatalogue = await listChampsEnrichissablesByOrganisation(organisationId)
 
   let inserted = 0
   let ignored = 0
@@ -335,6 +338,12 @@ export async function importSheet(
         if (longitudeChampId && !alreadyPushed.has(longitudeChampId)) {
           enrichmentValues.push({ champId: longitudeChampId, valeurNombre: new Decimal(coords.longitude) })
         }
+      }
+
+      // CALCULE values are derived from the imported figures, so they are stored like any other value.
+      const withCalcul = new Set(enrichmentValues.map((v) => v.champId))
+      for (const calcul of computeCalculatedEnrichment(champsCatalogue, enrichmentValues)) {
+        if (!withCalcul.has(calcul.champId)) enrichmentValues.push(calcul)
       }
 
       await createImportedTransaction({

@@ -17,6 +17,7 @@ import {
   TYPE_TRANSACTION_CODE,
   buildFicheViewModel,
   resolveTypeTransaction,
+  withInitialValues,
   withRecomputedIndicateurs,
   type FicheValeur,
 } from "@/lib/fiche"
@@ -38,8 +39,9 @@ export function FicheTransactionClient({
   const mode = fiche.mode
   const isEdition = mode === "edition"
 
+  // Pre-filling only in edition: a consultation shows exactly what is stored.
   const [valeurs, setValeurs] = useState<Record<string, FicheValeur>>(() =>
-    withRecomputedIndicateurs(fiche.champs, fiche.fields)
+    isEdition ? withInitialValues(fiche.champs, fiche.fields) : withRecomputedIndicateurs(fiche.champs, fiche.fields)
   )
   const [typeCode, setTypeCode] = useState<string | null>(() => {
     const current = resolveTypeTransaction(fiche.fields[TYPE_TRANSACTION_CODE] ?? null, fiche.typologies)

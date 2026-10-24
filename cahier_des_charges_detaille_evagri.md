@@ -553,7 +553,9 @@ Les champs calculés affichés en zone latérale comprennent (liste non exhausti
 | **Potentiel acéricole (%)** | `superficie_acéricole / superficie_boisee` |
 | **Densité d’entaillage** | `nombre_entailles / superficie_acéricole` |
 
-**Précision** : arrondi systématique à l'entier au stockage.
+**Précision** : arrondi selon le type de données du champ calculé, au stockage : `ENTIER` arrondi à l'entier le plus proche ; `DECIMAL` arrondi à 2 décimales (demi vers le haut).
+
+**Règle de calcul pré-remplie** : à l'ouverture d'une transaction en édition, un champ saisissable qui porte une règle et qui est vide est pré-rempli avec le résultat de la règle, s'il est calculable. Une valeur déjà saisie n'est jamais écrasée.
 
 #### 7.5.5 Statut et Contributeur
 
@@ -664,9 +666,15 @@ Le catalogue initial proposé à l’administrateur (coché par défaut, modifia
 | **Érablière** | Densité d’entaillage | `nombre_entailles / superficie_acéricole` |
 | **Érablière** | Taux par entaille ($/entaille) | `(prix_vente – superficie_cultivee * taux_cultive_ref – valeur_batiments – valeur_maison – valeur_terrain_residentiel) / nombre_entailles` |
 
-**Précision** : arrondi systématique à l'entier.
+**Précision** : arrondi selon le type de données du champ calculé : `ENTIER` à l'entier le plus proche ; `DECIMAL` à 2 décimales (demi vers le haut).
 
 **Déclenchement** : recalc à la perte de focus (`onBlur`) sur un champ saisissable modifié.
+
+**Validation d'une règle** (à l'enregistrement d'un champ) : une règle ne peut porter que sur un champ décimal ou entier ; elle ne peut pas référencer son propre champ ; elle ne peut pas former une boucle avec d'autres règles ; elle ne peut pas référencer un code inconnu.
+
+**Recalcul sur changement de règle** : les valeurs stockées des champs `CALCULE` sont un cache de la règle. Après création ou modification d'une règle, toutes les transactions de l'organisation sont recalculées. Une valeur qui n'a plus de résultat est supprimée.
+
+**Import** : les valeurs des champs `CALCULE` sont calculées à partir des valeurs importées de chaque transaction, et stockées comme les autres valeurs. Une valeur fournie explicitement par le fichier n'est pas remplacée.
 
 #### 7.8.2 Indicateurs ajustés dans le temps
 

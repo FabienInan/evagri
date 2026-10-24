@@ -34,15 +34,6 @@ export async function listChampsEnrichissablesByOrganisation(
   return champs.map(toConfig)
 }
 
-/** Every codeMachine of the organisation, used to check a regle_calcul only references known enrichi fields. */
-export async function listChampCodesByOrganisation(organisationId: string): Promise<string[]> {
-  const champs = await prisma.champ.findMany({
-    where: { organisationId },
-    select: { codeMachine: true },
-  })
-  return champs.map((c) => c.codeMachine)
-}
-
 export async function createChampEnrichissable(
   organisationId: string,
   input: ChampEnrichissableInput & { estLectureSeule: boolean }

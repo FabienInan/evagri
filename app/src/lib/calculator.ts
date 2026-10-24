@@ -1,4 +1,5 @@
 import Decimal from "decimal.js"
+import type { TypeDonneesChamp } from "@/types/champ"
 
 /** A computed field resolves its identifiers against the flat field map (imported + saisissable + calculé). */
 export interface CalculationContext {
@@ -14,11 +15,18 @@ const OPERATORS: Record<string, { precedence: number; associativity: Associativi
   "/": { precedence: 2, associativity: "left" },
 }
 
-const NUMBER_PATTERN = /^\d+\.?\d*$/
+const NUMBER_PATTERN = /^(\d+\.?\d*|\.\d+)$/
 const IDENTIFIER_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/
-const TOKEN_PATTERN = /(\d+\.?\d*|[a-zA-Z_][a-zA-Z0-9_]*|[+\-*/()])/
+const TOKEN_PATTERN = /(\d+\.?\d*|\.\d+|[a-zA-Z_][a-zA-Z0-9_]*|[+\-*/()])/
+
+const NUMERIC_TYPES: ReadonlySet<string> = new Set<TypeDonneesChamp>(["DECIMAL", "ENTIER"])
 
 export class RuleSyntaxError extends Error {}
+
+/** Only DECIMAL and ENTIER fields can take part in a calculation. */
+export function isNumericTypeDonnees(typeDonnees: TypeDonneesChamp): boolean {
+  return NUMERIC_TYPES.has(typeDonnees)
+}
 
 /** Splits on the token pattern and drops the whitespace/empty filler between captures. Whitespace is a
  *  separator, never stripped: stripping it would silently concatenate `a b` into the identifier `ab`. */
@@ -34,16 +42,13 @@ function toReversePolishNotation(tokens: string[]): string[] {
   for (const token of tokens) {
     if (NUMBER_PATTERN.test(token) || IDENTIFIER_PATTERN.test(token)) {
       output.push(token)
-    } else if (token in OPERATORS) {
+    } else if (Object.hasOwn(OPERATORS, token)) {
       const operator = OPERATORS[token]
-      while (
-        operatorStack.length > 0 &&
-        operatorStack[operatorStack.length - 1] in OPERATORS &&
-        ((operator.associativity === "left" &&
-          OPERATORS[operatorStack[operatorStack.length - 1]].precedence >= operator.precedence) ||
-          (operator.associativity === "right" &&
-            OPERATORS[operatorStack[operatorStack.length - 1]].precedence > operator.precedence))
-      ) {
+      while (operatorStack.length > 0 && isOperatorOnStack(operatorStack[operatorStack.length - 1])) {
+        const top = OPERATORS[operatorStack[operatorStack.length - 1]]
+        const shouldPop =
+          operator.associativity === "left" ? top.precedence >= operator.precedence : top.precedence > operator.precedence
+        if (!shouldPop) break
         output.push(operatorStack.pop() as string)
       }
       operatorStack.push(token)
@@ -54,18 +59,18 @@ function toReversePolishNotation(tokens: string[]): string[] {
         output.push(operatorStack.pop() as string)
       }
       if (operatorStack.length === 0) {
-        throw new RuleSyntaxError("Parentheses deseequilibrees")
+        throw new RuleSyntaxError("Parenthèses déséquilibrées")
       }
       operatorStack.pop()
     } else {
-      throw new RuleSyntaxError(`Token invalide: ${token}`)
+      throw new RuleSyntaxError(`Caractère non autorisé : « ${token.trim()} »`)
     }
   }
 
   while (operatorStack.length > 0) {
     const operator = operatorStack.pop() as string
     if (operator === "(") {
-      throw new RuleSyntaxError("Parentheses deseequilibrees")
+      throw new RuleSyntaxError("Parenthèses déséquilibrées")
     }
     output.push(operator)
   }
@@ -73,26 +78,32 @@ function toReversePolishNotation(tokens: string[]): string[] {
   return output
 }
 
+function isOperatorOnStack(token: string): boolean {
+  return Object.hasOwn(OPERATORS, token)
+}
+
 function resolveIdentifier(identifier: string, context: CalculationContext): number | null {
-  if (identifier in context.fields) {
+  if (Object.hasOwn(context.fields, identifier)) {
     return context.fields[identifier]
   }
   return null
 }
 
 /** Checks the reverse-Polish sequence is well-formed: every operator consumes two operands and exactly
- *  one operand remains. Catches arity errors (e.g. `a b`, `a +`) that a token-level check would miss. */
+ *  one operand remains. Catches arity errors (e.g. `a b`, `a +`, `-5`) that a token-level check would miss. */
 function validateRpnArity(rpn: string[]): string | null {
   let depth = 0
   for (const token of rpn) {
-    if (token in OPERATORS) {
-      if (depth < 2) return "Expression invalide"
+    if (isOperatorOnStack(token)) {
+      if (depth < 2) {
+        return "Un opérateur n'a pas deux opérandes (les nombres négatifs ne sont pas acceptés, écrivez 0 - x)"
+      }
       depth -= 1
     } else {
       depth += 1
     }
   }
-  if (depth !== 1) return "Expression incomplete"
+  if (depth !== 1) return "Expression incomplète : un opérande ou un opérateur manque"
   return null
 }
 
@@ -151,28 +162,45 @@ export function evaluateRule(rule: string, context: CalculationContext): number 
   }
 }
 
-/** Champs calculés are stored rounded to the nearest integer per cahier des charges §7.5.4/§7.8.1. */
-export function roundToInteger(value: number | null): number | null {
+/** Stored precision follows the field type: an ENTIER rounds to the unit, a DECIMAL keeps 2 decimals. */
+export function roundForType(value: number | null, typeDonnees: TypeDonneesChamp): number | null {
   if (value === null) return null
-  return Math.round(value)
+  if (typeDonnees === "ENTIER") return Math.round(value)
+  return new Decimal(value).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber()
+}
+
+/** Identifiers a rule reads, in order of appearance. Empty for a malformed rule (see validateRuleSyntax). */
+export function ruleIdentifiers(rule: string): string[] {
+  try {
+    return toReversePolishNotation(tokenize(rule)).filter((token) => IDENTIFIER_PATTERN.test(token))
+  } catch {
+    return []
+  }
 }
 
 /**
- * Validates a rule's syntax and that every identifier resolves against the given field codes,
- * without requiring actual values (used by the admin CRUD form before saving a champ enrichissable).
+ * Validates a rule's syntax and that every identifier is a numeric field of the given catalogue
+ * (code -> typeDonnees), without requiring actual values. Used by the admin CRUD form before saving a champ.
  */
-export function validateRuleSyntax(rule: string, knownFieldCodes: Set<string>): { valid: true } | { valid: false; error: string } {
+export function validateRuleSyntax(
+  rule: string,
+  knownFields: ReadonlyMap<string, TypeDonneesChamp>
+): { valid: true } | { valid: false; error: string } {
   if (!rule || !rule.trim()) {
-    return { valid: false, error: "La regle de calcul est vide" }
+    return { valid: false, error: "La règle de calcul est vide" }
   }
 
   try {
-    const tokens = tokenize(rule)
-    const rpn = toReversePolishNotation(tokens)
+    const rpn = toReversePolishNotation(tokenize(rule))
 
     for (const token of rpn) {
-      if (IDENTIFIER_PATTERN.test(token) && !NUMBER_PATTERN.test(token) && !knownFieldCodes.has(token)) {
-        return { valid: false, error: `Champ inconnu: ${token}` }
+      if (!IDENTIFIER_PATTERN.test(token)) continue
+      const typeDonnees = knownFields.get(token)
+      if (!typeDonnees) {
+        return { valid: false, error: `Champ inconnu : ${token}` }
+      }
+      if (!isNumericTypeDonnees(typeDonnees)) {
+        return { valid: false, error: `Le champ ${token} n'est pas numérique (décimal ou entier)` }
       }
     }
 
@@ -183,6 +211,6 @@ export function validateRuleSyntax(rule: string, knownFieldCodes: Set<string>): 
 
     return { valid: true }
   } catch (error) {
-    return { valid: false, error: error instanceof Error ? error.message : "Regle invalide" }
+    return { valid: false, error: error instanceof Error ? error.message : "Règle invalide" }
   }
 }

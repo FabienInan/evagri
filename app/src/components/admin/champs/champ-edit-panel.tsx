@@ -122,6 +122,9 @@ export function ChampEditPanel({
               value={editDraft.regleCalcul ?? ""}
               onChange={(e) => onEditDraftChange((d) => ({ ...d, regleCalcul: e.target.value }))}
             />
+            <p className="text-xs text-muted-foreground">
+              Champs décimaux ou entiers seulement, codes machine, opérateurs + - * / et parenthèses. Pas de nombre négatif.
+            </p>
           </div>
 
           <div className="space-y-1.5">

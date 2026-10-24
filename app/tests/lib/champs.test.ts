@@ -3,11 +3,12 @@ import { z } from "zod"
 import {
   deriveEstLectureSeule,
   formatChampInputErrors,
+  formsRuleCycle,
   normalizeChampInput,
   parseListOptions,
   validateChampConfig,
 } from "@/lib/champs"
-import type { ChampEnrichissableInput } from "@/types/champ"
+import type { ChampEnrichissableInput, TypeDonneesChamp } from "@/types/champ"
 
 const base: ChampEnrichissableInput = {
   codeMachine: "nouveau",
@@ -24,6 +25,13 @@ const base: ChampEnrichissableInput = {
   estAffiche: true,
   estObligatoire: false,
 }
+
+const knownFields = new Map<string, TypeDonneesChamp>([
+  ["prix_vente", "DECIMAL"],
+  ["superficie_totale_hectare", "DECIMAL"],
+  ["typeTransaction", "TEXTE"],
+])
+const noRules = new Map<string, string>()
 
 describe("deriveEstLectureSeule", () => {
   it("is true for IMPORTE and CALCULE, false for SAISISSABLE", () => {
@@ -56,86 +64,128 @@ describe("normalizeChampInput", () => {
 })
 
 describe("validateChampConfig", () => {
-  const knownFieldCodes = new Set(["prix_vente", "superficie_totale_hectare"])
-
   it("accepts a valid saisissable champ", () => {
-    expect(validateChampConfig(base, knownFieldCodes)).toEqual([])
+    expect(validateChampConfig(base, knownFields, noRules)).toEqual([])
   })
 
-  it("rejects a code that is in knownFieldCodes without being a source field code", () => {
-    const errors = validateChampConfig({ ...base, codeMachine: "code_importe" }, new Set(["code_importe"]))
+  it("rejects a code that is already used by another champ or an imported field", () => {
+    const errors = validateChampConfig({ ...base, codeMachine: "prix_vente" }, knownFields, noRules)
     expect(errors.some((e) => e.field === "codeMachine")).toBe(true)
   })
 
   it("rejects a codeMachine that is not snake_case", () => {
-    const errors = validateChampConfig({ ...base, codeMachine: "Bad Code" }, knownFieldCodes)
+    const errors = validateChampConfig({ ...base, codeMachine: "Bad Code" }, knownFields, noRules)
     expect(errors.some((e) => e.field === "codeMachine")).toBe(true)
   })
 
   it("rejects an empty nomAffichage", () => {
-    const errors = validateChampConfig({ ...base, nomAffichage: "  " }, knownFieldCodes)
+    const errors = validateChampConfig({ ...base, nomAffichage: "  " }, knownFields, noRules)
     expect(errors.some((e) => e.field === "nomAffichage")).toBe(true)
   })
 
   it("rejects a plageMin greater than plageMax", () => {
-    const errors = validateChampConfig({ ...base, plageMin: 10, plageMax: 5 }, knownFieldCodes)
+    const errors = validateChampConfig({ ...base, plageMin: 10, plageMax: 5 }, knownFields, noRules)
     expect(errors.some((e) => e.field === "plageMax")).toBe(true)
   })
 
   it("accepts a plageMin equal to plageMax", () => {
-    expect(validateChampConfig({ ...base, plageMin: 5, plageMax: 5 }, knownFieldCodes)).toEqual([])
+    expect(validateChampConfig({ ...base, plageMin: 5, plageMax: 5 }, knownFields, noRules)).toEqual([])
   })
 
   it("requires optionsListe for a LISTE field", () => {
-    const errors = validateChampConfig({ ...base, typeDonnees: "LISTE", optionsListe: [] }, knownFieldCodes)
+    const errors = validateChampConfig({ ...base, typeDonnees: "LISTE", optionsListe: [] }, knownFields, noRules)
     expect(errors.some((e) => e.field === "optionsListe")).toBe(true)
   })
 
   it("accepts a LISTE field with options", () => {
     expect(
-      validateChampConfig({ ...base, typeDonnees: "LISTE", optionsListe: ["A", "B"] }, knownFieldCodes)
+      validateChampConfig({ ...base, typeDonnees: "LISTE", optionsListe: ["A", "B"] }, knownFields, noRules)
     ).toEqual([])
   })
 
   it("requires optionsListe for a MULTI_SELECT field too", () => {
-    const errors = validateChampConfig({ ...base, typeDonnees: "MULTI_SELECT", optionsListe: [] }, knownFieldCodes)
+    const errors = validateChampConfig({ ...base, typeDonnees: "MULTI_SELECT", optionsListe: [] }, knownFields, noRules)
     expect(errors.some((e) => e.field === "optionsListe")).toBe(true)
     expect(
-      validateChampConfig({ ...base, typeDonnees: "MULTI_SELECT", optionsListe: ["A", "B"] }, knownFieldCodes)
+      validateChampConfig({ ...base, typeDonnees: "MULTI_SELECT", optionsListe: ["A", "B"] }, knownFields, noRules)
     ).toEqual([])
   })
 
   it("requires unite for a numeric type", () => {
     for (const typeDonnees of ["DECIMAL", "ENTIER"] as const) {
-      const errors = validateChampConfig({ ...base, typeDonnees, unite: "N/A" }, knownFieldCodes)
+      const errors = validateChampConfig({ ...base, typeDonnees, unite: "N/A" }, knownFields, noRules)
       expect(errors.some((e) => e.field === "unite")).toBe(true)
     }
   })
 
   it("requires regleCalcul for a CALCULE field", () => {
-    const errors = validateChampConfig({ ...base, nature: "CALCULE", regleCalcul: null }, knownFieldCodes)
+    const errors = validateChampConfig(
+      { ...base, typeDonnees: "DECIMAL", nature: "CALCULE", regleCalcul: null },
+      knownFields,
+      noRules
+    )
     expect(errors.some((e) => e.field === "regleCalcul")).toBe(true)
   })
 
   it("rejects a regleCalcul referencing an unknown field", () => {
     const errors = validateChampConfig(
-      { ...base, nature: "CALCULE", regleCalcul: "prix_vente / superficie_inconnue" },
-      knownFieldCodes
+      { ...base, typeDonnees: "DECIMAL", nature: "CALCULE", regleCalcul: "prix_vente / superficie_inconnue" },
+      knownFields,
+      noRules
     )
     expect(errors.some((e) => e.field === "regleCalcul")).toBe(true)
   })
 
-  it("accepts a valid regleCalcul on a SAISISSABLE field", () => {
+  it("accepts a valid regleCalcul on a numeric SAISISSABLE field", () => {
     expect(
-      validateChampConfig({ ...base, regleCalcul: "prix_vente / superficie_totale_hectare" }, knownFieldCodes)
+      validateChampConfig(
+        { ...base, typeDonnees: "DECIMAL", unite: "$", regleCalcul: "prix_vente / superficie_totale_hectare" },
+        knownFields,
+        noRules
+      )
     ).toEqual([])
   })
 
-  it("rejects a regle_calcul on an IMPORTE champ", () => {
+  it("rejects a regleCalcul on a non-numeric champ", () => {
     const errors = validateChampConfig(
-      { ...base, nature: "IMPORTE", regleCalcul: "prix_vente" },
-      new Set(["prix_vente"])
+      { ...base, nature: "CALCULE", typeDonnees: "TEXTE", regleCalcul: "prix_vente" },
+      knownFields,
+      noRules
     )
+    expect(errors.some((e) => e.field === "regleCalcul" && e.message.includes("décimal ou entier"))).toBe(true)
+  })
+
+  it("rejects a regleCalcul that reads a non-numeric field", () => {
+    const errors = validateChampConfig(
+      { ...base, typeDonnees: "DECIMAL", unite: "$", nature: "CALCULE", regleCalcul: "prix_vente / typeTransaction" },
+      knownFields,
+      noRules
+    )
+    expect(errors.some((e) => e.field === "regleCalcul")).toBe(true)
+  })
+
+  it("rejects a regleCalcul that references its own champ", () => {
+    const errors = validateChampConfig(
+      { ...base, typeDonnees: "DECIMAL", unite: "$", nature: "CALCULE", regleCalcul: "nouveau * 2" },
+      knownFields,
+      noRules
+    )
+    expect(errors.some((e) => e.field === "regleCalcul" && e.message.includes("propre champ"))).toBe(true)
+  })
+
+  it("rejects a regleCalcul that closes a loop with another rule", () => {
+    const otherRules = new Map([["ratio", "nouveau / 2"]])
+    const fields = new Map(knownFields).set("ratio", "DECIMAL")
+    const errors = validateChampConfig(
+      { ...base, typeDonnees: "DECIMAL", unite: "$", nature: "CALCULE", regleCalcul: "ratio + 1" },
+      fields,
+      otherRules
+    )
+    expect(errors.some((e) => e.field === "regleCalcul" && e.message.includes("boucle"))).toBe(true)
+  })
+
+  it("rejects a regle_calcul on an IMPORTE champ", () => {
+    const errors = validateChampConfig({ ...base, nature: "IMPORTE", regleCalcul: "prix_vente" }, knownFields, noRules)
     expect(
       errors.some(
         (e) => e.field === "regleCalcul" && e.message === "Un champ importé ne peut pas porter de règle de calcul."
@@ -144,8 +194,28 @@ describe("validateChampConfig", () => {
   })
 
   it("requires at least one applicable type", () => {
-    const errors = validateChampConfig({ ...base, applicableATypes: [] }, knownFieldCodes)
+    const errors = validateChampConfig({ ...base, applicableATypes: [] }, knownFields, noRules)
     expect(errors.some((e) => e.field === "applicableATypes")).toBe(true)
+  })
+})
+
+describe("formsRuleCycle", () => {
+  it("detects a loop through an indirect reference", () => {
+    const rules = new Map([
+      ["a", "b + 1"],
+      ["b", "c * 2"],
+    ])
+    expect(formsRuleCycle("c", "a / 2", rules)).toBe(true)
+  })
+
+  it("accepts a chain of rules that does not loop back", () => {
+    const rules = new Map([["a", "prix_vente * 2"]])
+    expect(formsRuleCycle("b", "a + prix_vente", rules)).toBe(false)
+  })
+
+  it("replaces the saved rule of the champ being checked", () => {
+    const rules = new Map([["a", "b + 1"]])
+    expect(formsRuleCycle("b", "prix_vente", rules)).toBe(false)
   })
 })
 

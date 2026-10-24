@@ -1,5 +1,5 @@
 import type { ChampEnrichissableConfig, FicheSection, TypeDonneesChamp } from "@/types/champ"
-import { evaluateRule, roundToInteger, type CalculationContext } from "@/lib/calculator"
+import { evaluateRule, roundForType, type CalculationContext } from "@/lib/calculator"
 import { formatCellValue } from "@/lib/format"
 import type { TypologieOption } from "@/types/typologie"
 import { validateEnrichment, validateSaleDate, warnSuperficieCoherence, type RangeCheck } from "@/lib/validation"
@@ -131,7 +131,7 @@ export function recomputeIndicateurs(
     passes += 1
     changed = false
     for (const champ of calcule) {
-      const value = roundToInteger(evaluateRule(champ.regleCalcul as string, { fields }))
+      const value = roundForType(evaluateRule(champ.regleCalcul as string, { fields }), champ.typeDonnees)
       if (!(champ.codeMachine in result) || result[champ.codeMachine] !== value) {
         changed = true
       }
@@ -151,6 +151,29 @@ export function withRecomputedIndicateurs(
   fields: Record<string, FicheValeur>
 ): Record<string, FicheValeur> {
   return { ...fields, ...recomputeIndicateurs(champs, buildCalculationContext(fields)) }
+}
+
+/**
+ * Values shown when a fiche opens: CALCULE indicators are computed, and an empty saisissable field that carries a
+ * rule is pre-filled with its result. Pre-filling happens only here, never on blur, so a value the evaluator
+ * clears stays cleared until the fiche is reopened.
+ */
+export function withInitialValues(
+  champs: ChampEnrichissableConfig[],
+  fields: Record<string, FicheValeur>
+): Record<string, FicheValeur> {
+  const filled = withRecomputedIndicateurs(champs, fields)
+  for (const champ of champs) {
+    if (champ.nature !== "SAISISSABLE" || !champ.regleCalcul) continue
+    const current = filled[champ.codeMachine]
+    if (current !== null && current !== undefined && current !== "") continue
+    const value = roundForType(
+      evaluateRule(champ.regleCalcul, buildCalculationContext(filled)),
+      champ.typeDonnees
+    )
+    if (value !== null) filled[champ.codeMachine] = value
+  }
+  return withRecomputedIndicateurs(champs, filled)
 }
 
 export function toStorageValue(
