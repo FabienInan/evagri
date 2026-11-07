@@ -1,13 +1,13 @@
 "use client"
 
 import { usePathname } from "next/navigation"
-import { PanelLeft, PanelLeftClose, ShoppingCart } from "lucide-react"
+import { PanelLeft, PanelLeftClose } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { TransactionViewToggle } from "@/components/transaction-view-toggle"
 import { useFilterPanelVisibility } from "@/hooks/use-filter-panel-visibility"
 import { cn } from "@/lib/utils"
 
-/** Barre d'actions de la liste des transactions (titre, bascule filtres, panier, bascule Liste/Carte).
+/** Barre d'actions de la liste des transactions (titre, bascule filtres, bascule Liste/Carte).
  *  Elle ne concerne que les vues de liste et de carte : la fiche transaction (`/transactions/<id>`)
  *  ne l'affiche pas.
  *  `embedded` : la liste vit dans un conteneur pleine hauteur (pas de scroll de page) sur desktop ;
@@ -47,10 +47,6 @@ export function TransactionsToolbar({ embedded = false }: { embedded?: boolean }
               <span className="hidden sm:inline">Afficher les filtres</span>
             </>
           )}
-        </Button>
-        <Button size="sm" className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
-          <ShoppingCart className="h-4 w-4" />
-          Paniers
         </Button>
         <TransactionViewToggle />
       </div>

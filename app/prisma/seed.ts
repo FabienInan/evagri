@@ -5,6 +5,9 @@ const prisma = new PrismaClient()
 
 const DEFAULT_ORGANISATION_ID = "90a5866e-06e5-46ce-9941-56582b8ca15c"
 
+/** Types de transaction applicables par défaut : un champ sans type ne peut pas être enregistré dans l'admin. */
+const TOUS_TYPES = ["TERRES_CULTIVEES", "TERRES_BOISEES", "ERABLIERES", "BATIMENTS_AGRICOLES", "FERME"]
+
 async function main() {
   let org = await prisma.organisation.findUnique({ where: { id: DEFAULT_ORGANISATION_ID } })
   if (!org) {
@@ -47,7 +50,13 @@ async function main() {
   for (const [index, f] of IMPORTED_FIELDS.entries()) {
     await prisma.champ.upsert({
       where: { organisationId_codeMachine: { organisationId: org.id, codeMachine: f.code } },
-      update: { nature: "IMPORTE", estLectureSeule: true, typeFiltreRecommande: f.typeFiltreRecommande, entetesImport: f.entetesImport },
+      update: {
+        nature: "IMPORTE",
+        estLectureSeule: true,
+        typeFiltreRecommande: f.typeFiltreRecommande,
+        entetesImport: f.entetesImport,
+        applicableATypes: TOUS_TYPES,
+      },
       create: {
         organisationId: org.id,
         codeMachine: f.code,
@@ -57,7 +66,7 @@ async function main() {
         nature: "IMPORTE",
         unite: f.numeric ? (f.code.startsWith("superficie") ? "ha" : f.code === "prix_vente" ? "$" : "°") : "N/A",
         entetesImport: f.entetesImport,
-        applicableATypes: [],
+        applicableATypes: TOUS_TYPES,
         ordreAffichage: index,
         estAffiche: true,
         estLectureSeule: true,
@@ -104,10 +113,9 @@ async function main() {
   // champs sans code réel (superficie_batiment, superficie_feuillu) restent littéraux : ils valent null
   // (affichage « — ») tant qu'aucun champ correspondant n'existe. Les indicateurs « (%) » multiplient par
   // 100, sinon l'arrondi entier (§7.5.4/§7.8.1) ramènerait toute fraction à 0.
-  const tousTypes = ["TERRES_CULTIVEES", "TERRES_BOISEES", "ERABLIERES", "BATIMENTS_AGRICOLES", "FERME"]
 
   const indicateurs = [
-    { codeMachine: "taux_global", nomAffichage: "Taux global", unite: "$/ha", ordreAffichage: 10, applicableATypes: tousTypes,
+    { codeMachine: "taux_global", nomAffichage: "Taux global", unite: "$/ha", ordreAffichage: 10, applicableATypes: TOUS_TYPES,
       regleCalcul: "prix_vente / superficie_totale_hectare" },
     { codeMachine: "taux_residuel_cultive", nomAffichage: "Taux résiduel cultivé", unite: "$/ha", ordreAffichage: 11, applicableATypes: ["TERRES_CULTIVEES"],
       regleCalcul: "(prix_vente - superficie_boise_ha * taux_boise_ref - valeur_batiments - valeur_maison - valeur_terrain_residentiel) / superficie_cultive_ha" },
@@ -168,7 +176,7 @@ async function main() {
         ...c,
         typeDonnees: "DECIMAL",
         nature: "SAISISSABLE",
-        applicableATypes: tousTypes,
+        applicableATypes: TOUS_TYPES,
         estLectureSeule: false,
       },
     })

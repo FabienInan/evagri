@@ -95,6 +95,15 @@ export function useResponsiveColumns(
     setHasUserOverride(true)
   }, [storageKey])
 
+  /**
+   * Freezes the current visible set as the user's preference. Called when the user changes the layout (order,
+   * width), so the columns shown after a reload are the ones they saw, not a fresh auto-collapse for the window.
+   */
+  const persistVisibleColumns = useCallback(() => {
+    saveColumnPreference([...visibleColumns], storageKey)
+    setHasUserOverride(true)
+  }, [visibleColumns, storageKey])
+
   const resetColumns = useCallback(() => {
     clearColumnPreference(storageKey)
     setHasUserOverride(false)
@@ -107,6 +116,7 @@ export function useResponsiveColumns(
     containerRef,
     visibleColumns,
     toggleColumn,
+    persistVisibleColumns,
     resetColumns,
     hasUserOverride,
   }

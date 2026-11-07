@@ -92,8 +92,8 @@ export function TransactionMap({ filters, onGeoFilter }: TransactionMapProps) {
   return (
     <div className="relative h-full w-full">
       <MapContainer
-        center={[52.0, -72.0]}
-        zoom={6}
+        center={[46.0, -72.2]}
+        zoom={9}
         scrollWheelZoom={true}
         className="h-full w-full"
       >

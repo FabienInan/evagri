@@ -66,6 +66,8 @@ export function PanierMapExport({
   const points = useMemo(() => buildMapPoints(transactions), [transactions])
   const bounds = useMemo(() => pointsToBounds(points), [points])
   const containerRef = useRef<HTMLDivElement>(null)
+  // La carte n'est cadrée qu'à son montage : si les transactions changent ensuite, il faut la recadrer.
+  const mapRef = useRef<L.Map | null>(null)
   const tilesReadyRef = useRef(false)
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -78,12 +80,25 @@ export function PanierMapExport({
     }
   }, [])
 
+  /** Recadre la carte sur les points courants ; si la vue change, on attend les nouvelles tuiles. */
+  function refitMap() {
+    const map = mapRef.current
+    if (!map || !bounds) return
+    const previousZoom = map.getZoom()
+    const previousCenter = map.getCenter()
+    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12, animate: false })
+    if (map.getZoom() !== previousZoom || !map.getCenter().equals(previousCenter)) {
+      tilesReadyRef.current = false
+    }
+  }
+
   async function handleExport() {
     const node = containerRef.current
     if (!node || points.length === 0) return
     setExporting(true)
     setError(null)
     try {
+      refitMap()
       await waitForTiles()
       const dataUrl = await toPng(node, {
         width: EXPORT_IMAGE_WIDTH,
@@ -134,6 +149,7 @@ export function PanierMapExport({
               `left: -100000px` sur ce nœud décalerait le rendu hors du canvas et donnerait une image vide. */}
           <div ref={containerRef} style={{ width: "100%", height: "100%" }}>
             <MapContainer
+              ref={mapRef}
               bounds={bounds}
               boundsOptions={{ padding: [50, 50], maxZoom: 12 }}
               zoomControl={false}

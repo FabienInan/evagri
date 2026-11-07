@@ -10,6 +10,8 @@ import type { TypologieOption } from "@/types/typologie"
 import { ChampCreateCard } from "@/components/admin/champs/champ-create-card"
 import { ChampList } from "@/components/admin/champs/champ-list"
 import { ChampEditPanel } from "@/components/admin/champs/champ-edit-panel"
+import type { RuleFieldOption } from "@/components/admin/champs/regle-calcul-input"
+import { IMPORTED_FIELDS } from "@/lib/imported-fields"
 import { emptyDraft, toDraft } from "@/components/admin/champs/champs-model"
 
 export function ChampsAdmin({
@@ -42,13 +44,24 @@ export function ChampsAdmin({
     const q = search.trim().toLowerCase()
     return champs
       .filter((c) => c.nomAffichage.toLowerCase().includes(q) || c.codeMachine.toLowerCase().includes(q))
-      .sort((a, b) => a.ordreAffichage - b.ordreAffichage)
+      .sort((a, b) => a.nomAffichage.localeCompare(b.nomAffichage, "fr", { sensitivity: "base" }))
   }, [champs, search])
 
   const selected = useMemo(() => champs.find((c) => c.id === selectedId) ?? null, [champs, selectedId])
 
   // Code machine dérivé du nom affiché (norme buildCodeMachine) : jamais saisi, toujours aligné.
   const derivedCodeMachine = useMemo(() => buildCodeMachine(draft.nomAffichage), [draft.nomAffichage])
+
+  // Seuls les champs décimaux ou entiers peuvent entrer dans une règle de calcul : on ne propose que ceux-là.
+  const ruleFieldOptions = useMemo<RuleFieldOption[]>(() => {
+    const imported = IMPORTED_FIELDS.filter((f) => f.typeDonnees === "DECIMAL" || f.typeDonnees === "ENTIER").map(
+      (f) => ({ code: f.code, label: f.label })
+    )
+    const saisis = champs
+      .filter((c) => c.typeDonnees === "DECIMAL" || c.typeDonnees === "ENTIER")
+      .map((c) => ({ code: c.codeMachine, label: c.nomAffichage }))
+    return [...imported, ...saisis]
+  }, [champs])
 
   function selectChamp(champ: ChampEnrichissableConfig) {
     setSelectedId(champ.id)
@@ -143,6 +156,7 @@ export function ChampsAdmin({
         createOptionsText={createOptionsText}
         onCreateOptionsTextChange={setCreateOptionsText}
         derivedCodeMachine={derivedCodeMachine}
+        ruleFieldOptions={ruleFieldOptions}
         typologies={typologies}
         creating={creating}
         createError={createError}
@@ -158,6 +172,7 @@ export function ChampsAdmin({
       >
         <ChampEditPanel
           selected={selected}
+          ruleFieldOptions={ruleFieldOptions}
           editDraft={editDraft}
           onEditDraftChange={(updater) => setEditDraft((d) => (d ? updater(d) : d))}
           editOptionsText={editOptionsText}

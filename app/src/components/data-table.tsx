@@ -14,6 +14,7 @@ import {
 } from "@/lib/responsive-columns"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   Table,
@@ -53,20 +54,42 @@ function moveKeyBefore(order: string[], fromKey: string, toKey: string): string[
   return next
 }
 
+/** Lowercases and strips accents so "Prix" matches "prix" and "Région" matches "region". */
+function normalizeForSearch(text: string): string {
+  return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+}
+
 function ColumnMenu<T>({
   columns,
   visibleColumns,
   toggleColumn,
   hasUserOverride,
   resetColumns,
+  alphabetical,
+  searchable,
 }: {
   columns: DataTableColumn<T>[]
   visibleColumns: Set<string>
   toggleColumn: (key: string) => void
   hasUserOverride: boolean
   resetColumns: () => void
+  alphabetical: boolean
+  searchable: boolean
 }) {
   const [show, setShow] = useState(false)
+  const [query, setQuery] = useState("")
+
+  const menuColumns = useMemo(() => {
+    let list = columns.filter((c) => !c.locked)
+    if (searchable && query.trim()) {
+      const needle = normalizeForSearch(query.trim())
+      list = list.filter((c) => normalizeForSearch(c.label).includes(needle))
+    }
+    if (alphabetical) {
+      list = [...list].sort((a, b) => a.label.localeCompare(b.label, "fr", { sensitivity: "base" }))
+    }
+    return list
+  }, [columns, alphabetical, searchable, query])
 
   return (
     <div className="relative">
@@ -76,20 +99,31 @@ function ColumnMenu<T>({
       </Button>
       {show && (
         <div className="absolute right-0 z-50 mt-1 flex max-h-[min(24rem,70vh)] w-64 flex-col overflow-hidden rounded-md border border-border bg-card p-2 shadow-md">
+          {searchable && (
+            <Input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Rechercher une colonne"
+              aria-label="Rechercher une colonne"
+              className="mb-1 h-8 shrink-0 text-sm"
+            />
+          )}
           <div className="flex-1 overflow-y-auto pr-1">
             <div className="space-y-0.5">
-              {columns
-                .filter((c) => !c.locked)
-                .map((col) => (
-                  <label key={col.key} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted">
-                    <input
-                      type="checkbox"
-                      checked={visibleColumns.has(col.key)}
-                      onChange={() => toggleColumn(col.key)}
-                    />
-                    {col.label}
-                  </label>
-                ))}
+              {menuColumns.map((col) => (
+                <label key={col.key} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted">
+                  <input
+                    type="checkbox"
+                    checked={visibleColumns.has(col.key)}
+                    onChange={() => toggleColumn(col.key)}
+                  />
+                  {col.label}
+                </label>
+              ))}
+              {menuColumns.length === 0 && (
+                <p className="px-2 py-1.5 text-sm text-muted-foreground">Aucune colonne trouvée</p>
+              )}
             </div>
           </div>
           {hasUserOverride && (
@@ -185,7 +219,6 @@ function DataTableHeader<T>({
   onColumnResize,
   onColumnResizeEnd,
   sticky = false,
-  reorderable = true,
 }: {
   visible: DataTableColumn<T>[]
   sortField?: string
@@ -197,8 +230,6 @@ function DataTableHeader<T>({
   onColumnResizeEnd: () => void
   /** Keeps the header pinned to the top of the scrolling body (fill-height mode). */
   sticky?: boolean
-  /** When false, headers are not draggable and no reorder handle is shown. */
-  reorderable?: boolean
 }) {
   const [draggedKey, setDraggedKey] = useState<string | null>(null)
   const [dragOverKey, setDragOverKey] = useState<string | null>(null)
@@ -212,8 +243,8 @@ function DataTableHeader<T>({
     >
       <TableRow>
         {visible.map((col) => {
-          const draggable = reorderable && !col.locked
-          const width = columnWidths[col.key]
+          const draggable = !col.immovable
+          const width = col.fixedWidth ?? columnWidths[col.key]
           return (
             <TableHead
               key={col.key}
@@ -224,7 +255,7 @@ function DataTableHeader<T>({
                 e.dataTransfer.effectAllowed = "move"
               }}
               onDragOver={(e) => {
-                if (!draggable || !draggedKey || draggedKey === col.key) return
+                if (!draggedKey || draggedKey === col.key) return
                 e.preventDefault()
                 e.dataTransfer.dropEffect = "move"
                 if (dragOverKey !== col.key) setDragOverKey(col.key)
@@ -261,12 +292,14 @@ function DataTableHeader<T>({
                     <ChevronDown className="h-3.5 w-3.5" />
                   ))}
               </span>
-              <ColumnResizeHandle
-                columnKey={col.key}
-                width={width}
-                onResize={onColumnResize}
-                onResizeEnd={onColumnResizeEnd}
-              />
+              {!col.fixedWidth && (
+                <ColumnResizeHandle
+                  columnKey={col.key}
+                  width={width}
+                  onResize={onColumnResize}
+                  onResizeEnd={onColumnResizeEnd}
+                />
+              )}
             </TableHead>
           )
         })}
@@ -297,8 +330,10 @@ export interface DataTableProps<T> {
   variant?: "card" | "bare"
   /** Fills its container's height (lg+) and scrolls the body, keeping the header pinned. Defaults to false. */
   fillHeight?: boolean
-  /** When false, column headers are not draggable (order follows the sort, e.g. the panier view). Defaults to true. */
-  reorderable?: boolean
+  /** Lists the columns of the "Colonnes" menu in alphabetical order (the table itself keeps its own order). Defaults to false. */
+  columnMenuAlphabetical?: boolean
+  /** Adds a search field to the "Colonnes" menu to filter columns by label. Defaults to false. */
+  columnMenuSearchable?: boolean
 }
 
 export function DataTable<T>({
@@ -319,7 +354,8 @@ export function DataTable<T>({
   isRowSelected,
   variant = "card",
   fillHeight = false,
-  reorderable = true,
+  columnMenuAlphabetical = false,
+  columnMenuSearchable = false,
 }: DataTableProps<T>) {
   const visibleStorageKey = `evagri:${storageKey}:visible-columns`
   const orderStorageKey = `evagri:${storageKey}:column-order`
@@ -339,6 +375,7 @@ export function DataTable<T>({
     containerRef,
     visibleColumns,
     toggleColumn,
+    persistVisibleColumns,
     resetColumns,
     hasUserOverride,
   } = useResponsiveColumns(columnMeta, initialVisible, requiredKeys, visibleStorageKey)
@@ -372,7 +409,8 @@ export function DataTable<T>({
 
   const handleColumnResizeEnd = useCallback(() => {
     saveColumnWidths(widthsRef.current, widthsStorageKey)
-  }, [widthsStorageKey])
+    persistVisibleColumns()
+  }, [widthsStorageKey, persistVisibleColumns])
 
   const orderedColumns = useMemo(() => applySavedOrder(columns, columnOrder), [columns, columnOrder])
   const visible = useMemo(
@@ -384,6 +422,7 @@ export function DataTable<T>({
     const nextOrder = moveKeyBefore(orderedColumns.map((c) => c.key), fromKey, toKey)
     setColumnOrder(nextOrder)
     saveColumnOrder(nextOrder, orderStorageKey)
+    persistVisibleColumns()
   }
 
   function handleResetColumns() {
@@ -420,6 +459,8 @@ export function DataTable<T>({
               visibleColumns={visibleColumns}
               toggleColumn={toggleColumn}
               hasUserOverride={hasUserOverride || !!columnOrder}
+              alphabetical={columnMenuAlphabetical}
+              searchable={columnMenuSearchable}
               resetColumns={handleResetColumns}
             />
           </div>
@@ -439,7 +480,6 @@ export function DataTable<T>({
             onColumnResize={handleColumnResize}
             onColumnResizeEnd={handleColumnResizeEnd}
             sticky={fillHeight}
-            reorderable={reorderable}
           />
           <TableBody>
             {rows.length === 0 && !loading ? (
@@ -461,7 +501,7 @@ export function DataTable<T>({
                     onClick={() => onRowClick?.(row)}
                   >
                     {visible.map((col) => {
-                      const width = columnWidths[col.key]
+                      const width = col.fixedWidth ?? columnWidths[col.key]
                       return (
                         <TableCell
                           key={col.key}

@@ -20,9 +20,8 @@ test("dessine un polygone et ajoute la sélection au panier", async ({ page }) =
   const marker = page.locator("img.leaflet-marker-icon, .marker-cluster-custom").first()
   await marker.waitFor({ timeout: 20_000 })
 
-  // The default view (centre [52,-72], zoom 6) leaves the Drummondville-area pins below the fold, so a
-  // polygon drawn on what's visible would contain nothing. Zoom out until the marker sits inside the
-  // map viewport, then draw around it.
+  // Zoom out until the marker sits inside the map viewport, then draw around it: a polygon drawn on
+  // pins below the fold would contain nothing.
   const box = await map.boundingBox()
   if (!box) throw new Error("contour de la carte introuvable")
   for (let i = 0; i < 6; i++) {

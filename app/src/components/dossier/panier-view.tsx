@@ -45,6 +45,8 @@ function usePanierColumns(
       defaultVisible: true,
       minWidth: 88,
       locked: true,
+      immovable: true,
+      fixedWidth: 88,
       render: (row) => (
         <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
           <Button
@@ -149,7 +151,8 @@ export function PanierView({
       sortField={sortField}
       sortOrder={sortOrder}
       onSort={handleSort}
-      reorderable={false}
+      columnMenuAlphabetical
+      columnMenuSearchable
       title={nom}
       totalCount={rows.length}
       toolbar={

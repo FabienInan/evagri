@@ -14,6 +14,7 @@ import type { NatureChamp, TypeDonneesChamp } from "@/types/champ"
 import { hasOptions } from "@/types/champ"
 import type { TypologieOption } from "@/types/typologie"
 import { TYPE_DONNEES_LABELS, isNumericType } from "./champs-model"
+import { RegleCalculInput, type RuleFieldOption } from "./regle-calcul-input"
 
 export function ChampCreateCard({
   draft,
@@ -21,12 +22,14 @@ export function ChampCreateCard({
   createOptionsText,
   onCreateOptionsTextChange,
   derivedCodeMachine,
+  ruleFieldOptions,
   typologies,
   creating,
   createError,
   onCreate,
 }: {
   draft: ChampInput
+  ruleFieldOptions: RuleFieldOption[]
   onDraftChange: (updater: (draft: ChampInput) => ChampInput) => void
   createOptionsText: string
   onCreateOptionsTextChange: (value: string) => void
@@ -54,10 +57,12 @@ export function ChampCreateCard({
       <Label className="text-sm font-medium">
         Règle de calcul {draft.nature === "CALCULE" ? "(obligatoire)" : "(optionnelle)"}
       </Label>
-      <Input
+      <RegleCalculInput
         placeholder="prix_vente / superficie_totale_hectare"
         value={draft.regleCalcul ?? ""}
-        onChange={(e) => onDraftChange((d) => ({ ...d, regleCalcul: e.target.value }))}
+        onChange={(value) => onDraftChange((d) => ({ ...d, regleCalcul: value }))}
+        options={ruleFieldOptions}
+        excludeCode={draft.codeMachine}
       />
       <p className="text-xs text-muted-foreground">
         Champs décimaux ou entiers seulement, codes machine, opérateurs + - * / et parenthèses. Pas de nombre négatif.

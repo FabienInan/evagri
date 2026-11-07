@@ -28,7 +28,7 @@ test("refuse d'enregistrer sans type de transaction, puis accepte une fois le ty
 test("demande confirmation avant de passer la transaction à analysée", async ({ page }) => {
   await page.goto(`/transactions/${fx.transactions.t5}`)
 
-  await page.getByRole("button", { name: "Analyser", exact: true }).click()
+  await page.getByRole("button", { name: "Finaliser", exact: true }).click()
   await expect(
     page.getByRole("heading", { name: "Passer la transaction à « Analysée » ?" })
   ).toBeVisible()
@@ -40,7 +40,7 @@ test("demande confirmation avant de passer la transaction à analysée", async (
 
   // Annuler ne change rien : la transaction reste non analysée.
   await expect(page.getByText("Non analysée", { exact: true })).toBeVisible()
-  await expect(page.getByRole("button", { name: "Analyser", exact: true })).toBeEnabled()
+  await expect(page.getByRole("button", { name: "Finaliser", exact: true })).toBeEnabled()
 })
 
 test("bloque Enregistrer et Analyser quand la date de vente est dans le futur", async ({ page }) => {
@@ -55,10 +55,10 @@ test("bloque Enregistrer et Analyser quand la date de vente est dans le futur", 
   await expect(page.getByText(message)).toBeVisible()
   await expect(page.getByRole("button", { name: "Enregistrer" })).toBeEnabled()
 
-  await page.getByRole("button", { name: "Analyser" }).click()
+  await page.getByRole("button", { name: "Finaliser" }).click()
   await page.getByRole("button", { name: "Confirmer l'analyse" }).click()
   await expect(page.getByText(message)).toBeVisible()
   // Le statut n'a pas changé : la validation a interrompu le passage à « Analysée ».
   await expect(page.getByText("Non analysée", { exact: true })).toBeVisible()
-  await expect(page.getByRole("button", { name: "Analyser" })).toBeEnabled()
+  await expect(page.getByRole("button", { name: "Finaliser" })).toBeEnabled()
 })

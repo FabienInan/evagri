@@ -29,7 +29,7 @@ async function fillRule(page: Page, rule: string): Promise<void> {
   await createCard(page)
     .getByText(/^Règle de calcul/)
     .locator("..")
-    .getByRole("textbox")
+    .getByRole("combobox")
     .fill(rule)
 }
 
@@ -269,7 +269,7 @@ test("refuse de modifier une règle qui boucle sur une autre règle", async ({ p
   }
 
   await row(page, "E2E Boucle A").click()
-  await page.getByText(/^Règle de calcul/).last().locator("..").getByRole("textbox").fill("e2e_boucle_b * 2")
+  await page.getByText(/^Règle de calcul/).last().locator("..").getByRole("combobox").fill("e2e_boucle_b * 2")
   await page.getByRole("button", { name: "Enregistrer", exact: true }).click()
 
   await expect(page.getByText("Cette règle crée une boucle avec d'autres règles de calcul.")).toBeVisible()

@@ -179,7 +179,7 @@ test("Analyser : l'avertissement est proposé, puis Forcer et analyser passe la 
   await superficieCultivee(page).fill("3")
   await superficieBoisee(page).fill("3")
 
-  await page.getByRole("button", { name: "Analyser", exact: true }).click()
+  await page.getByRole("button", { name: "Finaliser", exact: true }).click()
   await page.getByRole("button", { name: "Confirmer l'analyse" }).click()
   await expect(avertissement(page)).toBeVisible()
   await expect(page.getByText("Non analysée", { exact: true })).toBeVisible()
@@ -196,7 +196,7 @@ test("Analyser puis Corriger après réouverture : la transaction reste non anal
 
   await superficieCultivee(page).fill("3")
   await superficieBoisee(page).fill("3")
-  await page.getByRole("button", { name: "Analyser", exact: true }).click()
+  await page.getByRole("button", { name: "Finaliser", exact: true }).click()
   await page.getByRole("button", { name: "Confirmer l'analyse" }).click()
   await expect(avertissement(page)).toBeVisible()
 

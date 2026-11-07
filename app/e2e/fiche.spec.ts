@@ -18,7 +18,7 @@ test("fiche d'une transaction non analysée : édition et enregistrement", async
   await page.goto(`/transactions/${fx.transactions.t4}`)
   await expect(page.getByText("Non analysée", { exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: "Enregistrer" })).toBeVisible()
-  await expect(page.getByRole("button", { name: "Analyser" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Finaliser" })).toBeVisible()
 
   // Renseigne le type de transaction puis enregistre : aucune erreur ne doit s'afficher.
   await page.getByRole("combobox").first().click()
@@ -58,7 +58,7 @@ test("analyse une transaction puis la réouvre pour la corriger", async ({ page 
   await fillObligatoires(page)
   await page.getByRole("combobox").first().click()
   await page.getByRole("option", { name: "Terres cultivées" }).click()
-  await page.getByRole("button", { name: "Analyser", exact: true }).click()
+  await page.getByRole("button", { name: "Finaliser", exact: true }).click()
   await page.getByRole("button", { name: "Confirmer l'analyse" }).click()
 
   // Consultation : plus d'édition possible, mais le bouton de réouverture est proposé.
@@ -73,5 +73,5 @@ test("analyse une transaction puis la réouvre pour la corriger", async ({ page 
 
   await expect(page.getByText("Non analysée", { exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: "Enregistrer" })).toBeVisible()
-  await expect(page.getByRole("button", { name: "Analyser", exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Finaliser", exact: true })).toBeVisible()
 })

@@ -123,6 +123,8 @@ export function ImportHistory({ initialImports }: { initialImports: Importation[
       minWidth: 80,
       priority: 10,
       locked: true,
+      immovable: true,
+      fixedWidth: 80,
       render: (imp) => (
         <div className="flex justify-end gap-1">
           <Button

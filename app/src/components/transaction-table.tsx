@@ -125,6 +125,8 @@ function useTableColumns(
         minWidth: 80,
         priority: 10,
         locked: true,
+        immovable: true,
+        fixedWidth: 80,
         render: (row) => (
           <Actions
             id={row.id}

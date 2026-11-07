@@ -84,7 +84,7 @@ export function FicheHeader({
             </Button>
             <Button size="sm" className="gap-2" disabled={saving} onClick={onAnalyse}>
               <Check className="h-4 w-4" />
-              Analyser
+              Finaliser
             </Button>
           </div>
         )}

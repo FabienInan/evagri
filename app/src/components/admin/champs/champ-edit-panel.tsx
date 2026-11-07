@@ -12,9 +12,11 @@ import type { ChampEnrichissableConfig, TypeDonneesChamp } from "@/types/champ"
 import { hasOptions } from "@/types/champ"
 import type { TypologieOption } from "@/types/typologie"
 import { NATURE_LABELS, TYPE_DONNEES_LABELS, isNumericType } from "./champs-model"
+import { RegleCalculInput, type RuleFieldOption } from "./regle-calcul-input"
 
 export function ChampEditPanel({
   selected,
+  ruleFieldOptions,
   editDraft,
   onEditDraftChange,
   editOptionsText,
@@ -28,6 +30,7 @@ export function ChampEditPanel({
   onToggleActif,
 }: {
   selected: ChampEnrichissableConfig | null
+  ruleFieldOptions: RuleFieldOption[]
   editDraft: ChampInput | null
   onEditDraftChange: (updater: (draft: ChampInput) => ChampInput) => void
   editOptionsText: string
@@ -117,10 +120,12 @@ export function ChampEditPanel({
             <Label className="text-sm font-medium">
               Règle de calcul {editDraft.nature === "CALCULE" ? "(obligatoire)" : "(optionnelle)"}
             </Label>
-            <Input
+            <RegleCalculInput
               placeholder="prix_vente / superficie_totale_hectare"
               value={editDraft.regleCalcul ?? ""}
-              onChange={(e) => onEditDraftChange((d) => ({ ...d, regleCalcul: e.target.value }))}
+              onChange={(value) => onEditDraftChange((d) => ({ ...d, regleCalcul: value }))}
+              options={ruleFieldOptions}
+              excludeCode={editDraft.codeMachine}
             />
             <p className="text-xs text-muted-foreground">
               Champs décimaux ou entiers seulement, codes machine, opérateurs + - * / et parenthèses. Pas de nombre négatif.
