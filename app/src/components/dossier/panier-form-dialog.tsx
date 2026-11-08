@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Modal } from "@/components/dossier/modal"
 import { createPanier } from "@/server/actions/dossier"
 import type { TypologieOption } from "@/types/typologie"
+import { selectStyle } from "@/lib/select-style"
 
 export function PanierFormDialog({
   dossierId,
@@ -65,7 +66,7 @@ export function PanierFormDialog({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="type-panier">Type de transaction (optionnel)</Label>
-          <select style={{ paddingRight: "2.25rem", paddingLeft: "0.75rem" }} 
+          <select style={selectStyle("0.75rem", "2.25rem")} 
             id="type-panier"
             className="h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
             value={typeTransactionId}
