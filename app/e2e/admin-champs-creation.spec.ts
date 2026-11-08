@@ -42,7 +42,7 @@ async function fillOptions(page: Page, options: string): Promise<void> {
 }
 
 async function applyToTypes(page: Page): Promise<void> {
-  await pick(page, createCard(page), "Types de transaction applicables", "Terres cultivées")
+  await createCard(page).getByRole("checkbox", { name: "Terres cultivées" }).check()
 }
 
 async function clickCreate(page: Page): Promise<void> {
@@ -134,9 +134,10 @@ test("crée un champ date", async ({ page }) => {
   await expect(row(page, "E2E Creation date")).toBeVisible()
 })
 
-test("dérive le code machine du nom affiché, accents retirés", async ({ page }) => {
+test("dérive le code machine du nom affiché suivi de l'unité, accents retirés", async ({ page }) => {
   await fillName(page, "Coût total E2E")
-  await expect(createCard(page).getByText("cot_total_e2e")).toBeVisible()
+  await fillUnit(page, "$/ha")
+  await expect(createCard(page).getByText("cout_total_e2e_ha")).toBeVisible()
 })
 
 test("exige une unité pour un champ numérique", async ({ page }) => {

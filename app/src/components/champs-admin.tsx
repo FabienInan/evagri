@@ -4,7 +4,7 @@ import { useMemo, useState, type Dispatch, type SetStateAction } from "react"
 import { createChamp, updateChamp, toggleChampActif } from "@/server/actions/champs"
 import type { ChampInput } from "@/server/actions/champs"
 import { parseListOptions, deriveEstLectureSeule } from "@/lib/champs"
-import { buildCodeMachine } from "@/lib/normalization/parsing"
+import { buildChampCodeMachine } from "@/lib/normalization/parsing"
 import type { ChampEnrichissableConfig } from "@/types/champ"
 import type { TypologieOption } from "@/types/typologie"
 import { ChampCreateCard } from "@/components/admin/champs/champ-create-card"
@@ -49,8 +49,11 @@ export function ChampsAdmin({
 
   const selected = useMemo(() => champs.find((c) => c.id === selectedId) ?? null, [champs, selectedId])
 
-  // Code machine dérivé du nom affiché (norme buildCodeMachine) : jamais saisi, toujours aligné.
-  const derivedCodeMachine = useMemo(() => buildCodeMachine(draft.nomAffichage), [draft.nomAffichage])
+  // Code machine dérivé du nom affiché et de l'unité (buildChampCodeMachine) : jamais saisi, toujours aligné.
+  const derivedCodeMachine = useMemo(
+    () => buildChampCodeMachine(draft.nomAffichage, draft.unite),
+    [draft.nomAffichage, draft.unite]
+  )
 
   // Seuls les champs décimaux ou entiers peuvent entrer dans une règle de calcul : on ne propose que ceux-là.
   const ruleFieldOptions = useMemo<RuleFieldOption[]>(() => {

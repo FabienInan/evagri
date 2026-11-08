@@ -11,7 +11,13 @@ import {
   normalizeEnrichmentText,
 } from "@/lib/normalization/transforms"
 import { createReport, incrementCounter } from "@/lib/normalization/report"
-import { buildCodeMachine, parseBooleanish, parseFrenchNumber, splitNameUnit } from "@/lib/normalization/parsing"
+import {
+  buildChampCodeMachine,
+  buildCodeMachine,
+  parseBooleanish,
+  parseFrenchNumber,
+  splitNameUnit,
+} from "@/lib/normalization/parsing"
 
 describe("cleanText", () => {
   it("trims, removes extra spaces, strips trailing punctuation, and removes accents", () => {
@@ -219,5 +225,24 @@ describe("splitNameUnit", () => {
       unite: "N/A",
     })
     expect(splitNameUnit("(ha)", "N/A")).toEqual({ nom: "(ha)", unite: "N/A" })
+  })
+})
+
+describe("buildChampCodeMachine", () => {
+  it("concatène le nom et l'unité en snake_case, sans accents", () => {
+    expect(buildChampCodeMachine("Prix de vente", "$")).toBe("prix_de_vente")
+    expect(buildChampCodeMachine("Superficie bâtiment", "m²")).toBe("superficie_batiment_m2")
+    expect(buildChampCodeMachine("Taux global", "$/ha")).toBe("taux_global_ha")
+  })
+
+  it("ignore l'unité absente ou N/A", () => {
+    expect(buildChampCodeMachine("Vendeur", "")).toBe("vendeur")
+    expect(buildChampCodeMachine("Vendeur", null)).toBe("vendeur")
+    expect(buildChampCodeMachine("Vendeur", "N/A")).toBe("vendeur")
+  })
+
+  it("préfixe un code qui commence par un chiffre et renvoie vide sans nom", () => {
+    expect(buildChampCodeMachine("2024 vente", "ha")).toBe("champ_2024_vente_ha")
+    expect(buildChampCodeMachine("  ", "")).toBe("")
   })
 })

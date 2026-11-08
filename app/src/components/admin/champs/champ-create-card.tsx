@@ -15,6 +15,7 @@ import { hasOptions } from "@/types/champ"
 import type { TypologieOption } from "@/types/typologie"
 import { TYPE_DONNEES_LABELS, isNumericType } from "./champs-model"
 import { RegleCalculInput, type RuleFieldOption } from "./regle-calcul-input"
+import { TypesTransactionField } from "./types-transaction-field"
 
 export function ChampCreateCard({
   draft,
@@ -71,24 +72,11 @@ export function ChampCreateCard({
   )
 
   const typesField = (
-    <div className="space-y-1.5">
-      <Label className="text-sm font-medium">Types de transaction applicables</Label>
-      <Select
-        value={draft.applicableATypes[0] ?? ""}
-        onValueChange={(v) => onDraftChange((d) => ({ ...d, applicableATypes: v ? [v] : [] }))}
-      >
-        <SelectTrigger className="h-10 w-full rounded-lg">
-          <SelectValue placeholder="Sélectionner..." />
-        </SelectTrigger>
-        <SelectContent>
-          {typologies.map((t) => (
-            <SelectItem key={t.id} value={t.code}>
-              {t.nom}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <TypesTransactionField
+      value={draft.applicableATypes}
+      onChange={(codes) => onDraftChange((d) => ({ ...d, applicableATypes: codes }))}
+      typologies={typologies}
+    />
   )
 
   const optionsField = (
@@ -111,8 +99,8 @@ export function ChampCreateCard({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-3">
-          {/* Ligne 1 : le code machine n'est plus saisi — il est dérivé du nom affiché (norme
-              buildCodeMachine) et affiché en lecture seule à titre indicatif. */}
+          {/* Ligne 1 : le code machine n'est plus saisi — il est dérivé du nom affiché suivi de l'unité
+              (buildChampCodeMachine) et affiché en lecture seule à titre indicatif. */}
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Nom affiché</Label>
             <Input

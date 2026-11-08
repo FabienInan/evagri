@@ -13,6 +13,7 @@ import { hasOptions } from "@/types/champ"
 import type { TypologieOption } from "@/types/typologie"
 import { NATURE_LABELS, TYPE_DONNEES_LABELS, isNumericType } from "./champs-model"
 import { RegleCalculInput, type RuleFieldOption } from "./regle-calcul-input"
+import { TypesTransactionField } from "./types-transaction-field"
 
 export function ChampEditPanel({
   selected,
@@ -132,24 +133,11 @@ export function ChampEditPanel({
             </p>
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Types de transaction applicables</Label>
-            <Select
-              value={editDraft.applicableATypes[0] ?? ""}
-              onValueChange={(v) => onEditDraftChange((d) => ({ ...d, applicableATypes: v ? [v] : [] }))}
-            >
-              <SelectTrigger className="h-10 w-full rounded-lg">
-                <SelectValue placeholder="Sélectionner..." />
-              </SelectTrigger>
-              <SelectContent>
-                {typologies.map((t) => (
-                  <SelectItem key={t.id} value={t.code}>
-                    {t.nom}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <TypesTransactionField
+            value={editDraft.applicableATypes}
+            onChange={(codes) => onEditDraftChange((d) => ({ ...d, applicableATypes: codes }))}
+            typologies={typologies}
+          />
 
           {hasOptions(editDraft.typeDonnees) && (
             <div className="space-y-1.5">

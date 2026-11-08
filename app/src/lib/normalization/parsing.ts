@@ -113,6 +113,26 @@ export function splitNameUnit(
  * usable as a codeMachine by collapsing separators and prefixing `champ_` when it does not start with a
  * letter. Returns "" when nothing usable remains (the caller then falls back to a placeholder).
  */
+/**
+ * Code machine d'un champ créé dans l'admin : le nom affiché suivi de l'unité, en snake_case sans accents.
+ * L'unité est ignorée si elle est absente ou « N/A » ; ses symboles (°, $, /) disparaissent, ses lettres restent
+ * (« $/ha » → « ha », « m² » → « m2 »). Ex. « Prix de vente » + « $ » → « prix_de_vente ».
+ */
+export function buildChampCodeMachine(nom: string, unite?: string | null): string {
+  const unit = unite?.trim() ?? ""
+  const source = unit && unit !== "N/A" ? `${nom} ${unit}` : nom
+  const code = source
+    .replace(/²/g, "2")
+    .replace(/³/g, "3")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+  if (!code) return ""
+  return /^[a-z]/.test(code) ? code : `champ_${code}`
+}
+
 export function buildCodeMachine(header: string): string {
   const code = header
     .toLowerCase()
