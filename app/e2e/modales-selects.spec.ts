@@ -53,3 +53,22 @@ test("création de panier : le type de transaction est pris en compte", async ({
   await expect(dialog.getByLabel("Type de transaction (optionnel)")).toHaveValue(/.+/)
   await expect(dialog).toBeVisible()
 })
+
+test("la liste d'un sélecteur ouvert passe au-dessus de la fenêtre modale", async ({ page }) => {
+  await page.goto("/admin/champs")
+  await page.getByRole("button", { name: "Nouveau champ", exact: true }).click()
+  const dialog = page.getByRole("dialog", { name: "Nouveau champ enrichissable" })
+  const type = dialog.getByText("Type de données", { exact: true }).locator("..").getByRole("combobox")
+  await type.click()
+  await expect(page.getByRole("listbox")).toBeVisible()
+
+  const [listZ, modalZ] = await page.evaluate(() => {
+    const listbox = document.querySelector('[role="listbox"]') as HTMLElement
+    // Le conteneur de la liste est le premier ancêtre en position fixe (portail Radix).
+    let wrapper: HTMLElement = listbox
+    while (wrapper.parentElement && getComputedStyle(wrapper).position !== "fixed") wrapper = wrapper.parentElement
+    const overlay = document.querySelector('[role="dialog"]')!.parentElement as HTMLElement
+    return [Number(getComputedStyle(wrapper).zIndex), Number(getComputedStyle(overlay).zIndex)]
+  })
+  expect(listZ).toBeGreaterThan(modalZ)
+})
