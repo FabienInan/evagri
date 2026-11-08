@@ -7,9 +7,8 @@ import { expect, test } from "@playwright/test"
 
 test("coche plusieurs types de transaction et les retrouve après enregistrement", async ({ page }) => {
   await page.goto("/admin/champs")
-  const card = page
-    .locator('[data-slot="card"]')
-    .filter({ has: page.getByText("Nouveau champ enrichissable", { exact: true }) })
+  await page.getByRole("button", { name: "Nouveau champ", exact: true }).click()
+  const card = page.getByRole("dialog", { name: "Nouveau champ enrichissable" })
 
   await card.getByText("Nom affiché", { exact: true }).locator("..").getByRole("textbox").fill("E2E Types multiples")
   await card.getByText("Unité", { exact: true }).locator("..").getByRole("textbox").fill("ha")
@@ -21,6 +20,7 @@ test("coche plusieurs types de transaction et les retrouve après enregistrement
   await expect(page.getByRole("button", { name: /E2E Types multiples/ }).first()).toBeVisible()
   await page.getByRole("button", { name: /E2E Types multiples/ }).first().click()
 
+  await page.getByRole("tab", { name: "Règle et types" }).click()
   await expect(page.getByRole("checkbox", { name: "Terres cultivées" }).last()).toBeChecked()
   await expect(page.getByRole("checkbox", { name: "Terres boisées" }).last()).toBeChecked()
   await expect(page.getByRole("checkbox", { name: "Érablières" }).last()).not.toBeChecked()

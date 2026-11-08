@@ -3,7 +3,6 @@
 import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { FilterType } from "@/types/filter"
 import { ChampSelect, TypeSelect } from "./filter-selects"
 import type { Champ } from "./filter-constants"
@@ -26,11 +25,7 @@ export function FilterCreateCard({
   onCreate: (formData: FormData) => void | Promise<void>
 }) {
   return (
-    <Card className="shrink-0 border-border shadow-sm">
-      <CardHeader>
-        <CardTitle className="text-base font-semibold">Ajouter un filtre</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <div>
         <form
           action={onCreate}
           className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-3"
@@ -50,7 +45,6 @@ export function FilterCreateCard({
           </Button>
         </form>
         {createError && <p className="mt-3 text-sm text-destructive">{createError}</p>}
-      </CardContent>
-    </Card>
+    </div>
   )
 }

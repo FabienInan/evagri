@@ -6,6 +6,15 @@ import { expect, test, type Locator, type Page } from "@playwright/test"
  * que deux exécutions ne se heurtent pas au contrôle d'unicité du code machine.
  */
 
+/** Ouvre la fenêtre « Nouveau champ enrichissable » si elle n'est pas déjà ouverte. */
+async function openCreate(page: Page): Promise<void> {
+  const dialog = page.getByRole("dialog", { name: "Nouveau champ enrichissable" })
+  if (!(await dialog.isVisible())) {
+    await page.getByRole("button", { name: "Nouveau champ", exact: true }).click()
+  }
+  await expect(dialog).toBeVisible()
+}
+
 function createCard(page: Page): Locator {
   return page
     .locator('[data-slot="card"]')
@@ -59,6 +68,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 test("crée un champ saisissable décimal et l'affiche dans la liste", async ({ page }) => {
+  await openCreate(page)
   await fillName(page, "E2E Creation decimale")
   await fillUnit(page, "ha")
   await applyToTypes(page)
@@ -72,6 +82,7 @@ test("crée un champ saisissable décimal et l'affiche dans la liste", async ({ 
 })
 
 test("crée un champ calculé avec une règle et l'affiche comme Calculé", async ({ page }) => {
+  await openCreate(page)
   await fillName(page, "E2E Creation calculee")
   await pick(page, createCard(page), "Nature", "Calculé")
   await pick(page, createCard(page), "Type de données", "Entier")
@@ -86,6 +97,7 @@ test("crée un champ calculé avec une règle et l'affiche comme Calculé", asyn
 })
 
 test("crée un champ liste avec ses options", async ({ page }) => {
+  await openCreate(page)
   await fillName(page, "E2E Creation liste")
   await pick(page, createCard(page), "Type de données", "Liste")
   await fillOptions(page, "Alpha\nBeta")
@@ -98,6 +110,7 @@ test("crée un champ liste avec ses options", async ({ page }) => {
 })
 
 test("crée un champ liste à choix multiple", async ({ page }) => {
+  await openCreate(page)
   await fillName(page, "E2E Creation multi")
   await pick(page, createCard(page), "Type de données", "Liste (choix multiple)")
   await fillOptions(page, "X\nY")
@@ -108,6 +121,7 @@ test("crée un champ liste à choix multiple", async ({ page }) => {
 })
 
 test("crée un champ texte", async ({ page }) => {
+  await openCreate(page)
   await fillName(page, "E2E Creation texte")
   await pick(page, createCard(page), "Type de données", "Texte")
   await applyToTypes(page)
@@ -117,6 +131,7 @@ test("crée un champ texte", async ({ page }) => {
 })
 
 test("crée un champ booléen", async ({ page }) => {
+  await openCreate(page)
   await fillName(page, "E2E Creation booleen")
   await pick(page, createCard(page), "Type de données", "Booléen")
   await applyToTypes(page)
@@ -126,6 +141,7 @@ test("crée un champ booléen", async ({ page }) => {
 })
 
 test("crée un champ date", async ({ page }) => {
+  await openCreate(page)
   await fillName(page, "E2E Creation date")
   await pick(page, createCard(page), "Type de données", "Date")
   await applyToTypes(page)
@@ -135,12 +151,14 @@ test("crée un champ date", async ({ page }) => {
 })
 
 test("dérive le code machine du nom affiché suivi de l'unité, accents retirés", async ({ page }) => {
+  await openCreate(page)
   await fillName(page, "Coût total E2E")
   await fillUnit(page, "$/ha")
   await expect(createCard(page).getByText("cout_total_e2e_ha")).toBeVisible()
 })
 
 test("exige une unité pour un champ numérique", async ({ page }) => {
+  await openCreate(page)
   await fillName(page, "E2E Creation sans unite")
   await applyToTypes(page)
   await clickCreate(page)
@@ -152,6 +170,7 @@ test("exige une unité pour un champ numérique", async ({ page }) => {
 })
 
 test("exige au moins une option pour une liste", async ({ page }) => {
+  await openCreate(page)
   await fillName(page, "E2E Creation liste vide")
   await pick(page, createCard(page), "Type de données", "Liste")
   await applyToTypes(page)
@@ -161,6 +180,7 @@ test("exige au moins une option pour une liste", async ({ page }) => {
 })
 
 test("exige une règle de calcul pour un champ calculé", async ({ page }) => {
+  await openCreate(page)
   await fillName(page, "E2E Creation calculee vide")
   await pick(page, createCard(page), "Nature", "Calculé")
   await pick(page, createCard(page), "Type de données", "Entier")
@@ -174,6 +194,7 @@ test("exige une règle de calcul pour un champ calculé", async ({ page }) => {
 })
 
 test("exige au moins un type de transaction applicable", async ({ page }) => {
+  await openCreate(page)
   await fillName(page, "E2E Creation sans type")
   await fillUnit(page, "ha")
   await clickCreate(page)
@@ -184,12 +205,14 @@ test("exige au moins un type de transaction applicable", async ({ page }) => {
 })
 
 test("refuse un code machine déjà utilisé", async ({ page }) => {
+  await openCreate(page)
   await fillName(page, "E2E Creation doublon")
   await fillUnit(page, "ha")
   await applyToTypes(page)
   await clickCreate(page)
   await expect(row(page, "E2E Creation doublon")).toBeVisible()
 
+  await openCreate(page)
   await fillName(page, "E2E Creation doublon")
   await fillUnit(page, "ha")
   await applyToTypes(page)
@@ -199,6 +222,7 @@ test("refuse un code machine déjà utilisé", async ({ page }) => {
 })
 
 test("refuse une règle référençant un champ inconnu", async ({ page }) => {
+  await openCreate(page)
   await fillName(page, "E2E Creation regle inconnue")
   await pick(page, createCard(page), "Nature", "Calculé")
   await pick(page, createCard(page), "Type de données", "Entier")
@@ -211,6 +235,7 @@ test("refuse une règle référençant un champ inconnu", async ({ page }) => {
 })
 
 test("refuse une règle syntaxiquement incomplète", async ({ page }) => {
+  await openCreate(page)
   await fillName(page, "E2E Creation regle incomplete")
   await pick(page, createCard(page), "Nature", "Calculé")
   await pick(page, createCard(page), "Type de données", "Entier")
@@ -223,6 +248,7 @@ test("refuse une règle syntaxiquement incomplète", async ({ page }) => {
 })
 
 test("refuse une règle sur un champ qui n'est pas décimal ou entier", async ({ page }) => {
+  await openCreate(page)
   await fillName(page, "E2E Creation regle texte")
   await pick(page, createCard(page), "Type de données", "Texte")
   await fillRule(page, "prix_vente")
@@ -234,6 +260,7 @@ test("refuse une règle sur un champ qui n'est pas décimal ou entier", async ({
 })
 
 test("refuse une règle qui lit un champ non numérique", async ({ page }) => {
+  await openCreate(page)
   await fillName(page, "E2E Creation lit texte")
   await pick(page, createCard(page), "Nature", "Calculé")
   await pick(page, createCard(page), "Type de données", "Entier")
@@ -246,6 +273,7 @@ test("refuse une règle qui lit un champ non numérique", async ({ page }) => {
 })
 
 test("refuse une règle qui référence son propre champ", async ({ page }) => {
+  await openCreate(page)
   await fillName(page, "E2E Creation auto ref")
   await pick(page, createCard(page), "Nature", "Calculé")
   await pick(page, createCard(page), "Type de données", "Entier")
@@ -259,7 +287,8 @@ test("refuse une règle qui référence son propre champ", async ({ page }) => {
 
 test("refuse de modifier une règle qui boucle sur une autre règle", async ({ page }) => {
   for (const name of ["E2E Boucle A", "E2E Boucle B"]) {
-    await fillName(page, name)
+    await openCreate(page)
+  await fillName(page, name)
     await pick(page, createCard(page), "Nature", "Calculé")
     await pick(page, createCard(page), "Type de données", "Entier")
     await fillUnit(page, "$")
@@ -270,6 +299,7 @@ test("refuse de modifier une règle qui boucle sur une autre règle", async ({ p
   }
 
   await row(page, "E2E Boucle A").click()
+  await page.getByRole("tab", { name: "Règle et types" }).click()
   await page.getByText(/^Règle de calcul/).last().locator("..").getByRole("combobox").fill("e2e_boucle_b * 2")
   await page.getByRole("button", { name: "Enregistrer", exact: true }).click()
 
@@ -277,6 +307,7 @@ test("refuse de modifier une règle qui boucle sur une autre règle", async ({ p
 })
 
 test("masque le switch Obligatoire pour un champ calculé", async ({ page }) => {
+  await openCreate(page)
   const obligatory = createCard(page).getByText("Obligatoire", { exact: true })
   await expect(obligatory).toHaveCount(1)
 
@@ -285,6 +316,7 @@ test("masque le switch Obligatoire pour un champ calculé", async ({ page }) => 
 })
 
 test("masque le switch Lecture seule pour un champ calculé", async ({ page }) => {
+  await openCreate(page)
   const readOnly = createCard(page).getByText("Lecture seule", { exact: true })
   await expect(readOnly).toHaveCount(1)
 
@@ -305,6 +337,7 @@ test("filtre la liste des champs via la recherche", async ({ page }) => {
 })
 
 test("édite le nom affiché d'un champ et confirme l'enregistrement", async ({ page }) => {
+  await openCreate(page)
   await fillName(page, "E2E Creation editable")
   await fillUnit(page, "ha")
   await applyToTypes(page)
@@ -336,6 +369,7 @@ test("refuse une plage minimale supérieure à la plage maximale", async ({ page
 })
 
 test("désactive puis réactive un champ", async ({ page }) => {
+  await openCreate(page)
   await fillName(page, "E2E Creation actif")
   await fillUnit(page, "ha")
   await applyToTypes(page)

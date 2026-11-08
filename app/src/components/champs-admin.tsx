@@ -8,6 +8,9 @@ import { buildChampCodeMachine } from "@/lib/normalization/parsing"
 import type { ChampEnrichissableConfig } from "@/types/champ"
 import type { TypologieOption } from "@/types/typologie"
 import { ChampCreateCard } from "@/components/admin/champs/champ-create-card"
+import { Modal } from "@/components/dossier/modal"
+import { Button } from "@/components/ui/button"
+import { Plus } from "lucide-react"
 import { ChampList } from "@/components/admin/champs/champ-list"
 import { ChampEditPanel } from "@/components/admin/champs/champ-edit-panel"
 import type { RuleFieldOption } from "@/components/admin/champs/regle-calcul-input"
@@ -37,6 +40,7 @@ export function ChampsAdmin({
   const [editError, setEditError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [showCreate, setShowCreate] = useState(false)
   const [toggling, setToggling] = useState(false)
   const [lastSaved, setLastSaved] = useState<string | null>(null)
 
@@ -91,6 +95,7 @@ export function ChampsAdmin({
       selectChamp(result.champ)
       setDraft(emptyDraft())
       setCreateOptionsText("")
+      setShowCreate(false)
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Erreur lors de la création du champ.")
     } finally {
@@ -153,18 +158,32 @@ export function ChampsAdmin({
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-hidden">
-      <ChampCreateCard
-        draft={draft}
-        onDraftChange={setDraft}
-        createOptionsText={createOptionsText}
-        onCreateOptionsTextChange={setCreateOptionsText}
-        derivedCodeMachine={derivedCodeMachine}
-        ruleFieldOptions={ruleFieldOptions}
-        typologies={typologies}
-        creating={creating}
-        createError={createError}
-        onCreate={handleCreate}
-      />
+      <div className="flex shrink-0 items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          {filtered.length} champ{filtered.length > 1 ? "s" : ""}
+        </p>
+        <Button size="sm" className="gap-2" onClick={() => setShowCreate(true)}>
+          <Plus className="h-4 w-4" />
+          Nouveau champ
+        </Button>
+      </div>
+
+      {showCreate && (
+        <Modal title="Nouveau champ enrichissable" onClose={() => setShowCreate(false)} className="max-w-3xl">
+          <ChampCreateCard
+            draft={draft}
+            onDraftChange={setDraft}
+            createOptionsText={createOptionsText}
+            onCreateOptionsTextChange={setCreateOptionsText}
+            derivedCodeMachine={derivedCodeMachine}
+            ruleFieldOptions={ruleFieldOptions}
+            typologies={typologies}
+            creating={creating}
+            createError={createError}
+            onCreate={handleCreate}
+          />
+        </Modal>
+      )}
 
       <ChampList
         filtered={filtered}

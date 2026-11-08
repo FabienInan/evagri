@@ -69,6 +69,8 @@ async function selectTarget(page: Page, nom: string): Promise<void> {
 }
 
 async function addFilterFor(page: Page, nom: string): Promise<void> {
+  // Le formulaire d'ajout est dans une fenêtre, ouverte par le bouton de la barre d'outils.
+  await page.getByRole("button", { name: "Ajouter un filtre", exact: true }).click()
   await selectTarget(page, nom)
   await page.getByRole("button", { name: "Ajouter", exact: true }).click()
   await expect(row(page, nom)).toBeVisible()
@@ -108,6 +110,7 @@ test("présente le filtre Statut d'analyse comme virtuel", async ({ page }) => {
 })
 
 test("désactive l'ajout d'un champ déjà filtré", async ({ page }) => {
+  await page.getByRole("button", { name: "Ajouter un filtre", exact: true }).click()
   await selectTarget(page, "Type de transaction")
 
   const add = page.getByRole("button", { name: "Déjà ajouté" })
@@ -116,6 +119,7 @@ test("désactive l'ajout d'un champ déjà filtré", async ({ page }) => {
 })
 
 test("désactive l'ajout du filtre virtuel déjà présent", async ({ page }) => {
+  await page.getByRole("button", { name: "Ajouter un filtre", exact: true }).click()
   await selectTarget(page, "Statut d'analyse")
 
   const add = page.getByRole("button", { name: "Déjà ajouté" })
@@ -124,11 +128,13 @@ test("désactive l'ajout du filtre virtuel déjà présent", async ({ page }) =>
 })
 
 test("recommande une recherche texte pour un champ texte", async ({ page }) => {
+  await page.getByRole("button", { name: "Ajouter un filtre", exact: true }).click()
   await selectTarget(page, "E2E Filtre texte")
   await expect(createTypeSelect(page)).toContainText("Recherche texte")
 })
 
 test("recommande une plage de valeurs pour un champ numérique", async ({ page }) => {
+  await page.getByRole("button", { name: "Ajouter un filtre", exact: true }).click()
   await selectTarget(page, "E2E Filtre nombre")
   await expect(createTypeSelect(page)).toContainText("Plage de valeurs")
 })

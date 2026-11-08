@@ -7,7 +7,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { ChampInput } from "@/server/actions/champs"
 import { deriveEstLectureSeule } from "@/lib/champs"
 import type { NatureChamp, TypeDonneesChamp } from "@/types/champ"
@@ -93,11 +92,7 @@ export function ChampCreateCard({
   )
 
   return (
-    <Card className="shrink-0 border-border shadow-sm">
-      <CardHeader>
-        <CardTitle className="text-base font-semibold">Nouveau champ enrichissable</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <div className="space-y-4">
         <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-3">
           {/* Ligne 1 : le code machine n'est plus saisi — il est dérivé du nom affiché suivi de l'unité
               (buildChampCodeMachine) et affiché en lecture seule à titre indicatif. */}
@@ -200,7 +195,6 @@ export function ChampCreateCard({
           </Button>
           {createError && <p className="text-sm text-destructive">{createError}</p>}
         </div>
-      </CardContent>
-    </Card>
+    </div>
   )
 }

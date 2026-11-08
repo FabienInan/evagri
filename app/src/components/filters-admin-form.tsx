@@ -5,10 +5,12 @@ import { Globe } from "lucide-react"
 import { createFilter, deleteFilter, publishFilters } from "@/server/actions/filters"
 import { useHeaderActions } from "@/components/header-actions"
 import { Button } from "@/components/ui/button"
+import { Plus } from "lucide-react"
 import { recommendFilterType, recommendedTypeForField, DEFAULT_OPERATEURS, moveItemToIndex } from "@/lib/filters"
 import type { FilterType } from "@/types/filter"
 import type { CreateFilterInput } from "@/server/actions/filters"
 import { FilterCreateCard } from "@/components/admin/filters/filter-create-card"
+import { Modal } from "@/components/dossier/modal"
 import { FilterList } from "@/components/admin/filters/filter-list"
 import { FilterDetailsCard } from "@/components/admin/filters/filter-details-card"
 import { VIRTUAL_FILTERS, type Champ, type Filter } from "@/components/admin/filters/filter-constants"
@@ -26,6 +28,7 @@ export function FiltersAdminForm({
   const [lastSaved, setLastSaved] = useState<string | null>(null)
   const [publishing, setPublishing] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  const [showCreate, setShowCreate] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [dropIndex, setDropIndex] = useState<number | null>(null)
@@ -202,6 +205,7 @@ export function FiltersAdminForm({
       }
       setItems((prev) => [...prev, result.filter])
       setSelectedId(result.filter.id)
+      setShowCreate(false)
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Erreur lors de la création du filtre.")
     }
@@ -257,15 +261,29 @@ export function FiltersAdminForm({
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-hidden">
-      <FilterCreateCard
-        champs={champs}
-        newChampId={newChampId}
-        onNewChampIdChange={setNewChampId}
-        recommendedType={recommendedTypeForNew}
-        isNewChampUsed={isNewChampUsed}
-        createError={createError}
-        onCreate={handleCreate}
-      />
+      <div className="flex shrink-0 items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          {items.length} filtre{items.length > 1 ? "s" : ""}
+        </p>
+        <Button size="sm" className="gap-2" onClick={() => setShowCreate(true)}>
+          <Plus className="h-4 w-4" />
+          Ajouter un filtre
+        </Button>
+      </div>
+
+      {showCreate && (
+        <Modal title="Ajouter un filtre" onClose={() => setShowCreate(false)} className="max-w-2xl">
+          <FilterCreateCard
+            champs={champs}
+            newChampId={newChampId}
+            onNewChampIdChange={setNewChampId}
+            recommendedType={recommendedTypeForNew}
+            isNewChampUsed={isNewChampUsed}
+            createError={createError}
+            onCreate={handleCreate}
+          />
+        </Modal>
+      )}
 
       {actionError && <p className="shrink-0 text-sm text-destructive">{actionError}</p>}
 

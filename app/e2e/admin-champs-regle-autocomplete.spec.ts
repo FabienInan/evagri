@@ -5,6 +5,15 @@ import { expect, test, type Locator, type Page } from "@playwright/test"
  * entier propose son code, Enter/Tab l'insère, et les champs non numériques ne sont jamais proposés.
  */
 
+/** Ouvre la fenêtre « Nouveau champ enrichissable » si elle n'est pas déjà ouverte. */
+async function openCreate(page: Page): Promise<void> {
+  const dialog = page.getByRole("dialog", { name: "Nouveau champ enrichissable" })
+  if (!(await dialog.isVisible())) {
+    await page.getByRole("button", { name: "Nouveau champ", exact: true }).click()
+  }
+  await expect(dialog).toBeVisible()
+}
+
 function createCard(page: Page): Locator {
   return page
     .locator('[data-slot="card"]')
@@ -17,6 +26,7 @@ function ruleInput(page: Page): Locator {
 
 test("propose les champs numériques correspondant aux premières lettres et insère le choix", async ({ page }) => {
   await page.goto("/admin/champs")
+  await openCreate(page)
   const input = ruleInput(page)
   await input.click()
 
@@ -34,6 +44,7 @@ test("propose les champs numériques correspondant aux premières lettres et ins
 
 test("Tab insère la suggestion en cours après un opérateur, et Échap referme la liste", async ({ page }) => {
   await page.goto("/admin/champs")
+  await openCreate(page)
   const input = ruleInput(page)
   await input.click()
 
@@ -51,6 +62,7 @@ test("Tab insère la suggestion en cours après un opérateur, et Échap referme
 
 test("un terme commun liste tous les champs correspondants, au-delà de huit, et la liste défile aux flèches", async ({ page }) => {
   await page.goto("/admin/champs")
+  await openCreate(page)
   const input = ruleInput(page)
   await input.click()
 
