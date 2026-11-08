@@ -42,36 +42,11 @@ export async function saveFiche(input: unknown): Promise<FicheActionResult> {
     listChampsEnrichissablesByOrganisation(organisationId),
     getEffectiveFicheLayout(organisationId),
   ])
-  const fields = serializeTransaction(record).fields
-  const valeurs = parsed.data.valeurs
-
-  const errors = validateFiche({
-    champs,
-    sections,
-    valeurs,
-    fields,
-    typeCode: parsed.data.typeTransactionCode,
-    dateVente: typeof fields.date_vente === "string" ? fields.date_vente : null,
-  })
-  if (errors.length > 0) return { ok: false, error: errors[0].message, errors }
-
-  if (!parsed.data.forcerSauvegarde) {
-    const avertissements = warningsFiche({
-      champs,
-      sections,
-      valeurs,
-      fields,
-      typeCode: parsed.data.typeTransactionCode,
-      dateVente: typeof fields.date_vente === "string" ? fields.date_vente : null,
-    })
-    if (avertissements.length > 0) {
-      return { ok: false, error: avertissements[0].message, avertissements }
-    }
-  }
-
+  // Enregistrer ne valide pas : les règles bloquantes et les avertissements ne s'appliquent qu'à Finaliser
+  // (setFicheStatut). Une fiche incomplète peut donc être sauvegardée en cours de saisie.
   await saveFicheValues(
     record.id,
-    buildStorageEntries(champs, valeurs, parsed.data.typeTransactionCode)
+    buildStorageEntries(champs, parsed.data.valeurs, parsed.data.typeTransactionCode)
   )
 
   revalidatePath(`/transactions/${record.id}`)
@@ -79,7 +54,15 @@ export async function saveFiche(input: unknown): Promise<FicheActionResult> {
   return { ok: true }
 }
 
-export async function setFicheStatut(id: string, statut: string): Promise<FicheActionResult> {
+/**
+ * Changement de statut. Passer à « analysée » (Finaliser) applique les règles bloquantes, puis les avertissements
+ * sauf si l'évaluateur les a confirmés (`forcerAvertissements`).
+ */
+export async function setFicheStatut(
+  id: string,
+  statut: string,
+  options: { forcerAvertissements?: boolean } = {}
+): Promise<FicheActionResult> {
   const organisationId = getCurrentOrganisationId()
   const record = await findTransactionFiche(organisationId, id)
   if (!record) return { ok: false, error: "Transaction introuvable." }
@@ -103,6 +86,20 @@ export async function setFicheStatut(id: string, statut: string): Promise<FicheA
       dateVente: typeof fields.date_vente === "string" ? fields.date_vente : null,
     })
     if (errors.length > 0) return { ok: false, error: errors[0].message, errors }
+
+    if (!options.forcerAvertissements) {
+      const avertissements = warningsFiche({
+        champs,
+        sections,
+        valeurs,
+        fields,
+        typeCode,
+        dateVente: typeof fields.date_vente === "string" ? fields.date_vente : null,
+      })
+      if (avertissements.length > 0) {
+        return { ok: false, error: avertissements[0].message, avertissements }
+      }
+    }
   }
 
   await updateFicheStatut(record.id, statut, statut === "ANALYSEE" ? new Date() : record.dateStatut ?? null)

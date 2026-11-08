@@ -194,15 +194,26 @@ describe("E2E — cycle de vie import → recherche → fiche → statut → act
     expect(updated.fields.typeTransaction).toBe("TERRES_CULTIVEES")
   })
 
-  it("rejette une fiche sans type de transaction (règle bloquante V-TYPE)", async () => {
-    const { saveFiche } = await import("@/server/actions/fiche")
-    const result = await saveFiche({ id: txId, typeTransactionCode: null, valeurs: { prix_vente: 40000 } })
-    expect(result.ok).toBe(false)
-    if (!result.ok) expect(result.error).toContain("type de transaction")
+  it("enregistre sans type de transaction, et c'est Finaliser qui refuse (règle bloquante V-TYPE)", async () => {
+    const { saveFiche, setFicheStatut } = await import("@/server/actions/fiche")
+    // Le formulaire envoie toute la fiche : une charge partielle effacerait les champs importés.
+    const current = await readSingleTransaction()
+    const saved = await saveFiche({ id: txId, typeTransactionCode: null, valeurs: { ...current.fields, typeTransaction: null } })
+    expect(saved).toEqual({ ok: true })
+
+    const finalised = await setFicheStatut(txId, "ANALYSEE")
+    expect(finalised.ok).toBe(false)
+    if (!finalised.ok) expect(finalised.error).toContain("type de transaction")
   })
 
   it("passe le statut de la fiche à Analysée", async () => {
-    const { setFicheStatut } = await import("@/server/actions/fiche")
+    const { saveFiche, setFicheStatut } = await import("@/server/actions/fiche")
+    const current = await readSingleTransaction()
+    await saveFiche({
+      id: txId,
+      typeTransactionCode: "TERRES_CULTIVEES",
+      valeurs: { ...current.fields, typeTransaction: "TERRES_CULTIVEES" },
+    })
     const result = await setFicheStatut(txId, "ANALYSEE")
     expect(result).toEqual({ ok: true })
 

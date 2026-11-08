@@ -30,10 +30,6 @@ export function FicheHeader({
   errors,
   typeError,
   onTypeChange,
-  onSave,
-  onAnalyse,
-  onReopen,
-  onAddToPanier,
 }: {
   fields: Record<string, SerializedValue>
   mode: FicheMode
@@ -45,11 +41,6 @@ export function FicheHeader({
   errors: string[]
   typeError: string | null
   onTypeChange: (code: string | null) => void
-  onSave: () => void
-  onAnalyse: () => void
-  /** Repasse la fiche analysée en édition sans perdre le contributeur historique. */
-  onReopen: () => void
-  onAddToPanier: () => void
 }) {
   const isEdition = mode === "edition"
   const numeroInscription = fields.numero_inscription
@@ -57,7 +48,7 @@ export function FicheHeader({
 
   return (
     <Card className="gap-0 py-0 pb-0">
-      <div className="flex flex-wrap items-start justify-between gap-4 px-5 pt-5">
+      <div className="flex flex-col gap-4 px-5 pt-5 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
         <div className="min-w-0 space-y-2">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             N° d&apos;inscription
@@ -76,30 +67,6 @@ export function FicheHeader({
           </p>
         </div>
 
-        {isEdition && (
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-2" disabled={saving} onClick={onSave}>
-              <Save className="h-4 w-4" />
-              Enregistrer
-            </Button>
-            <Button size="sm" className="gap-2" disabled={saving} onClick={onAnalyse}>
-              <Check className="h-4 w-4" />
-              Finaliser
-            </Button>
-          </div>
-        )}
-        {!isEdition && (
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-2" disabled={saving} onClick={onReopen}>
-              <RotateCcw className="h-4 w-4" />
-              Rouvrir
-            </Button>
-            <Button variant="default" size="sm" className="gap-2" onClick={onAddToPanier}>
-              <Plus className="h-4 w-4" />
-              Ajouter au panier
-            </Button>
-          </div>
-        )}
       </div>
 
       <div className="mt-4 border-t border-border/60 px-5 py-4">
@@ -143,5 +110,51 @@ export function FicheHeader({
         </ul>
       )}
     </Card>
+  )
+}
+
+/** Actions de la fiche (Enregistrer / Finaliser en édition, Rouvrir / Ajouter au panier en consultation), au-dessus du layout. */
+export function FicheActions({
+  mode,
+  saving,
+  onSave,
+  onAnalyse,
+  onReopen,
+  onAddToPanier,
+}: {
+  mode: FicheMode
+  saving: boolean
+  onSave: () => void
+  onAnalyse: () => void
+  onReopen: () => void
+  onAddToPanier: () => void
+}) {
+  const isEdition = mode === "edition"
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      {isEdition ? (
+        <>
+          <Button variant="outline" size="sm" className="gap-2" disabled={saving} onClick={onSave}>
+            <Save className="h-4 w-4" />
+            Enregistrer
+          </Button>
+          <Button size="sm" className="gap-2" disabled={saving} onClick={onAnalyse}>
+            <Check className="h-4 w-4" />
+            Finaliser
+          </Button>
+        </>
+      ) : (
+        <>
+          <Button variant="outline" size="sm" className="gap-2" disabled={saving} onClick={onReopen}>
+            <RotateCcw className="h-4 w-4" />
+            Rouvrir
+          </Button>
+          <Button variant="default" size="sm" className="gap-2" onClick={onAddToPanier}>
+            <Plus className="h-4 w-4" />
+            Ajouter au panier
+          </Button>
+        </>
+      )}
+    </div>
   )
 }

@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { FicheHeader } from "@/components/fiche/fiche-header"
+import { FicheActions, FicheHeader } from "@/components/fiche/fiche-header"
 import { SectionCard } from "@/components/fiche/section-card"
 import { FieldControl } from "@/components/fiche/field-control"
 import { FieldValue } from "@/components/fiche/field-value"
@@ -56,11 +56,11 @@ export function FicheTransactionClient({
   const [analyseConfirmOpen, setAnalyseConfirmOpen] = useState(false)
   const [reopenConfirmOpen, setReopenConfirmOpen] = useState(false)
   // Avertissements non bloquants (W-001) : l'évaluateur confirme ou corrige avant l'action en attente.
-  const [warning, setWarning] = useState<{ items: FicheFieldError[]; then: "save" | "analyse" } | null>(null)
+  const [warning, setWarning] = useState<{ items: FicheFieldError[] } | null>(null)
 
-  function confirmWarning(next: "save" | "analyse") {
+  function confirmWarning() {
     setWarning(null)
-    void (next === "save" ? handleSave(true) : handleAnalyse(true))
+    void handleAnalyse(true)
   }
 
   function goToTransaction(id: string | null) {
@@ -98,42 +98,41 @@ export function FicheTransactionClient({
     else setActionError(res.error)
   }
 
-  /** Enregistre la fiche. Renvoie les avertissements non bloquants si l'évaluateur doit confirmer. */
-  async function persist(forcer = false): Promise<"saved" | "failed" | FicheFieldError[]> {
+  /** Enregistre les valeurs de la fiche, sans validation (celle-ci a lieu à la finalisation). */
+  async function persist(): Promise<boolean> {
     setSaving(true)
     setActionError(null)
     setFieldErrors([])
     try {
-      const res = await saveFiche({ id: fiche.id, typeTransactionCode: typeCode, valeurs, forcerSauvegarde: forcer })
+      const res = await saveFiche({ id: fiche.id, typeTransactionCode: typeCode, valeurs })
       if (!res.ok) {
-        if (res.avertissements) return res.avertissements
         applyActionError(res)
-        return "failed"
+        return false
       }
-      return "saved"
+      return true
     } catch {
       setActionError("Échec de l'enregistrement. Réessayez.")
-      return "failed"
+      return false
     } finally {
       setSaving(false)
     }
   }
 
-  async function handleSave(forcer = false) {
-    const outcome = await persist(forcer)
-    if (Array.isArray(outcome)) setWarning({ items: outcome, then: "save" })
+  async function handleSave() {
+    await persist()
   }
 
+  /** Finaliser : enregistre puis passe la transaction à « analysée » (règles bloquantes, puis avertissements). */
   async function handleAnalyse(forcer = false) {
-    const outcome = await persist(forcer)
-    if (Array.isArray(outcome)) {
-      setWarning({ items: outcome, then: "analyse" })
-      return
-    }
-    if (outcome === "failed") return
+    const saved = await persist()
+    if (!saved) return
     setSaving(true)
     try {
-      const res = await setFicheStatut(fiche.id, "ANALYSEE")
+      const res = await setFicheStatut(fiche.id, "ANALYSEE", { forcerAvertissements: forcer })
+      if (!res.ok && res.avertissements) {
+        setWarning({ items: res.avertissements })
+        return
+      }
       if (!res.ok) applyActionError(res)
     } catch {
       setActionError("Échec du changement de statut. Réessayez.")
@@ -199,6 +198,16 @@ export function FicheTransactionClient({
         </div>
       )}
 
+      {/* Actions au-dessus du layout de la fiche : Enregistrer / Finaliser (édition), Rouvrir / Ajouter au panier. */}
+      <FicheActions
+        mode={mode}
+        saving={saving}
+        onSave={() => void handleSave()}
+        onAnalyse={() => setAnalyseConfirmOpen(true)}
+        onReopen={() => setReopenConfirmOpen(true)}
+        onAddToPanier={() => setAddToPanierOpen(true)}
+      />
+
       <FicheHeader
         fields={fiche.fields}
         mode={mode}
@@ -209,10 +218,6 @@ export function FicheTransactionClient({
         errors={actionError ? [actionError, ...bannerErrors] : bannerErrors}
         typeError={errorsByChamp.get(TYPE_TRANSACTION_CODE) ?? null}
         onTypeChange={handleTypeChange}
-        onSave={() => void handleSave()}
-        onAnalyse={() => setAnalyseConfirmOpen(true)}
-        onReopen={() => setReopenConfirmOpen(true)}
-        onAddToPanier={() => setAddToPanierOpen(true)}
       />
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_320px]">
@@ -336,8 +341,8 @@ export function FicheTransactionClient({
             <Button variant="outline" size="sm" onClick={() => setWarning(null)}>
               Corriger
             </Button>
-            <Button size="sm" onClick={() => confirmWarning(warning.then)}>
-              {warning.then === "save" ? "Forcer la sauvegarde" : "Forcer et analyser"}
+            <Button size="sm" onClick={() => confirmWarning()}>
+              Forcer et finaliser
             </Button>
           </div>
         </Modal>

@@ -438,7 +438,7 @@ export function DataTable<T>({
   const bodyProps =
     variant === "bare"
       ? {}
-      : { className: cn("p-0", fillHeight && "lg:min-h-0 lg:flex-1 lg:overflow-auto") }
+      : { className: cn("p-0", fillHeight ? "lg:min-h-0 lg:flex-1 lg:overflow-auto" : "pb-2") }
 
   return (
     <Wrapper className={cn("flex flex-col min-w-0", fillHeight && "lg:h-full lg:min-h-0")} ref={containerRef}>

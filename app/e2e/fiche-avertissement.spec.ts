@@ -108,39 +108,19 @@ test.afterAll(async () => {
   await prisma.$disconnect()
 })
 
-test("avertit sur un écart de plus de 10 %, et Corriger ne sauvegarde rien", async ({ page }) => {
+test("Enregistrer sauvegarde sans avertir, même avec un écart de plus de 10 %", async ({ page }) => {
   await open(page)
   await superficieCultivee(page).fill("3")
   await superficieBoisee(page).fill("3")
 
-  await page.getByRole("button", { name: "Enregistrer", exact: true }).click()
-  await expect(avertissement(page)).toBeVisible()
-  await expect(page.getByText("s'écarte de plus de 10 % de la somme des composantes")).toBeVisible()
-
-  await page.getByRole("button", { name: "Corriger", exact: true }).click()
+  await enregistrer(page)
   await expect(avertissement(page)).toHaveCount(0)
-
-  // Les valeurs saisies restent à l'écran, mais rien n'a été persisté.
-  await expect(superficieCultivee(page)).toHaveValue("3")
-  await page.reload()
-  await expect(superficieCultivee(page)).toHaveValue("")
-})
-
-test("forcer la sauvegarde persiste les valeurs malgré l'avertissement", async ({ page }) => {
-  await open(page)
-  await superficieCultivee(page).fill("3")
-  await superficieBoisee(page).fill("3")
-
-  await page.getByRole("button", { name: "Enregistrer", exact: true }).click()
-  await expect(avertissement(page)).toBeVisible()
-  const response = page.waitForResponse((r) => r.request().method() === "POST" && r.ok())
-  await page.getByRole("button", { name: "Forcer la sauvegarde", exact: true }).click()
-  await response
-
   await page.reload()
   await expect(superficieCultivee(page)).toHaveValue("3")
   await expect(superficieBoisee(page)).toHaveValue("3")
 })
+
+
 
 test("un écart exactement égal à 10 % ne déclenche aucun avertissement", async ({ page }) => {
   await open(page)
@@ -154,13 +134,14 @@ test("un écart exactement égal à 10 % ne déclenche aucun avertissement", asy
   await expect(superficieCultivee(page)).toHaveValue("5")
 })
 
-test("une règle bloquante empêche la sauvegarde sans afficher l'avertissement", async ({ page }) => {
+test("une règle bloquante empêche Finaliser sans afficher l'avertissement", async ({ page }) => {
   await open(page)
   // 8 + 8 = 16 ha > 10 ha : V-001 bloque, et l'avertissement ne doit pas s'ajouter à l'erreur.
   await superficieCultivee(page).fill("8")
   await superficieBoisee(page).fill("8")
 
-  await page.getByRole("button", { name: "Enregistrer", exact: true }).click()
+  await page.getByRole("button", { name: "Finaliser", exact: true }).click()
+  await page.getByRole("button", { name: "Confirmer l'analyse" }).click()
   await expect(page.getByText("La somme des superficies (cultivée, boisée, constructible) dépasse la superficie totale.")).toBeVisible()
   await expect(avertissement(page)).toHaveCount(0)
 })
@@ -174,7 +155,7 @@ test("aucune composante renseignée : aucun avertissement", async ({ page }) => 
   await expect(avertissement(page)).toHaveCount(0)
 })
 
-test("Analyser : l'avertissement est proposé, puis Forcer et analyser passe la transaction à analysée", async ({ page }) => {
+test("Finaliser : l'avertissement est proposé, puis Forcer et finaliser passe la transaction à analysée", async ({ page }) => {
   await open(page)
   await superficieCultivee(page).fill("3")
   await superficieBoisee(page).fill("3")
@@ -184,7 +165,7 @@ test("Analyser : l'avertissement est proposé, puis Forcer et analyser passe la 
   await expect(avertissement(page)).toBeVisible()
   await expect(page.getByText("Non analysée", { exact: true })).toBeVisible()
 
-  await page.getByRole("button", { name: "Forcer et analyser", exact: true }).click()
+  await page.getByRole("button", { name: "Forcer et finaliser", exact: true }).click()
   await expect(page.getByText("Analysée", { exact: true })).toBeVisible()
 })
 
@@ -205,11 +186,12 @@ test("Analyser puis Corriger après réouverture : la transaction reste non anal
   await expect(page.getByText("Non analysée", { exact: true })).toBeVisible()
 })
 
-test("après réouverture, Enregistrer avertit à nouveau sur un écart de plus de 10 %", async ({ page }) => {
+test("après réouverture, Finaliser avertit à nouveau sur un écart de plus de 10 %", async ({ page }) => {
   await open(page)
   await expect(page.getByText("Non analysée", { exact: true })).toBeVisible()
 
-  await page.getByRole("button", { name: "Enregistrer", exact: true }).click()
+  await page.getByRole("button", { name: "Finaliser", exact: true }).click()
+  await page.getByRole("button", { name: "Confirmer l'analyse" }).click()
   await expect(avertissement(page)).toBeVisible()
   await page.getByRole("button", { name: "Corriger", exact: true }).click()
   await expect(avertissement(page)).toHaveCount(0)

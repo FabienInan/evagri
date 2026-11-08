@@ -49,6 +49,14 @@ async function saveAndWait(page: Page): Promise<void> {
   await expect(page.getByRole("button", { name: "Enregistrer", exact: true })).toBeEnabled()
 }
 
+/** Clique Finaliser, confirme, et attend l'aller-retour serveur : les règles bloquantes ne s'appliquent qu'ici. */
+async function finaliserAndWait(page: Page): Promise<void> {
+  const response = page.waitForResponse((r) => r.request().method() === "POST" && r.ok())
+  await page.getByRole("button", { name: "Finaliser", exact: true }).click()
+  await page.getByRole("button", { name: "Confirmer l'analyse" }).click()
+  await response
+}
+
 test.beforeAll(async () => {
   prisma = new PrismaClient()
   await setEnrichLayout(prisma)
@@ -139,19 +147,19 @@ test("affiche les valeurs formatées en consultation", async ({ page }) => {
   ).toBeVisible()
 })
 
-test("bloque Enregistrer quand un champ obligatoire est vide", async ({ page }) => {
+test("bloque Finaliser quand un champ obligatoire est vide", async ({ page }) => {
   await open(page, fx.transactions.t7)
-  await page.getByRole("button", { name: "Enregistrer", exact: true }).click()
+  await finaliserAndWait(page)
 
   await expect(
     page.getByText("Le champ « Champ obligatoire test » est obligatoire.")
   ).toBeVisible()
-  await expect(page.getByRole("button", { name: "Enregistrer", exact: true })).toBeEnabled()
+  await expect(page.getByRole("button", { name: "Finaliser", exact: true })).toBeEnabled()
 })
 
 test("efface l'erreur obligatoire dès la saisie", async ({ page }) => {
   await open(page, fx.transactions.t7)
-  await page.getByRole("button", { name: "Enregistrer", exact: true }).click()
+  await finaliserAndWait(page)
 
   const message = page.getByText("Le champ « Champ obligatoire test » est obligatoire.")
   await expect(message).toBeVisible()
@@ -171,7 +179,7 @@ test("déclenche V-001 quand la somme des superficies dépasse la superficie tot
   await fillNumber(superficies, "Superficie constructible test (ha)", 2)
   await fillObligatoire(page)
 
-  await saveAndWait(page)
+  await finaliserAndWait(page)
 
   await expect(
     page.getByText(
@@ -206,7 +214,7 @@ test("déclenche V-002 quand la superficie drainée dépasse la cultivée", asyn
   await fillNumber(superficies, "Superficie drainée test (ha)", 7)
   await fillObligatoire(page)
 
-  await saveAndWait(page)
+  await finaliserAndWait(page)
 
   await expect(
     page.getByText("La superficie drainée ne peut pas dépasser la superficie cultivée.")
@@ -219,7 +227,7 @@ test("déclenche V-003 quand un pourcentage dépasse 100", async ({ page }) => {
   await fillNumber(ficheSection(page, "Superficies test"), "Taux zone humide test (%)", 120)
   await fillObligatoire(page)
 
-  await saveAndWait(page)
+  await finaliserAndWait(page)
 
   await expect(
     page.getByText("Le champ « Taux zone humide test » ne peut pas dépasser 100 %.")
@@ -234,7 +242,7 @@ test("déclenche V-005 quand la superficie acéricole dépasse la boisée", asyn
   await fillNumber(superficies, "Superficie acéricole test (ha)", 5)
   await fillObligatoire(page)
 
-  await saveAndWait(page)
+  await finaliserAndWait(page)
 
   await expect(
     page.getByText("La superficie acéricole ne peut pas dépasser la superficie boisée.")
@@ -247,7 +255,7 @@ test("déclenche V-006 sur une valeur négative", async ({ page }) => {
   await fillNumber(ficheSection(page, "Superficies test"), "Champ négatif test (ha)", -5)
   await fillObligatoire(page)
 
-  await saveAndWait(page)
+  await finaliserAndWait(page)
 
   await expect(
     page.getByText("Le champ « Champ négatif test » ne peut pas être négatif.")
@@ -260,7 +268,7 @@ test("déclenche V-007 quand la valeur sort de la plage", async ({ page }) => {
   await fillNumber(ficheSection(page, "Superficies test"), "Champ plage test (kg)", 15)
   await fillObligatoire(page)
 
-  await saveAndWait(page)
+  await finaliserAndWait(page)
 
   await expect(
     page.getByText("Le champ « Champ plage test » doit être compris entre 0 et 10.")

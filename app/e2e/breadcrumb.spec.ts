@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client"
 import { ORG_ID } from "./db"
 import { fixtures } from "./fixtures"
 
-/** Fil d'ariane Dossiers › dossier › panier › transaction, parcouru de bout en bout. Dossier et panier dédiés. */
+/** Fil d'ariane Dossiers › dossier › panier, parcouru de bout en bout ; absent de la fiche de transaction. */
 
 const fx = fixtures()
 const DOSSIER_NUMERO = "99-99-020"
@@ -40,9 +40,7 @@ test("le fil d'ariane suit le parcours Dossiers › dossier › panier › trans
 
   await page.getByRole("link", { name: PANIER_NOM }).click()
   await page.locator("tbody tr").first().getByTitle("Voir la transaction").click()
-  const filFiche = page.getByRole("navigation", { name: "Fil d'ariane" })
-  await expect(filFiche).toContainText("Dossiers")
-  await expect(filFiche).toContainText(DOSSIER_NUMERO)
-  await expect(filFiche).toContainText(PANIER_NOM)
-  await expect(filFiche).toContainText(fx.numeros.t1)
+  // La fiche de transaction n'a pas de fil d'ariane : la navigation reste dans l'en-tête et les boutons précédent/suivant.
+  await expect(page.getByRole("heading", { level: 1, name: "Fiche de transaction" })).toBeVisible()
+  await expect(page.getByRole("navigation", { name: "Fil d'ariane" })).toHaveCount(0)
 })
