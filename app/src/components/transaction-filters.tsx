@@ -18,6 +18,7 @@ import { parseMultiValue } from "@/lib/multi-value"
 import { cn } from "@/lib/utils"
 import { ValueSuggestInput } from "@/components/value-suggest-input"
 import { NOMS_MRC_QUEBEC } from "@/lib/referentiel/mrc-quebec"
+import { DateFilterInput } from "@/components/date-filter-input"
 
 type VirtualOption = { label: string; value: string }
 
@@ -333,6 +334,17 @@ export function TransactionFilters({
                       <option value="true">Oui</option>
                       <option value="false">Non</option>
                     </select>
+                  ) : f.typeFiltre === "PLAGE_DATE" || f.champ?.typeDonnees === "DATE" ? (
+                    <DateFilterInput
+                      operator={currentOperator}
+                      value={values[f.id]?.value || ""}
+                      onChange={(value) =>
+                        setValues((prev) => ({
+                          ...prev,
+                          [f.id]: { ...(prev[f.id] || { operator: defaultOperator(f.typeFiltre) }), value },
+                        }))
+                      }
+                    />
                   ) : (f.champ?.codeMachine ?? f.codeMachine) === "mrc" ? (
                     <ValueSuggestInput
                       placeholder="valeur"
