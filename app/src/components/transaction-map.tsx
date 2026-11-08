@@ -92,8 +92,9 @@ export function TransactionMap({ filters, onGeoFilter }: TransactionMapProps) {
   return (
     <div className="relative h-full w-full">
       <MapContainer
-        center={[46.0, -72.2]}
-        zoom={9}
+        // Vue d'ensemble du Québec : zoom 5, centre décalé vers le nord pour que la province entière soit visible.
+        center={[49.5, -71.5]}
+        zoom={5}
         scrollWheelZoom={true}
         className="h-full w-full"
       >
