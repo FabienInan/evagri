@@ -1,6 +1,6 @@
 "use client"
 
-import { useId, useMemo, useRef, useState, type KeyboardEvent } from "react"
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import { Input } from "@/components/ui/input"
 
 /** Un champ utilisable dans une règle de calcul : son code machine (ce qu'on écrit) et son libellé (ce qu'on lit). */
@@ -9,7 +9,6 @@ export interface RuleFieldOption {
   label: string
 }
 
-const MAX_SUGGESTIONS = 8
 /** Identifiant en cours de frappe, juste avant le curseur (ex. « prix_v » dans « prix_vente / prix_v »). */
 const TRAILING_TOKEN = /[a-zA-Z_][a-zA-Z0-9_]*$/
 
@@ -59,11 +58,16 @@ export function RegleCalculInput({
         const bPrefix = normalize(b.code).startsWith(needle) ? 0 : 1
         return aPrefix - bPrefix || a.code.localeCompare(b.code)
       })
-      .slice(0, MAX_SUGGESTIONS)
   }, [options, token, excludeCode])
 
   const isOpen = open && suggestions.length > 0
   const current = suggestions[Math.min(activeIndex, suggestions.length - 1)]
+
+  // La liste défile : l'option active doit rester visible quand on navigue aux flèches.
+  useEffect(() => {
+    if (!isOpen || !current) return
+    document.getElementById(`${listId}-${current.code}`)?.scrollIntoView({ block: "nearest" })
+  }, [isOpen, current, listId])
 
   function syncCaret() {
     setCaret(inputRef.current?.selectionStart ?? 0)

@@ -48,3 +48,22 @@ test("Tab insère la suggestion en cours après un opérateur, et Échap referme
   await input.press("Escape")
   await expect(page.getByRole("listbox")).toHaveCount(0)
 })
+
+test("un terme commun liste tous les champs correspondants, au-delà de huit, et la liste défile aux flèches", async ({ page }) => {
+  await page.goto("/admin/champs")
+  const input = ruleInput(page)
+  await input.click()
+
+  await input.pressSequentially("superficie_totale")
+  const listbox = page.getByRole("listbox")
+  await expect(listbox.getByRole("option").first()).toContainText("superficie_totale_hectare")
+  // Flèche haut depuis la première option : on boucle sur la dernière, qui doit être visible (défilement).
+  await input.press("ArrowUp")
+  await expect(listbox.getByRole("option").last()).toHaveAttribute("aria-selected", "true")
+  await expect(listbox.getByRole("option").last()).toBeInViewport()
+
+  // Un terme commun : toutes les correspondances sont proposées, pas seulement les huit premières.
+  await input.fill("")
+  await input.pressSequentially("superficie")
+  await expect.poll(() => listbox.getByRole("option").count()).toBeGreaterThan(8)
+})
