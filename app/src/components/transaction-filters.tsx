@@ -268,7 +268,7 @@ export function TransactionFilters({
                 <div className="flex min-w-0 gap-2">
                   {!isBoolean && (
                     <select
-                      className="h-9 w-16 shrink-0 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="h-9 w-16 shrink-0 rounded-md border border-input bg-background pl-2.5 pr-7 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       value={currentOperator}
                       onChange={(e) => {
                         const nextOperator = e.target.value
@@ -304,7 +304,7 @@ export function TransactionFilters({
                       />
                     ) : (
                       <select
-                        className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background pl-3 pr-9 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         value={values[f.id]?.value || ""}
                         onChange={(e) =>
                           setValues((prev) => ({
@@ -321,7 +321,7 @@ export function TransactionFilters({
                     )
                   ) : isBoolean ? (
                     <select
-                      className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background pl-3 pr-9 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       value={values[f.id]?.value || ""}
                       onChange={(e) =>
                         setValues((prev) => ({

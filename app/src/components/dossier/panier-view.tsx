@@ -5,6 +5,7 @@ import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import { Eye, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { DataTable, type DataTableColumn } from "@/components/data-table"
 import { removeTransactionFromPanier } from "@/server/actions/dossier"
 import { sortTransactionRows } from "@/lib/transaction-sort"
@@ -82,6 +83,7 @@ export function PanierView({
   champs,
   dateEvaluation,
   tauxCroissancePct,
+  typeTransactionNom,
 }: {
   panierId: string
   nom: string
@@ -92,6 +94,8 @@ export function PanierView({
   dateEvaluation: string | null
   /** Taux de croissance du panier en pourcentage, pour les indicateurs ajustés à l'export. */
   tauxCroissancePct: number | null
+  /** Type de transaction du panier, affiché à côté de son nom. */
+  typeTransactionNom: string | null
 }) {
   const [rows, setRows] = useState(transactions)
   const sortStorageKey = panierSortStorageKey(panierId)
@@ -156,7 +160,16 @@ export function PanierView({
       onSort={handleSort}
       columnMenuAlphabetical
       columnMenuSearchable
-      title={nom}
+      title={
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate">{nom}</span>
+          {typeTransactionNom && (
+            <Badge variant="secondary" className="shrink-0">
+              {typeTransactionNom}
+            </Badge>
+          )}
+        </span>
+      }
       totalCount={rows.length}
       toolbar={
         <>

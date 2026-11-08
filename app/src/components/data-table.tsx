@@ -319,7 +319,8 @@ export interface DataTableProps<T> {
   onSort?: (field: string) => void
   loading?: boolean
   sentinelRef?: React.RefObject<HTMLDivElement | null>
-  title?: string
+  /** Titre de la barre du tableau : texte ou élément (ex. nom suivi d'un badge). */
+  title?: ReactNode
   totalCount?: number
   toolbar?: ReactNode
   emptyMessage?: string

@@ -23,6 +23,7 @@ export function ChampCreateCard({
   onCreateOptionsTextChange,
   derivedCodeMachine,
   ruleFieldOptions,
+  inferType,
   typologies,
   creating,
   createError,
@@ -30,6 +31,8 @@ export function ChampCreateCard({
 }: {
   draft: ChampInput
   ruleFieldOptions: RuleFieldOption[]
+  /** Type déduit d'une règle de calcul (entier ou décimal), pour un champ calculé. */
+  inferType: (rule: string) => TypeDonneesChamp | null
   onDraftChange: (updater: (draft: ChampInput) => ChampInput) => void
   createOptionsText: string
   onCreateOptionsTextChange: (value: string) => void
@@ -39,6 +42,10 @@ export function ChampCreateCard({
   createError: string | null
   onCreate: () => void
 }) {
+  // Un champ calculé prend le type déduit de sa règle : le sélecteur est alors en lecture seule.
+  const isCalculated = draft.nature === "CALCULE"
+  const calculatedType = isCalculated && draft.regleCalcul ? inferType(draft.regleCalcul) : null
+
   // Les trois champs de la 2ᵉ rangée (Règle de calcul / Types de transaction / Options de liste) sont
   // définis une fois et placés par la suite : sur la même ligne, chacun occupe une largeur identique.
   const uniteField = (
@@ -131,7 +138,8 @@ export function ChampCreateCard({
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Type de données</Label>
             <Select
-              value={draft.typeDonnees}
+              value={calculatedType ?? draft.typeDonnees}
+              disabled={isCalculated}
               onValueChange={(v) => onDraftChange((d) => ({ ...d, typeDonnees: v as TypeDonneesChamp }))}
             >
               <SelectTrigger className="h-10 w-full rounded-lg">

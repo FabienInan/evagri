@@ -28,7 +28,8 @@ export function Header({ title }: { title: string }) {
   const { action, titleSuffix } = useHeaderActions()
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-card px-4 shadow-sm">
+    // Trois colonnes de même largeur : le bloc Dossier/Panier reste au centre, quelle que soit la longueur du titre.
+    <header className="sticky top-0 z-30 grid h-16 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center border-b border-border bg-card px-4 shadow-sm">
       <div className="flex min-w-0 items-center gap-2">
         <h1 className="truncate text-lg font-semibold text-foreground">{resolvedTitle}</h1>
         {titleSuffix && (
@@ -36,11 +37,11 @@ export function Header({ title }: { title: string }) {
         )}
       </div>
 
-      <div className="hidden min-w-0 flex-1 justify-center px-4 md:flex">
+      <div className="hidden justify-center px-4 md:flex">
         <SidebarContext />
       </div>
 
-      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+      <div className="flex min-w-0 items-center justify-end gap-3 text-sm text-muted-foreground">
         {action && <div className="flex items-center">{action}</div>}
         <span className="hidden lg:inline">Connecté en tant que</span>
         <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-1.5">

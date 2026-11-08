@@ -33,6 +33,7 @@ const EDIT_TABS: { id: EditTab; label: string }[] = [
 export function ChampEditPanel({
   selected,
   ruleFieldOptions,
+  inferType,
   editDraft,
   onEditDraftChange,
   editOptionsText,
@@ -47,6 +48,8 @@ export function ChampEditPanel({
 }: {
   selected: ChampEnrichissableConfig | null
   ruleFieldOptions: RuleFieldOption[]
+  /** Type déduit d'une règle de calcul (entier ou décimal), pour un champ calculé. */
+  inferType: (rule: string) => TypeDonneesChamp | null
   editDraft: ChampInput | null
   onEditDraftChange: (updater: (draft: ChampInput) => ChampInput) => void
   editOptionsText: string
@@ -108,9 +111,19 @@ export function ChampEditPanel({
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-sm font-medium">Type de données</Label>
+                  <Label className="text-sm font-medium">
+                    Type de données
+                    {editDraft.nature === "CALCULE" && (
+                      <span className="ml-1 text-xs font-normal text-muted-foreground">(déduit de la règle)</span>
+                    )}
+                  </Label>
                   <Select
-                    value={editDraft.typeDonnees}
+                    value={
+                      editDraft.nature === "CALCULE" && editDraft.regleCalcul
+                        ? (inferType(editDraft.regleCalcul) ?? editDraft.typeDonnees)
+                        : editDraft.typeDonnees
+                    }
+                    disabled={editDraft.nature === "CALCULE"}
                     onValueChange={(v) => onEditDraftChange((d) => ({ ...d, typeDonnees: v as TypeDonneesChamp }))}
                   >
                     <SelectTrigger className="h-10 w-full rounded-lg">

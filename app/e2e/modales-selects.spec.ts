@@ -18,7 +18,13 @@ test("création de champ : Nature et Type de données appliquent le choix sans f
   await page.getByRole("option", { name: "Calculé", exact: true }).click()
   await expect(nature).toContainText("Calculé")
 
+  // Pour un champ calculé, le type est déduit de la règle : le sélecteur est alors en lecture seule.
   const type = dialog.getByText("Type de données", { exact: true }).locator("..").getByRole("combobox")
+  await expect(type).toBeDisabled()
+
+  await nature.click()
+  await page.getByRole("option", { name: "Saisissable", exact: true }).click()
+  await expect(nature).toContainText("Saisissable")
   await type.click()
   await page.getByRole("option", { name: "Entier", exact: true }).click()
   await expect(type).toContainText("Entier")

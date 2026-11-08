@@ -13,6 +13,7 @@ import {
 import { listTypologiesByOrganisation } from "@/repositories/typologie.repository"
 import { deriveEstLectureSeule, formatChampInputErrors, normalizeChampInput, validateChampConfig } from "@/lib/champs"
 import { IMPORTED_FIELDS } from "@/lib/imported-fields"
+import { inferTypeDonneesFromRule } from "@/lib/calculator"
 import { recalculerChampsCalcules } from "@/services/calcul.service"
 import type { ChampEnrichissableConfig, ChampEnrichissableInput, TypeDonneesChamp } from "@/types/champ"
 import { champInputSchema, type ChampInput } from "@/validators/champ.validator"
@@ -73,6 +74,19 @@ async function loadChampCatalogue(organisationId: string, selfId?: string) {
   return { knownFields, otherRules, previous }
 }
 
+/**
+ * Un champ calculé n'a pas de type choisi : il prend le type déduit de sa règle (entier ou décimal).
+ * Une règle non déductible est laissée telle quelle : la validation de la règle signale le champ fautif.
+ */
+function withCalculatedType<T extends { nature: string; regleCalcul: string | null; typeDonnees: TypeDonneesChamp }>(
+  input: T,
+  knownFields: ReadonlyMap<string, TypeDonneesChamp>
+): T {
+  if (input.nature !== "CALCULE" || !input.regleCalcul) return input
+  const typeDonnees = inferTypeDonneesFromRule(input.regleCalcul, knownFields)
+  return typeDonnees ? { ...input, typeDonnees } : input
+}
+
 export async function createChamp(input: ChampInput): Promise<CreateChampResult> {
   const organisationId = getCurrentOrganisationId()
   const parsed = parseChampInput(input)
@@ -83,8 +97,8 @@ export async function createChamp(input: ChampInput): Promise<CreateChampResult>
     return { ok: false, error: "Un champ existe déjà avec ce code machine." }
   }
 
-  const normalized = normalizeChampInput(parsed.data)
   const { knownFields, otherRules } = await loadChampCatalogue(organisationId)
+  const normalized = withCalculatedType(normalizeChampInput(parsed.data), knownFields)
   const errors = validateChampConfig(normalized, knownFields, otherRules)
   if (errors.length > 0) {
     return { ok: false, error: errors[0].message }
@@ -122,8 +136,8 @@ export async function updateChamp(id: string, input: ChampInput): Promise<ChampA
   const parsed = parseChampInput(input)
   if (!parsed.ok) return parsed
 
-  const normalized = normalizeChampInput(parsed.data)
   const { knownFields, otherRules, previous } = await loadChampCatalogue(organisationId, id)
+  const normalized = withCalculatedType(normalizeChampInput(parsed.data), knownFields)
   const errors = validateChampConfig(normalized, knownFields, otherRules)
   if (errors.length > 0) {
     return { ok: false, error: errors[0].message }

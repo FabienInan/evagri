@@ -1,11 +1,12 @@
 "use client"
 
-import { useMemo, useState, type Dispatch, type SetStateAction } from "react"
+import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from "react"
 import { createChamp, updateChamp, toggleChampActif } from "@/server/actions/champs"
 import type { ChampInput } from "@/server/actions/champs"
 import { parseListOptions, deriveEstLectureSeule } from "@/lib/champs"
 import { buildChampCodeMachine } from "@/lib/normalization/parsing"
-import type { ChampEnrichissableConfig } from "@/types/champ"
+import { inferTypeDonneesFromRule } from "@/lib/calculator"
+import type { ChampEnrichissableConfig, TypeDonneesChamp } from "@/types/champ"
 import type { TypologieOption } from "@/types/typologie"
 import { ChampCreateCard } from "@/components/admin/champs/champ-create-card"
 import { Modal } from "@/components/dossier/modal"
@@ -75,6 +76,20 @@ export function ChampsAdmin({
       return true
     })
   }, [champs])
+
+  // Types connus de chaque code (importés et saisis) : sert à déduire le type d'un champ calculé.
+  const knownTypes = useMemo(
+    () =>
+      new Map<string, TypeDonneesChamp>([
+        ...IMPORTED_FIELDS.map((f) => [f.code, f.typeDonnees] as [string, TypeDonneesChamp]),
+        ...champs.map((c) => [c.codeMachine, c.typeDonnees] as [string, TypeDonneesChamp]),
+      ]),
+    [champs]
+  )
+  const inferCalculatedType = useCallback(
+    (rule: string) => inferTypeDonneesFromRule(rule, knownTypes),
+    [knownTypes]
+  )
 
   function selectChamp(champ: ChampEnrichissableConfig) {
     setSelectedId(champ.id)
@@ -183,6 +198,7 @@ export function ChampsAdmin({
             onCreateOptionsTextChange={setCreateOptionsText}
             derivedCodeMachine={derivedCodeMachine}
             ruleFieldOptions={ruleFieldOptions}
+            inferType={inferCalculatedType}
             typologies={typologies}
             creating={creating}
             createError={createError}
@@ -201,6 +217,7 @@ export function ChampsAdmin({
         <ChampEditPanel
           selected={selected}
           ruleFieldOptions={ruleFieldOptions}
+          inferType={inferCalculatedType}
           editDraft={editDraft}
           onEditDraftChange={(updater) => setEditDraft((d) => (d ? updater(d) : d))}
           editOptionsText={editOptionsText}

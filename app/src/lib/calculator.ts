@@ -214,3 +214,33 @@ export function validateRuleSyntax(
     return { valid: false, error: error instanceof Error ? error.message : "Règle invalide" }
   }
 }
+
+/**
+ * Type de données d'un champ calculé, déduit de sa règle :
+ * - DECIMAL si un opérande est décimal, si la règle contient une division ou un littéral à virgule ;
+ * - ENTIER sinon (opérandes entiers, opérateurs + - * seulement).
+ * Un champ calculé référencé par une règle a déjà son type déduit en base : il sert d'opérande comme un autre.
+ * Renvoie null si la règle ne référence aucun champ numérique connu.
+ */
+export function inferTypeDonneesFromRule(
+  rule: string,
+  knownFields: ReadonlyMap<string, TypeDonneesChamp>
+): TypeDonneesChamp | null {
+  let operands = 0
+  let decimal = false
+  for (const token of tokenize(rule)) {
+    if (token === "/") {
+      decimal = true
+    } else if (NUMBER_PATTERN.test(token)) {
+      // Un littéral n'est pas un opérande « champ » : il n'impose que sa décimale.
+      if (token.includes(".")) decimal = true
+    } else if (IDENTIFIER_PATTERN.test(token)) {
+      const typeDonnees = knownFields.get(token)
+      if (!typeDonnees || !isNumericTypeDonnees(typeDonnees)) return null
+      operands++
+      if (typeDonnees === "DECIMAL") decimal = true
+    }
+  }
+  if (operands === 0) return null
+  return decimal ? "DECIMAL" : "ENTIER"
+}
