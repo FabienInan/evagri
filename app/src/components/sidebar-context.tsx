@@ -47,7 +47,7 @@ export function SidebarContext() {
     <div className="flex min-w-0 items-center gap-3 rounded-lg border border-border bg-muted/40 px-3 py-1">
       <label className="flex min-w-0 items-center gap-2">
         <span className="shrink-0 text-xs font-medium text-muted-foreground">Dossier</span>
-        <select
+        <select style={{ paddingRight: "2.25rem", paddingLeft: "0.5rem" }} 
           aria-label="Dossier courant"
           className={SELECT_CLASS}
           value={dossierId}
@@ -67,7 +67,7 @@ export function SidebarContext() {
 
       <label className="flex min-w-0 items-center gap-2">
         <span className="shrink-0 text-xs font-medium text-muted-foreground">Panier</span>
-        <select
+        <select style={{ paddingRight: "2.25rem", paddingLeft: "0.5rem" }} 
           aria-label="Panier courant"
           className={SELECT_CLASS}
           value={panierId}

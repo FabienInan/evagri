@@ -65,7 +65,7 @@ export function PanierFormDialog({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="type-panier">Type de transaction (optionnel)</Label>
-          <select
+          <select style={{ paddingRight: "2.25rem", paddingLeft: "0.75rem" }} 
             id="type-panier"
             className="h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
             value={typeTransactionId}

@@ -267,7 +267,7 @@ export function TransactionFilters({
                 <Label className="text-xs font-medium text-muted-foreground">{f.nomFiltre}</Label>
                 <div className="flex min-w-0 gap-2">
                   {!isBoolean && (
-                    <select
+                    <select style={{ paddingRight: "1.75rem", paddingLeft: "0.5rem" }} 
                       className="h-9 w-16 shrink-0 rounded-md border border-input bg-background pl-2.5 pr-7 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       value={currentOperator}
                       onChange={(e) => {
@@ -303,7 +303,7 @@ export function TransactionFilters({
                         }
                       />
                     ) : (
-                      <select
+                      <select style={{ paddingRight: "2.25rem", paddingLeft: "0.75rem" }} 
                         className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background pl-3 pr-9 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         value={values[f.id]?.value || ""}
                         onChange={(e) =>
@@ -320,7 +320,7 @@ export function TransactionFilters({
                       </select>
                     )
                   ) : isBoolean ? (
-                    <select
+                    <select style={{ paddingRight: "2.25rem", paddingLeft: "0.75rem" }} 
                       className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background pl-3 pr-9 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       value={values[f.id]?.value || ""}
                       onChange={(e) =>
