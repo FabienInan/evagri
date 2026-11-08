@@ -10,21 +10,23 @@ import { Badge } from "@/components/ui/badge"
 import { useHeaderActions } from "@/components/header-actions"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { PanierFormDialog } from "@/components/dossier/panier-form-dialog"
-import { AnalysesSection } from "@/components/dossier/analyses-section"
 import type { TypologieOption } from "@/types/typologie"
 import type { SerializedDossier, SerializedPanier } from "@/serializers/dossier.serializer"
-import type { SerializedAnalyse } from "@/serializers/analyse-dossier.serializer"
+
+/** AAAA-MM-JJ → JJ/MM/AAAA, pour l'affichage. */
+export function formatDateFr(isoDate: string): string {
+  const [year, month, day] = isoDate.split("-")
+  return `${day}/${month}/${year}`
+}
 
 export function DossierDetailClient({
   dossier,
   paniers,
   typologies,
-  analyses,
 }: {
   dossier: SerializedDossier
   paniers: SerializedPanier[]
   typologies: TypologieOption[]
-  analyses: SerializedAnalyse[]
 }) {
   const router = useRouter()
   const [showForm, setShowForm] = useState(false)
@@ -40,7 +42,15 @@ export function DossierDetailClient({
     <div className="space-y-4">
       <Breadcrumb items={[{ label: "Dossiers", href: "/dossiers" }, { label: dossier.numeroDossier }]} />
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">{dossier.nom ?? "—"}</p>
+        <p className="text-sm text-muted-foreground">
+          {dossier.nom ?? "—"}
+          {dossier.dateEvaluation && (
+            <>
+              {" · "}Date d&apos;évaluation{" "}
+              <span className="font-medium text-foreground">{formatDateFr(dossier.dateEvaluation)}</span>
+            </>
+          )}
+        </p>
         <Button size="sm" className="gap-2" onClick={() => setShowForm(true)}>
           <Plus className="h-4 w-4" />
           Nouveau panier
@@ -70,8 +80,6 @@ export function DossierDetailClient({
           </ul>
         </Card>
       )}
-
-      <AnalysesSection dossierId={dossier.id} analyses={analyses} />
 
       {showForm && (
         <PanierFormDialog

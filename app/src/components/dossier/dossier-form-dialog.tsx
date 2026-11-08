@@ -16,13 +16,14 @@ export function DossierFormDialog({
 }) {
   const [numeroDossier, setNumeroDossier] = useState("")
   const [nom, setNom] = useState("")
+  const [dateEvaluation, setDateEvaluation] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   async function handleSubmit() {
     setSaving(true)
     setError(null)
-    const res = await createDossier({ numeroDossier, nom: nom.trim() || undefined })
+    const res = await createDossier({ numeroDossier, nom: nom.trim() || undefined, dateEvaluation })
     setSaving(false)
     if (!res.ok) {
       setError(res.error)
@@ -42,6 +43,18 @@ export function DossierFormDialog({
             placeholder="25-12-001"
             onChange={(e) => setNumeroDossier(e.target.value)}
           />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="date-evaluation">Date d&apos;évaluation</Label>
+          <Input
+            id="date-evaluation"
+            type="date"
+            value={dateEvaluation}
+            onChange={(e) => setDateEvaluation(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            Sert de date de référence aux indicateurs ajustés. Elle ne se modifie pas ensuite.
+          </p>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="nom-dossier">Nom (optionnel)</Label>

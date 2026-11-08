@@ -50,11 +50,6 @@ function champ(overrides: Partial<ChampEnrichissableConfig>): ChampEnrichissable
 const params = {
   tauxCroissancePct: 5,
   dateEvaluation: "2026-01-01",
-  tauxBoiseRef: 1000,
-  tauxCultiveRef: 2000,
-  valeurBatiment: 10000,
-  valeurMaison: 5000,
-  valeurTerrainResidentiel: 5000,
 }
 
 describe("computePrixActualise", () => {
@@ -120,6 +115,12 @@ describe("computeAdjustedValues", () => {
     superficie_boisee: 4,
     superficie_batiment: 1000,
     nombre_entailles: 500,
+    // Valeurs de référence : portées par la transaction, pas par un paramètre d'analyse.
+    taux_boise_ref: 1000,
+    taux_cultive_ref: 2000,
+    valeur_batiments: 10000,
+    valeur_maison: 5000,
+    valeur_terrain_residentiel: 5000,
   }
 
   it("applique les formules des indicateurs ajustés", () => {

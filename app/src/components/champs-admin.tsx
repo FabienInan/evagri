@@ -67,7 +67,13 @@ export function ChampsAdmin({
     const saisis = champs
       .filter((c) => c.typeDonnees === "DECIMAL" || c.typeDonnees === "ENTIER")
       .map((c) => ({ code: c.codeMachine, label: c.nomAffichage }))
-    return [...imported, ...saisis]
+    // Un code ne doit apparaître qu'une fois (clé de liste) : le champ importé prime sur un champ saisi homonyme.
+    const seen = new Set<string>()
+    return [...imported, ...saisis].filter((option) => {
+      if (seen.has(option.code)) return false
+      seen.add(option.code)
+      return true
+    })
   }, [champs])
 
   function selectChamp(champ: ChampEnrichissableConfig) {

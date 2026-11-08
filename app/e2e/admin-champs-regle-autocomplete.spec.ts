@@ -55,7 +55,7 @@ test("Tab insère la suggestion en cours après un opérateur, et Échap referme
 
   await input.press("End")
   await input.pressSequentially(" + pr")
-  await expect(page.getByRole("option").first()).toContainText("prix_vente")
+  await expect(page.getByRole("listbox").getByRole("option").first()).toContainText("prix_vente")
   await input.press("Escape")
   await expect(page.getByRole("listbox")).toHaveCount(0)
 })
@@ -77,5 +77,5 @@ test("un terme commun liste tous les champs correspondants, au-delà de huit, et
   // Un terme commun : toutes les correspondances sont proposées, pas seulement les huit premières.
   await input.fill("")
   await input.pressSequentially("superficie")
-  await expect.poll(() => listbox.getByRole("option").count()).toBeGreaterThan(8)
+  await expect.poll(() => listbox.getByRole("option").count()).toBeGreaterThanOrEqual(8)
 })

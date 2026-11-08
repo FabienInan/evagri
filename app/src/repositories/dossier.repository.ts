@@ -21,13 +21,14 @@ export async function findDossierByNumero(organisationId: string, numeroDossier:
 
 export async function createDossier(
   organisationId: string,
-  data: { numeroDossier: string; nom?: string }
+  data: { numeroDossier: string; nom?: string; dateEvaluation: string }
 ) {
   return prisma.dossier.create({
     data: {
       organisationId,
       numeroDossier: data.numeroDossier,
       nom: data.nom ?? null,
+      dateEvaluation: new Date(data.dateEvaluation),
       createurId: null,
     },
   })
@@ -47,7 +48,7 @@ export async function listPaniersByDossier(organisationId: string, dossierId: st
 
 export async function createPanier(
   organisationId: string,
-  data: { dossierId: string; nom: string; typeTransactionId?: string | null }
+  data: { dossierId: string; nom: string; typeTransactionId?: string | null; tauxCroissancePct: number }
 ) {
   return prisma.panier.create({
     data: {
@@ -55,6 +56,8 @@ export async function createPanier(
       dossierId: data.dossierId,
       nom: data.nom,
       typeTransactionId: data.typeTransactionId ?? null,
+      // Stocké en fraction (3.25 % → 0.0325), comme l'ancienne analyse.
+      tauxCroissance: data.tauxCroissancePct / 100,
       createurId: null,
     },
   })

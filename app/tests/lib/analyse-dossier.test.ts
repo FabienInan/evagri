@@ -1,19 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { computeIndicateursAjustesByTransaction, toExportParams, type AnalyseParams } from "@/lib/analyse-dossier"
+import { computeIndicateursAjustesByTransaction } from "@/lib/analyse-dossier"
 
-const analyse: AnalyseParams = {
-  dateEvaluation: "2026-01-01",
-  tauxCroissancePct: 5,
-  tauxBoiseRef: null,
-  tauxCultiveRef: null,
-  valeurBatimentRef: null,
-  valeurMaisonRef: null,
-  valeurTerrainResidentielRef: null,
-}
+const params = { dateEvaluation: "2026-01-01", tauxCroissancePct: 5 }
 
 describe("computeIndicateursAjustesByTransaction", () => {
-  it("calcule les indicateurs ajustés de chaque transaction du dossier", () => {
-    const rows = computeIndicateursAjustesByTransaction(analyse, [
+  it("calcule les indicateurs ajustés de chaque transaction à partir du dossier et du panier", () => {
+    const rows = computeIndicateursAjustesByTransaction(params, [
       {
         id: "t1",
         fields: {
@@ -24,36 +16,21 @@ describe("computeIndicateursAjustesByTransaction", () => {
       },
     ])
 
-    expect(rows).toEqual([
-      {
-        transactionId: "t1",
-        values: expect.objectContaining({
-          prix_actualise: 105000,
-          taux_global_ajuste: 2100,
-        }),
-      },
-    ])
+    expect(rows.t1).toEqual(expect.objectContaining({ prix_actualise: 105000, taux_global_ajuste: 2100 }))
   })
 
   it("renvoie des valeurs nulles quand la transaction n'a pas de prix", () => {
-    const [row] = computeIndicateursAjustesByTransaction(analyse, [
+    const rows = computeIndicateursAjustesByTransaction(params, [
       { id: "t2", fields: { superficie_totale_hectare: 50 } },
     ])
-    expect(row.values.prix_actualise).toBeNull()
-    expect(row.values.taux_global_ajuste).toBeNull()
+    expect(rows.t2.prix_actualise).toBeNull()
+    expect(rows.t2.taux_global_ajuste).toBeNull()
   })
-})
 
-describe("toExportParams", () => {
-  it("transmet les valeurs de référence absentes comme non renseignées", () => {
-    expect(toExportParams({ ...analyse, tauxBoiseRef: 1000 })).toEqual({
-      tauxCroissancePct: 5,
-      dateEvaluation: "2026-01-01",
-      tauxBoiseRef: 1000,
-      tauxCultiveRef: undefined,
-      valeurBatiment: undefined,
-      valeurMaison: undefined,
-      valeurTerrainResidentiel: undefined,
-    })
+  it("lit les valeurs de référence sur la transaction, pas sur un paramètre d'analyse", () => {
+    const base = { prix_vente: 100000, date_vente: "2025-01-01T00:00:00.000Z", superficie_totale_hectare: 50, superficie_cultivee: 6, superficie_boisee: 4 }
+    const withRef = computeIndicateursAjustesByTransaction(params, [{ id: "t3", fields: { ...base, taux_boise_ref: 1000 } }])
+    const without = computeIndicateursAjustesByTransaction(params, [{ id: "t3", fields: base }])
+    expect(withRef.t3.taux_residuel_cultive_ajuste).not.toEqual(without.t3.taux_residuel_cultive_ajuste)
   })
 })

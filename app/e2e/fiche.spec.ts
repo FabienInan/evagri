@@ -21,7 +21,7 @@ test("fiche d'une transaction non analysée : édition et enregistrement", async
   await expect(page.getByRole("button", { name: "Finaliser" })).toBeVisible()
 
   // Renseigne le type de transaction puis enregistre : aucune erreur ne doit s'afficher.
-  await page.getByRole("combobox").first().click()
+  await page.getByText("Type de transaction", { exact: false }).locator("..").getByRole("combobox").click()
   await page.getByRole("option", { name: "Terres cultivées" }).click()
   await page.getByRole("button", { name: "Enregistrer" }).click()
 
@@ -56,7 +56,7 @@ test("analyse une transaction puis la réouvre pour la corriger", async ({ page 
   await expect(page.getByText("Non analysée", { exact: true })).toBeVisible()
 
   await fillObligatoires(page)
-  await page.getByRole("combobox").first().click()
+  await page.getByText("Type de transaction", { exact: false }).locator("..").getByRole("combobox").click()
   await page.getByRole("option", { name: "Terres cultivées" }).click()
   await page.getByRole("button", { name: "Finaliser", exact: true }).click()
   await page.getByRole("button", { name: "Confirmer l'analyse" }).click()

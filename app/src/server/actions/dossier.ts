@@ -16,7 +16,6 @@ import {
   listTransactionsOfPanier,
   removeTransactionFromPanier as repoRemoveTransaction,
 } from "@/repositories/dossier.repository"
-import { recalculateAnalysesForDossier } from "@/server/analyse-dossier"
 import {
   serializeDossier,
   serializePanier,
@@ -42,6 +41,7 @@ export async function listDossiers(): Promise<SerializedDossier[]> {
 export async function createDossier(input: {
   numeroDossier: string
   nom?: string
+  dateEvaluation: string
 }): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   const organisationId = getCurrentOrganisationId()
   const parsed = createDossierSchema.safeParse(input)
@@ -68,6 +68,7 @@ export async function createPanier(input: {
   dossierId: string
   nom: string
   typeTransactionId?: string | null
+  tauxCroissancePct: number
 }): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   const organisationId = getCurrentOrganisationId()
   const parsed = createPanierSchema.safeParse(input)
@@ -100,7 +101,6 @@ export async function addTransactionsToPanier(input: {
   }
 
   const added = await repoAddTransactions(organisationId, parsed.data.panierId, ids)
-  await recalculateAnalysesForDossier(organisationId, panier.dossierId)
   revalidatePath(`/paniers/${parsed.data.panierId}`)
   return { ok: true, added }
 }
@@ -114,7 +114,6 @@ export async function removeTransactionFromPanier(
   if (!panier) return { ok: false, error: "Panier introuvable." }
 
   await repoRemoveTransaction(organisationId, panierId, transactionId)
-  await recalculateAnalysesForDossier(organisationId, panier.dossierId)
   revalidatePath(`/paniers/${panierId}`)
   return { ok: true }
 }

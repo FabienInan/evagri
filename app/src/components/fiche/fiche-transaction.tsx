@@ -157,6 +157,7 @@ export function FicheTransactionClient({
 
   // First error per champ (the action can return several for one field); the rest go to the banner.
   const errorsByChamp = new Map<string, string>()
+  // Messages de fiche (sans champ) : affichés en bas de l'en-tête. Les autres restent sous leur champ.
   const bannerErrors: string[] = []
   for (const e of fieldErrors) {
     if (e.champ) {
@@ -165,48 +166,62 @@ export function FicheTransactionClient({
       bannerErrors.push(e.message)
     }
   }
+  const hasValidationErrors = fieldErrors.length > 0 || actionError !== null
 
   return (
     <div className="space-y-4">
-      {navigation && (
-        // Navigation contextuelle au-dessus de la première carte, aux couleurs de la charte.
-        <div className="flex items-center justify-between gap-2">
-          <Button
-            variant="default"
-            size="sm"
-            className="gap-1"
-            aria-label="Transaction précédente"
-            title="Transaction précédente"
-            disabled={!navigation.prevId}
-            onClick={() => goToTransaction(navigation.prevId)}
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Précédent
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            className="gap-1"
-            aria-label="Transaction suivante"
-            title="Transaction suivante"
-            disabled={!navigation.nextId}
-            onClick={() => goToTransaction(navigation.nextId)}
-          >
-            Suivant
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
+      {/* Indicateur court : des erreurs de validation existent ; chaque message reste sous son champ. */}
+      {hasValidationErrors && (
+        <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive">
+          Erreurs de validation : corrigez les champs signalés en rouge.
+        </p>
       )}
 
-      {/* Actions au-dessus du layout de la fiche : Enregistrer / Finaliser (édition), Rouvrir / Ajouter au panier. */}
-      <FicheActions
-        mode={mode}
-        saving={saving}
-        onSave={() => void handleSave()}
-        onAnalyse={() => setAnalyseConfirmOpen(true)}
-        onReopen={() => setReopenConfirmOpen(true)}
-        onAddToPanier={() => setAddToPanierOpen(true)}
-      />
+      {/* Une seule ligne : Précédent à gauche, les actions au centre, Suivant à droite. */}
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+        <div className="justify-self-start">
+          {navigation && (
+            <Button
+              variant="default"
+              size="sm"
+              className="gap-1"
+              aria-label="Transaction précédente"
+              title="Transaction précédente"
+              disabled={!navigation.prevId}
+              onClick={() => goToTransaction(navigation.prevId)}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Précédent
+            </Button>
+          )}
+        </div>
+
+        <FicheActions
+          mode={mode}
+          saving={saving}
+          onSave={() => void handleSave()}
+          onAnalyse={() => setAnalyseConfirmOpen(true)}
+          onReopen={() => setReopenConfirmOpen(true)}
+          onAddToPanier={() => setAddToPanierOpen(true)}
+        />
+
+        <div className="justify-self-end">
+          {navigation && (
+            <Button
+              variant="default"
+              size="sm"
+              className="gap-1"
+              aria-label="Transaction suivante"
+              title="Transaction suivante"
+              disabled={!navigation.nextId}
+              onClick={() => goToTransaction(navigation.nextId)}
+            >
+              Suivant
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </div>
 
       <FicheHeader
         fields={fiche.fields}
@@ -214,7 +229,6 @@ export function FicheTransactionClient({
         typologies={fiche.typologies}
         typeCode={typeCode}
         statut={fiche.statut}
-        saving={saving}
         errors={actionError ? [actionError, ...bannerErrors] : bannerErrors}
         typeError={errorsByChamp.get(TYPE_TRANSACTION_CODE) ?? null}
         onTypeChange={handleTypeChange}

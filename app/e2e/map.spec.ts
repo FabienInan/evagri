@@ -57,8 +57,10 @@ test("dessine un polygone et ajoute la sélection au panier", async ({ page }) =
   await page.getByRole("button", { name: "Ajouter au panier" }).click()
   await expect(page.getByRole("heading", { name: "Ajouter au panier" })).toBeVisible()
 
-  await page.getByLabel("Dossier").selectOption({ label: `${fx.dossierNumero} — Dossier e2e` })
-  await expect(page.getByLabel("Panier").locator("option", { hasText: "Cible e2e" })).toHaveCount(1)
+  // Le panier courant se choisit dans l'en-tête : la boîte n'a pas de sélecteur. Il doit être proposé.
+  await expect(page.getByRole("dialog", { name: "Ajouter au panier" }).getByText(/Aucun panier courant/)).toBeVisible()
+  await page.getByLabel("Dossier courant").selectOption({ label: fx.dossierNumero })
+  await expect(page.getByLabel("Panier courant").locator("option", { hasText: "Cible e2e" })).toHaveCount(1)
 })
 
 test("la bulle d'un pin sélectionné s'affiche dès que le pin est visible, sans seuil de zoom", async ({ page }) => {

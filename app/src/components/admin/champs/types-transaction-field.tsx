@@ -29,7 +29,7 @@ export function TypesTransactionField({
         Types de transaction applicables
         {value.length > 0 && <span className="ml-1 text-xs font-normal text-muted-foreground">({value.length})</span>}
       </Label>
-      <div className="grid grid-cols-1 gap-y-0 rounded-lg border border-input p-1.5 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-y-0.5 rounded-lg border border-input p-1.5">
         {typologies.map((t) => (
           <label key={t.id} className="flex cursor-pointer items-center gap-2 whitespace-nowrap rounded px-1.5 py-1 text-sm hover:bg-muted">
             <input type="checkbox" checked={value.includes(t.code)} onChange={() => toggle(t.code)} />

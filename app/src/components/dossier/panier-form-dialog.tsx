@@ -21,16 +21,19 @@ export function PanierFormDialog({
 }) {
   const [nom, setNom] = useState("")
   const [typeTransactionId, setTypeTransactionId] = useState("")
+  const [tauxCroissance, setTauxCroissance] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   async function handleSubmit() {
     setSaving(true)
     setError(null)
+    const taux = tauxCroissance.trim() === "" ? Number.NaN : Number(tauxCroissance.replace(",", "."))
     const res = await createPanier({
       dossierId,
       nom,
       typeTransactionId: typeTransactionId || null,
+      tauxCroissancePct: taux,
     })
     setSaving(false)
     if (!res.ok) {
@@ -46,6 +49,19 @@ export function PanierFormDialog({
         <div className="space-y-1.5">
           <Label htmlFor="nom-panier">Nom du panier</Label>
           <Input id="nom-panier" value={nom} onChange={(e) => setNom(e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="taux-croissance">Taux de croissance annuel (%)</Label>
+          <Input
+            id="taux-croissance"
+            inputMode="decimal"
+            placeholder="3,25"
+            value={tauxCroissance}
+            onChange={(e) => setTauxCroissance(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            Utilisé pour les indicateurs ajustés à l&apos;export Excel. Il ne se modifie pas ensuite.
+          </p>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="type-panier">Type de transaction (optionnel)</Label>

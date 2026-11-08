@@ -2,7 +2,6 @@ import { expect, test, type Page } from "@playwright/test"
 import { fixtures } from "./fixtures"
 
 const fx = fixtures()
-const dossierOption = `${fx.dossierNumero} — Dossier e2e`
 
 /** Applique le filtre « Analysée » : la liste ne garde que t3, t2, t9, t1 (date de vente décroissante). */
 async function filterAnalysees(page: Page): Promise<void> {
@@ -92,9 +91,10 @@ test("passe à la suivante après un ajout au panier", async ({ page }) => {
     .click()
   await expect(page).toHaveURL(new RegExp(`/transactions/${fx.transactions.t2}\\?filters=`))
 
+  // Le panier courant se choisit dans l'en-tête ; la boîte « Ajouter au panier » ajoute à ce panier.
+  await page.getByLabel("Dossier courant").selectOption({ label: fx.dossierNumero })
+  await page.getByLabel("Panier courant").selectOption({ label: "Cible e2e" })
   await page.getByRole("button", { name: "Ajouter au panier" }).click()
-  await page.getByLabel("Dossier").selectOption({ label: dossierOption })
-  await page.getByLabel("Panier").selectOption({ label: "Cible e2e" })
   await page.getByRole("button", { name: "Ajouter", exact: true }).click()
 
   // Succès : la fiche suivante de la liste filtrée s'ouvre directement.

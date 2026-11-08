@@ -15,6 +15,7 @@ test("crée un dossier puis un panier depuis le détail", async ({ page }) => {
 
   await page.getByRole("button", { name: "Nouveau dossier" }).click()
   await page.getByLabel("Numéro de dossier").fill("99-99-999")
+  await page.getByLabel("Date d'évaluation").fill("2026-01-01")
   await page.getByLabel("Nom (optionnel)").fill("Dossier créé par test")
   await page.getByRole("button", { name: "Créer" }).click()
 
@@ -26,6 +27,7 @@ test("crée un dossier puis un panier depuis le détail", async ({ page }) => {
 
   await page.getByRole("button", { name: "Nouveau panier" }).click()
   await page.getByLabel("Nom du panier").fill("Panier créé par test")
+  await page.getByLabel("Taux de croissance annuel (%)").fill("3")
   await page.getByRole("button", { name: "Créer" }).click()
 
   // La création route vers la vue du panier, encore vide.
@@ -50,6 +52,7 @@ test("refuse un numéro de dossier déjà utilisé", async ({ page }) => {
   await page.getByRole("button", { name: "Nouveau dossier" }).click()
   // Le format est valide, mais ce numéro est déjà celui du dossier semé.
   await page.getByLabel("Numéro de dossier").fill(fx.dossierNumero)
+  await page.getByLabel("Date d'évaluation").fill("2026-01-01")
 
   await page.getByRole("button", { name: "Créer" }).click()
   await expect(page.getByText("Un dossier existe déjà avec ce numéro.")).toBeVisible()

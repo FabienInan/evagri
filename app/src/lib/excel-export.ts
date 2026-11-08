@@ -30,15 +30,15 @@ export const ADJUSTED_EXPORT_COLUMNS: ExportColumn[] = [
   { key: "taux_par_entaille_ajuste", label: "Taux par entaille ajusté ($/entaille)", nature: "ajuste", typeDonnees: "ENTIER", defaultVisible: true },
 ]
 
+/**
+ * Paramètres des indicateurs ajustés : la date d'évaluation vient du dossier, le taux de croissance du panier.
+ * Les valeurs de référence (taux boisé, taux cultivé, valeurs des constructions) ne se choisissent pas à l'export :
+ * elles sont lues sur chaque transaction.
+ */
 export interface ExportAnalysisParams {
   tauxCroissancePct: number
   /** Date d'évaluation au format `YYYY-MM-DD`. */
   dateEvaluation: string
-  tauxBoiseRef?: number
-  tauxCultiveRef?: number
-  valeurBatiment?: number
-  valeurMaison?: number
-  valeurTerrainResidentiel?: number
 }
 
 /**
@@ -149,11 +149,11 @@ export function computeAdjustedValues(
   const batiment = findNumericField(fields, (code) => code.startsWith("superficiebatim"))
   const entailles = findNumericField(fields, (code) => code.startsWith("nombreentail") || code.startsWith("nbentail"))
 
-  const tauxBoise = params.tauxBoiseRef ?? 0
-  const tauxCultive = params.tauxCultiveRef ?? 0
-  const valeurBatiment = params.valeurBatiment ?? 0
-  const valeurMaison = params.valeurMaison ?? 0
-  const valeurTerrain = params.valeurTerrainResidentiel ?? 0
+  const tauxBoise = findNumericField(fields, (code) => code === "tauxboiseref") ?? 0
+  const tauxCultive = findNumericField(fields, (code) => code === "tauxcultiveref") ?? 0
+  const valeurBatiment = findNumericField(fields, (code) => code === "valeurbatiments") ?? 0
+  const valeurMaison = findNumericField(fields, (code) => code === "valeurmaison") ?? 0
+  const valeurTerrain = findNumericField(fields, (code) => code === "valeurterrainresidentiel") ?? 0
 
   const constructions = valeurBatiment + valeurMaison + valeurTerrain
 

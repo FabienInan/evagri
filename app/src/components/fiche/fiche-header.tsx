@@ -26,21 +26,19 @@ export function FicheHeader({
   typologies,
   typeCode,
   statut,
-  saving,
-  errors,
   typeError,
   onTypeChange,
+  errors,
 }: {
   fields: Record<string, SerializedValue>
   mode: FicheMode
   typologies: TypologieOption[]
   typeCode: string | null
   statut: string
-  saving: boolean
-  /** Fiche-wide messages (V-001, V-004, échec générique) — the per-field ones render under their field. */
-  errors: string[]
   typeError: string | null
   onTypeChange: (code: string | null) => void
+  /** Messages de fiche (sans champ) : les messages par champ restent sous leur champ. */
+  errors: string[]
 }) {
   const isEdition = mode === "edition"
   const numeroInscription = fields.numero_inscription
@@ -131,7 +129,7 @@ export function FicheActions({
 }) {
   const isEdition = mode === "edition"
   return (
-    <div className="flex flex-wrap items-center justify-end gap-2">
+    <div className="flex flex-wrap items-center justify-center gap-2">
       {isEdition ? (
         <>
           <Button variant="outline" size="sm" className="gap-2" disabled={saving} onClick={onSave}>

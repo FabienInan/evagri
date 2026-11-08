@@ -6,10 +6,10 @@ import { useCurrentPanier } from "@/components/current-panier-context"
 import type { SerializedDossier, SerializedPanier } from "@/serializers/dossier.serializer"
 
 const SELECT_CLASS =
-  "h-9 w-full rounded-md border border-border bg-card px-2 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+  "h-9 min-w-0 max-w-56 rounded-md border border-border bg-card px-2 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-50"
 
 /**
- * Dossier et panier courants, en haut de la barre latérale : c'est là qu'on choisit le panier où « Ajouter au
+ * Dossier et panier courants, dans la barre horizontale du haut : c'est là qu'on choisit le panier où « Ajouter au
  * panier » ajoute les transactions. Deux sélecteurs : le panier ne propose que les paniers du dossier choisi.
  */
 export function SidebarContext() {
@@ -44,11 +44,9 @@ export function SidebarContext() {
   const paniersDuDossier = paniers.filter((p) => p.dossierId === dossierId)
 
   return (
-    <div className="space-y-3 border-b border-border px-3 py-4">
-      <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">En cours</p>
-
-      <label className="block space-y-1">
-        <span className="px-1 text-xs text-muted-foreground">Dossier</span>
+    <div className="flex min-w-0 items-center gap-2">
+      <label className="flex min-w-0 items-center gap-2">
+        <span className="shrink-0 text-xs font-medium text-muted-foreground">Dossier</span>
         <select
           aria-label="Dossier courant"
           className={SELECT_CLASS}
@@ -58,7 +56,7 @@ export function SidebarContext() {
             if (dossier) chooseDossier({ id: dossier.id, numeroDossier: dossier.numeroDossier })
           }}
         >
-          <option value="">— Choisir un dossier —</option>
+          <option value="">Aucun dossier</option>
           {dossiers.map((d) => (
             <option key={d.id} value={d.id}>
               {d.numeroDossier}
@@ -67,8 +65,8 @@ export function SidebarContext() {
         </select>
       </label>
 
-      <label className="block space-y-1">
-        <span className="px-1 text-xs text-muted-foreground">Panier</span>
+      <label className="flex min-w-0 items-center gap-2">
+        <span className="shrink-0 text-xs font-medium text-muted-foreground">Panier</span>
         <select
           aria-label="Panier courant"
           className={SELECT_CLASS}
@@ -79,7 +77,7 @@ export function SidebarContext() {
             if (panier) choosePanier({ id: panier.id, nom: panier.nom })
           }}
         >
-          <option value="">— Choisir un panier —</option>
+          <option value="">Aucun panier</option>
           {paniersDuDossier.map((p) => (
             <option key={p.id} value={p.id}>
               {p.nom}

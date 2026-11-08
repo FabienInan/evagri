@@ -40,7 +40,7 @@ describe("E2E — cycle de vie dossier → panier → transactions", () => {
 
   it("crée un dossier", async () => {
     const { createDossier, listDossiers } = await import("@/server/actions/dossier")
-    const res = await createDossier({ numeroDossier: "25-12-001", nom: "Essai" })
+    const res = await createDossier({ numeroDossier: "25-12-001", nom: "Essai", dateEvaluation: "2026-01-01" })
     expect(res.ok).toBe(true)
     if (!res.ok) return
     dossierId = res.id
@@ -49,19 +49,19 @@ describe("E2E — cycle de vie dossier → panier → transactions", () => {
 
   it("refuse un numéro de dossier dupliqué", async () => {
     const { createDossier } = await import("@/server/actions/dossier")
-    const res = await createDossier({ numeroDossier: "25-12-001" })
+    const res = await createDossier({ numeroDossier: "25-12-001", dateEvaluation: "2026-01-01" })
     expect(res.ok).toBe(false)
   })
 
   it("refuse un numéro de dossier mal formé", async () => {
     const { createDossier } = await import("@/server/actions/dossier")
-    const res = await createDossier({ numeroDossier: "25-ab-1" })
+    const res = await createDossier({ numeroDossier: "25-ab-1", dateEvaluation: "2026-01-01" })
     expect(res.ok).toBe(false)
   })
 
   it("crée un panier dans le dossier", async () => {
     const { createPanier, listPaniersForDossier } = await import("@/server/actions/dossier")
-    const res = await createPanier({ dossierId, nom: "Comparables cultivés" })
+    const res = await createPanier({ dossierId, nom: "Comparables cultivés", tauxCroissancePct: 3.25 })
     expect(res.ok).toBe(true)
     if (!res.ok) return
     panierId = res.id

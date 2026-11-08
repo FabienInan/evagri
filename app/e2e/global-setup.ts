@@ -182,10 +182,11 @@ export default async function globalSetup(): Promise<void> {
         organisationId: ORG_ID,
         numeroDossier: "99-99-001",
         nom: "Dossier e2e",
+        dateEvaluation: new Date("2026-01-01"),
       },
     })
     const panierSource = await prisma.panier.create({
-      data: { organisationId: ORG_ID, dossierId: dossier.id, nom: "Comparables e2e" },
+      data: { organisationId: ORG_ID, dossierId: dossier.id, nom: "Comparables e2e", tauxCroissance: 0.05 },
     })
     await prisma.panierTransaction.createMany({
       data: [
@@ -195,12 +196,12 @@ export default async function globalSetup(): Promise<void> {
     })
     // Empty target panier so the "add to panier" scenario never disturbs the removal scenario.
     const panierCible = await prisma.panier.create({
-      data: { organisationId: ORG_ID, dossierId: dossier.id, nom: "Cible e2e" },
+      data: { organisationId: ORG_ID, dossierId: dossier.id, nom: "Cible e2e", tauxCroissance: 0.05 },
     })
     // Panier créé vide et laissé tel quel : aucun scénario ne le peuple, donc l'état « panier vide »
     // (export carte désactivé) reste vérifiable même quand les autres tests ont rempli le panier cible.
     const panierVide = await prisma.panier.create({
-      data: { organisationId: ORG_ID, dossierId: dossier.id, nom: "Vide e2e" },
+      data: { organisationId: ORG_ID, dossierId: dossier.id, nom: "Vide e2e", tauxCroissance: 0.05 },
     })
 
     const fixtures = {

@@ -26,7 +26,7 @@ test("Enregistrer ne valide pas ; Finaliser refuse sans type de transaction, pui
   await expect(page.getByText("Non analysée", { exact: true })).toBeVisible()
 
   // Corriger le champ efface immédiatement le message, sans nouvel aller-retour serveur.
-  await page.getByRole("combobox").first().click()
+  await page.getByText("Type de transaction", { exact: false }).locator("..").getByRole("combobox").click()
   await page.getByRole("option", { name: "Terres cultivées" }).click()
   await expect(page.getByText("Le type de transaction est obligatoire.")).toHaveCount(0)
 })

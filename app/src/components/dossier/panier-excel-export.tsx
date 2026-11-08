@@ -13,8 +13,7 @@ import {
   type ExportColumnNature,
 } from "@/lib/excel-export"
 import type { ImportedField } from "@/lib/imported-fields"
-import { getIndicateursAjustesForExport } from "@/server/actions/analyse-dossier"
-import type { SerializedAnalyse } from "@/serializers/analyse-dossier.serializer"
+import { computeIndicateursAjustesByTransaction } from "@/lib/analyse-dossier"
 import type { ChampEnrichissableConfig } from "@/types/champ"
 import type { SerializedTransaction } from "@/types/transaction"
 
@@ -26,30 +25,32 @@ function formatDate(isoDate: string): string {
 }
 
 /**
- * Export Excel d'un panier (§7.9) : l'évaluateur choisit une Analyse de Dossier stockée, qui fournit les
- * indicateurs ajustés, puis les colonnes à inclure. Le classeur est généré côté client.
+ * Export Excel d'un panier (§7.9). Les indicateurs ajustés se calculent à l'export, à partir de la date d'évaluation
+ * du dossier et du taux de croissance du panier, fixés à leur création. Le classeur est généré côté client.
  */
 export function PanierExcelExport({
   transactions,
   nom,
   importedFields,
   champs,
-  analyses,
+  dateEvaluation,
+  tauxCroissancePct,
 }: {
   transactions: SerializedTransaction[]
   nom: string
   importedFields: ImportedField[]
   champs: ChampEnrichissableConfig[]
-  analyses: SerializedAnalyse[]
+  dateEvaluation: string | null
+  tauxCroissancePct: number | null
 }) {
   const columns = useMemo(() => buildExportColumns(importedFields, champs), [importedFields, champs])
+  const indicateursDisponibles = dateEvaluation !== null && tauxCroissancePct !== null
   const [open, setOpen] = useState(false)
-  const [analyseId, setAnalyseId] = useState("")
   const [selected, setSelected] = useState<Set<string>>(
     () =>
       new Set(
         columns
-          .filter((column) => column.defaultVisible && (column.nature !== "ajuste" || analyses.length > 0))
+          .filter((column) => column.defaultVisible && (column.nature !== "ajuste" || indicateursDisponibles))
           .map((column) => column.key)
       )
   )
@@ -76,26 +77,18 @@ export function PanierExcelExport({
       return
     }
     const hasAdjustedColumn = columns.some((column) => column.nature === "ajuste" && selected.has(column.key))
-    if (hasAdjustedColumn && !analyseId) {
-      setError("Choisissez une analyse de dossier pour inclure les indicateurs ajustés.")
+    if (hasAdjustedColumn && !indicateursDisponibles) {
+      setError("Les indicateurs ajustés demandent la date d'évaluation du dossier et le taux de croissance du panier.")
       return
     }
 
     setExporting(true)
     setError(null)
     try {
-      let adjustedByTransaction: Record<string, Record<string, number | null>> = {}
-      if (analyseId) {
-        const res = await getIndicateursAjustesForExport(
-          analyseId,
-          transactions.map((transaction) => transaction.id)
-        )
-        if (!res.ok) {
-          setError(res.error)
-          return
-        }
-        adjustedByTransaction = res.values
-      }
+      const adjustedByTransaction =
+        hasAdjustedColumn && dateEvaluation !== null && tauxCroissancePct !== null
+          ? computeIndicateursAjustesByTransaction({ dateEvaluation, tauxCroissancePct }, transactions)
+          : {}
 
       const table = buildExportTable({
         transactions,
@@ -144,26 +137,23 @@ export function PanierExcelExport({
           className="max-h-[90vh] max-w-2xl overflow-y-auto"
         >
           <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="export-analyse">Analyse de dossier</Label>
-              <select
-                id="export-analyse"
-                className="h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
-                value={analyseId}
-                onChange={(e) => setAnalyseId(e.target.value)}
-                disabled={analyses.length === 0}
-              >
-                <option value="">— Aucune —</option>
-                {analyses.map((analyse) => (
-                  <option key={analyse.id} value={analyse.id}>
-                    Évaluation du {formatDate(analyse.dateEvaluation)} (croissance {analyse.tauxCroissancePct} %)
-                  </option>
-                ))}
-              </select>
-              {analyses.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Aucune analyse pour ce dossier. Créez-en une depuis la page du dossier pour exporter les indicateurs
-                  ajustés.
+            <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
+              <p className="text-muted-foreground">
+                Date d&apos;évaluation :{" "}
+                <span className="font-medium text-foreground">
+                  {dateEvaluation ? formatDate(dateEvaluation) : "non renseignée"}
+                </span>
+              </p>
+              <p className="text-muted-foreground">
+                Taux de croissance :{" "}
+                <span className="font-medium text-foreground">
+                  {tauxCroissancePct !== null ? `${tauxCroissancePct} %` : "non renseigné"}
+                </span>
+              </p>
+              {!indicateursDisponibles && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Ces deux valeurs sont fixées à la création du dossier et du panier : sans elles, les indicateurs ajustés
+                  ne sont pas calculés.
                 </p>
               )}
             </div>

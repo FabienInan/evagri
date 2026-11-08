@@ -14,7 +14,6 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { SidebarContext } from "@/components/sidebar-context"
 
 const NAV_ITEMS = [
   { href: "/transactions", label: "Liste des transactions", icon: LayoutList },
@@ -74,8 +73,6 @@ export function Sidebar({
           </Button>
         )}
       </div>
-
-      {!collapsed && <SidebarContext />}
 
       <nav className="flex-1 overflow-auto px-3 py-4">
         <ul className="space-y-1">

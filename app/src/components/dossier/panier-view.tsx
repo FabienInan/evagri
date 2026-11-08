@@ -20,7 +20,6 @@ import { PanierExcelExport } from "@/components/dossier/panier-excel-export"
 import type { ImportedField } from "@/lib/imported-fields"
 import type { SerializedTransaction } from "@/types/transaction"
 import type { ChampEnrichissableConfig } from "@/types/champ"
-import type { SerializedAnalyse } from "@/serializers/analyse-dossier.serializer"
 
 // Leaflet touche `window` : la carte d'export est rendue côté client uniquement, comme la carte générale.
 const PanierMapExport = dynamic(
@@ -81,14 +80,18 @@ export function PanierView({
   transactions,
   importedFields,
   champs,
-  analyses,
+  dateEvaluation,
+  tauxCroissancePct,
 }: {
   panierId: string
   nom: string
   transactions: SerializedTransaction[]
   importedFields: ImportedField[]
   champs: ChampEnrichissableConfig[]
-  analyses: SerializedAnalyse[]
+  /** Date d'évaluation du dossier (AAAA-MM-JJ), pour les indicateurs ajustés à l'export. */
+  dateEvaluation: string | null
+  /** Taux de croissance du panier en pourcentage, pour les indicateurs ajustés à l'export. */
+  tauxCroissancePct: number | null
 }) {
   const [rows, setRows] = useState(transactions)
   const sortStorageKey = panierSortStorageKey(panierId)
@@ -162,7 +165,8 @@ export function PanierView({
             nom={nom}
             importedFields={importedFields}
             champs={champs}
-            analyses={analyses}
+            dateEvaluation={dateEvaluation}
+            tauxCroissancePct={tauxCroissancePct}
           />
           <PanierMapExport transactions={rows} nom={nom} />
         </>

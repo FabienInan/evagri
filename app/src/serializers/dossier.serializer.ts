@@ -4,6 +4,8 @@ export type SerializedDossier = {
   id: string
   numeroDossier: string
   nom: string | null
+  /** Date d'évaluation au format AAAA-MM-JJ, fixée à la création du dossier. */
+  dateEvaluation: string | null
   createdAt: string
   panierCount: number
 }
@@ -15,6 +17,8 @@ export type SerializedPanier = {
   numeroDossier: string
   typeTransactionId: string | null
   typeTransactionNom: string | null
+  /** Taux de croissance annuel en pourcentage (3.25 pour 3,25 %), fixé à la création du panier. */
+  tauxCroissancePct: number | null
   createdAt: string
   transactionCount: number
 }
@@ -28,6 +32,7 @@ export function serializeDossier(dossier: DossierWithCount): SerializedDossier {
     id: dossier.id,
     numeroDossier: dossier.numeroDossier,
     nom: dossier.nom,
+    dateEvaluation: dossier.dateEvaluation ? dossier.dateEvaluation.toISOString().slice(0, 10) : null,
     createdAt: dossier.createdAt.toISOString(),
     panierCount: dossier._count.paniers,
   }
@@ -49,6 +54,7 @@ export function serializePanier(panier: PanierWithRelations): SerializedPanier {
     numeroDossier: panier.dossier.numeroDossier,
     typeTransactionId: panier.typeTransactionId,
     typeTransactionNom: panier.typeTransaction?.nom ?? null,
+    tauxCroissancePct: panier.tauxCroissance === null ? null : panier.tauxCroissance.toNumber() * 100,
     createdAt: panier.createdAt.toISOString(),
     transactionCount: panier._count.transactions,
   }

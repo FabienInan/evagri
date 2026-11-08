@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation"
 import { User } from "lucide-react"
 import { useHeaderActions } from "@/components/header-actions"
+import { SidebarContext } from "@/components/sidebar-context"
 
 const PAGE_TITLES: Record<string, string> = {
   "/transactions": "Liste des transactions",
@@ -33,6 +34,10 @@ export function Header({ title }: { title: string }) {
         {titleSuffix && (
           <span className="truncate text-lg font-semibold tabular-nums text-muted-foreground">{titleSuffix}</span>
         )}
+      </div>
+
+      <div className="hidden min-w-0 flex-1 justify-center px-4 md:flex">
+        <SidebarContext />
       </div>
 
       <div className="flex items-center gap-3 text-sm text-muted-foreground">
