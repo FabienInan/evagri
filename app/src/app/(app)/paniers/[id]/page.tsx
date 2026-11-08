@@ -28,7 +28,7 @@ export default async function PanierPage({
   const serialized = serializePanier(panier)
 
   return (
-    <>
+    <div className="space-y-4">
       <Breadcrumb
         items={[
           { label: "Dossiers", href: "/dossiers" },
@@ -45,6 +45,6 @@ export default async function PanierPage({
         dateEvaluation={panier.dossier.dateEvaluation ? panier.dossier.dateEvaluation.toISOString().slice(0, 10) : null}
         tauxCroissancePct={serialized.tauxCroissancePct}
       />
-    </>
+    </div>
   )
 }

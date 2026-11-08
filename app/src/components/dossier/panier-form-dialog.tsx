@@ -57,7 +57,7 @@ export function PanierFormDialog({
             inputMode="decimal"
             placeholder="3,25"
             value={tauxCroissance}
-            onChange={(e) => setTauxCroissance(e.target.value)}
+            onChange={(e) => setTauxCroissance(e.target.value.replace(/[^0-9.,]/g, ""))}
           />
           <p className="text-xs text-muted-foreground">
             Utilisé pour les indicateurs ajustés à l&apos;export Excel. Il ne se modifie pas ensuite.

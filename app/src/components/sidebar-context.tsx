@@ -6,7 +6,7 @@ import { useCurrentPanier } from "@/components/current-panier-context"
 import type { SerializedDossier, SerializedPanier } from "@/serializers/dossier.serializer"
 
 const SELECT_CLASS =
-  "h-9 min-w-0 max-w-56 rounded-md border border-border bg-card px-2 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+  "h-8 w-44 min-w-0 truncate rounded-md border border-border bg-card px-2 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-50"
 
 /**
  * Dossier et panier courants, dans la barre horizontale du haut : c'est là qu'on choisit le panier où « Ajouter au
@@ -44,7 +44,7 @@ export function SidebarContext() {
   const paniersDuDossier = paniers.filter((p) => p.dossierId === dossierId)
 
   return (
-    <div className="flex min-w-0 items-center gap-2">
+    <div className="flex min-w-0 items-center gap-3 rounded-lg border border-border bg-muted/40 px-3 py-1">
       <label className="flex min-w-0 items-center gap-2">
         <span className="shrink-0 text-xs font-medium text-muted-foreground">Dossier</span>
         <select

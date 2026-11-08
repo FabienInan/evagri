@@ -58,6 +58,7 @@ describe("createPanierSchema", () => {
     expect(createPanierSchema.safeParse({ dossierId: "d1", nom: "P", tauxCroissancePct: Number.NaN }).success).toBe(false)
     expect(createPanierSchema.safeParse({ dossierId: "d1", nom: "P", tauxCroissancePct: -1 }).success).toBe(false)
     expect(createPanierSchema.safeParse({ dossierId: "d1", nom: "P", tauxCroissancePct: 101 }).success).toBe(false)
+    expect(createPanierSchema.safeParse({ dossierId: "d1", nom: "P", tauxCroissancePct: 3.25 }).success).toBe(true)
   })
 })
 
