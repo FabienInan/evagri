@@ -1,9 +1,8 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, type DragEvent } from "react"
+import { useMemo, useRef, useState, type DragEvent } from "react"
 import { Save } from "lucide-react"
 import { createFilter, deleteFilter, publishFilters } from "@/server/actions/filters"
-import { useHeaderActions } from "@/components/header-actions"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
 import { recommendFilterType, recommendedTypeForField, DEFAULT_OPERATEURS, moveItemToIndex } from "@/lib/filters"
@@ -65,26 +64,6 @@ export function FiltersAdminForm({
       typeDonnees: champ.typeDonnees,
     })
   }, [newChampId, isVirtualSelection, selectedVirtualCode, champs])
-  const { setAction, clearAction } = useHeaderActions()
-  // The header button is set once per (publishing, lastSaved) change, so a bare `onClick={handlePublish}`
-  // would freeze an `items` snapshot: a pure reorder doesn't change those deps and would publish the old
-  // order. Keeping the latest handler in a ref avoids the stale closure.
-  const publishRef = useRef<() => void>(() => {})
-
-  useEffect(() => {
-    setAction(
-      <Button
-        onClick={() => publishRef.current()}
-        disabled={publishing || !dirty}
-        className="h-9 gap-2 rounded-lg px-4"
-      >
-        <Save className="h-4 w-4" />
-        {publishing ? "Enregistrement..." : "Enregistrer"}
-      </Button>
-    )
-    return () => clearAction()
-  }, [publishing, dirty])
-
   const selected = useMemo(
     () => (items.find((f) => f.id === selectedId) as Filter | undefined) ?? null,
     [items, selectedId]
@@ -287,12 +266,6 @@ export function FiltersAdminForm({
     }
   }
 
-  // Keeps `publishRef` pointing at the latest handlePublish (with the current `items`) on every render,
-  // so the header button never publishes a stale order.
-  useEffect(() => {
-    publishRef.current = handlePublish
-  })
-
   return (
     <div className="flex h-full flex-col gap-4 overflow-hidden">
       <div className="flex shrink-0 items-center justify-between gap-3">
@@ -301,10 +274,16 @@ export function FiltersAdminForm({
           {dirty && <span className="font-medium text-foreground">Modifications non enregistrées</span>}
           {lastSaved === "__all__" && !dirty && <span className="text-primary">Enregistré ✓</span>}
         </p>
-        <Button size="sm" className="gap-2" onClick={() => setShowCreate(true)}>
-          <Plus className="h-4 w-4" />
-          Ajouter un filtre
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button size="sm" variant="outline" className="gap-2" onClick={() => setShowCreate(true)}>
+            <Plus className="h-4 w-4" />
+            Ajouter un filtre
+          </Button>
+          <Button size="sm" className="gap-2 rounded-lg" onClick={handlePublish} disabled={publishing || !dirty}>
+            <Save className="h-4 w-4" />
+            {publishing ? "Enregistrement..." : "Enregistrer"}
+          </Button>
+        </div>
       </div>
 
       {showCreate && (

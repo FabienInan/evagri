@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react"
 import { FileSpreadsheet, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
 import { Modal } from "@/components/dossier/modal"
 import {
   buildExportColumns,
@@ -185,7 +184,7 @@ export function PanierExcelExport({
             {error && <p className="text-sm text-destructive">{error}</p>}
 
             <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setOpen(false)} disabled={exporting}>
+              <Button variant="outline" onClick={() => setOpen(false)} disabled={exporting}>
                 Annuler
               </Button>
               <Button onClick={handleExport} disabled={exporting}>

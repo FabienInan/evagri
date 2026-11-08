@@ -138,12 +138,13 @@ export function ChampCreateCard({
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Type de données</Label>
             <Select
-              value={calculatedType ?? draft.typeDonnees}
+              // Un champ calculé n'a jamais de type « libre » : tant que la règle ne permet pas de le déduire, rien n'est affiché.
+              value={isCalculated ? (calculatedType ?? "") : draft.typeDonnees}
               disabled={isCalculated}
               onValueChange={(v) => onDraftChange((d) => ({ ...d, typeDonnees: v as TypeDonneesChamp }))}
             >
               <SelectTrigger className="h-10 w-full rounded-lg">
-                <SelectValue />
+                <SelectValue placeholder={isCalculated ? "Déduit de la règle" : "Sélectionner..."} />
               </SelectTrigger>
               <SelectContent>
                 {Object.entries(TYPE_DONNEES_LABELS).map(([value, label]) => (
@@ -158,13 +159,13 @@ export function ChampCreateCard({
           {/* Ligne 2 : pour une liste / multi-sélection, Règle de calcul, Types de transaction et
               Options de liste partagent la ligne à largeur égale ; sinon Unité (si numérique), Règle de
               calcul et Types de transaction. */}
-          {hasOptions(draft.typeDonnees) ? (
+          {hasOptions(draft.typeDonnees) && !isCalculated ? (
             <div className="grid grid-cols-1 gap-3 md:col-span-3 md:grid-cols-3">
               {regleField}
               {typesField}
               {optionsField}
             </div>
-          ) : isNumericType(draft.typeDonnees) ? (
+          ) : isNumericType(draft.typeDonnees) || isCalculated ? (
             <>
               {uniteField}
               {regleField}

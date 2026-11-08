@@ -1,6 +1,7 @@
 "use client"
 
 import { useRef, useState } from "react"
+import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ChampsAdmin } from "@/components/champs-admin"
@@ -20,6 +21,8 @@ export function ChampsPageClient({
   initialSections: FicheSection[]
 }) {
   const [tab, setTab] = useState<Tab>("champs")
+  // La fenêtre « Nouveau champ » est ouverte depuis la ligne des onglets, comme les autres actions de page.
+  const [showCreate, setShowCreate] = useState(false)
   // État possédé ici pour que l'onglet « Disposition de la fiche » voie les champs créés dans l'onglet
   // « Champs enrichissables » sans rechargement de page.
   const [champsItems, setChampsItems] = useState<ChampEnrichissableConfig[]>(champs)
@@ -56,6 +59,13 @@ export function ChampsPageClient({
           </TabsList>
         </Tabs>
 
+        {tab === "champs" && (
+          <Button className="ml-auto gap-2 rounded-lg" onClick={() => setShowCreate(true)}>
+            <Plus className="h-4 w-4" />
+            Nouveau champ
+          </Button>
+        )}
+
         {tab === "sections" && (
           <div className="ml-auto flex items-center gap-3">
             {dispositionError && <p className="text-sm text-destructive">{dispositionError}</p>}
@@ -72,7 +82,13 @@ export function ChampsPageClient({
 
       <div className="min-h-0 flex-1 overflow-hidden">
         {tab === "champs" ? (
-          <ChampsAdmin champs={champsItems} typologies={typologies} onChampsChange={setChampsItems} />
+          <ChampsAdmin
+            champs={champsItems}
+            typologies={typologies}
+            onChampsChange={setChampsItems}
+            showCreate={showCreate}
+            onShowCreateChange={setShowCreate}
+          />
         ) : (
           <SectionsEditor ref={sectionsEditorRef} champs={saisissablesAffiches} initialSections={initialSections} />
         )}

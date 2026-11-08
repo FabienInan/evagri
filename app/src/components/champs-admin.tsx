@@ -10,8 +10,6 @@ import type { ChampEnrichissableConfig, TypeDonneesChamp } from "@/types/champ"
 import type { TypologieOption } from "@/types/typologie"
 import { ChampCreateCard } from "@/components/admin/champs/champ-create-card"
 import { Modal } from "@/components/dossier/modal"
-import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
 import { ChampList } from "@/components/admin/champs/champ-list"
 import { ChampEditPanel } from "@/components/admin/champs/champ-edit-panel"
 import type { RuleFieldOption } from "@/components/admin/champs/regle-calcul-input"
@@ -22,10 +20,15 @@ export function ChampsAdmin({
   champs,
   typologies,
   onChampsChange,
+  showCreate,
+  onShowCreateChange,
 }: {
   champs: ChampEnrichissableConfig[]
   typologies: TypologieOption[]
   onChampsChange: Dispatch<SetStateAction<ChampEnrichissableConfig[]>>
+  /** Pilotée par la page : le bouton « Nouveau champ » est dans la ligne des onglets. */
+  showCreate: boolean
+  onShowCreateChange: (open: boolean) => void
 }) {
   const [search, setSearch] = useState("")
   const [selectedId, setSelectedId] = useState<string | null>(champs[0]?.id ?? null)
@@ -41,7 +44,6 @@ export function ChampsAdmin({
   const [editError, setEditError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [creating, setCreating] = useState(false)
-  const [showCreate, setShowCreate] = useState(false)
   const [toggling, setToggling] = useState(false)
   const [lastSaved, setLastSaved] = useState<string | null>(null)
 
@@ -116,7 +118,7 @@ export function ChampsAdmin({
       selectChamp(result.champ)
       setDraft(emptyDraft())
       setCreateOptionsText("")
-      setShowCreate(false)
+      onShowCreateChange(false)
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Erreur lors de la création du champ.")
     } finally {
@@ -179,18 +181,12 @@ export function ChampsAdmin({
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-hidden">
-      <div className="flex shrink-0 items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          {filtered.length} champ{filtered.length > 1 ? "s" : ""}
-        </p>
-        <Button size="sm" className="gap-2" onClick={() => setShowCreate(true)}>
-          <Plus className="h-4 w-4" />
-          Nouveau champ
-        </Button>
-      </div>
+      <p className="shrink-0 text-sm text-muted-foreground">
+        {filtered.length} champ{filtered.length > 1 ? "s" : ""}
+      </p>
 
       {showCreate && (
-        <Modal title="Nouveau champ enrichissable" onClose={() => setShowCreate(false)} className="max-w-4xl">
+        <Modal title="Nouveau champ enrichissable" onClose={() => onShowCreateChange(false)} className="max-w-4xl">
           <ChampCreateCard
             draft={draft}
             onDraftChange={setDraft}

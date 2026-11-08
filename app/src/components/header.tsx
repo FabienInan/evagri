@@ -41,7 +41,7 @@ export function Header({ title }: { title: string }) {
         <SidebarContext />
       </div>
 
-      <div className="flex min-w-0 items-center justify-end gap-3 text-sm text-muted-foreground">
+      <div className="flex min-w-0 items-center justify-end gap-3 whitespace-nowrap text-sm text-muted-foreground">
         {action && <div className="flex items-center">{action}</div>}
         <span className="hidden lg:inline">Connecté en tant que</span>
         <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-1.5">

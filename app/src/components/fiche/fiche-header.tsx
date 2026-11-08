@@ -147,7 +147,7 @@ export function FicheActions({
             <RotateCcw className="h-4 w-4" />
             Rouvrir
           </Button>
-          <Button variant="default" size="sm" className="gap-2" onClick={onAddToPanier}>
+          <Button variant="outline" size="sm" className="gap-2" onClick={onAddToPanier}>
             <Plus className="h-4 w-4" />
             Ajouter au panier
           </Button>

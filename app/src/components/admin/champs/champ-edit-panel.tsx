@@ -119,8 +119,8 @@ export function ChampEditPanel({
                   </Label>
                   <Select
                     value={
-                      editDraft.nature === "CALCULE" && editDraft.regleCalcul
-                        ? (inferType(editDraft.regleCalcul) ?? editDraft.typeDonnees)
+                      editDraft.nature === "CALCULE"
+                        ? (editDraft.regleCalcul ? (inferType(editDraft.regleCalcul) ?? "") : "")
                         : editDraft.typeDonnees
                     }
                     disabled={editDraft.nature === "CALCULE"}
@@ -171,7 +171,7 @@ export function ChampEditPanel({
                   </div>
                 )}
 
-                {hasOptions(editDraft.typeDonnees) && (
+                {hasOptions(editDraft.typeDonnees) && editDraft.nature !== "CALCULE" && (
                   <div className="space-y-1.5">
                     <Label className="text-sm font-medium">Options de liste</Label>
                     <Textarea
