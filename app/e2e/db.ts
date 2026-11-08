@@ -8,15 +8,15 @@ export const ORG_ID =
 /** Marker on every seeded transaction so teardown can remove exactly what this suite created. */
 export const E2E_SOURCE = "E2E"
 /**
- * The dossier numero must match /\d{2}-[A-Z]{2}-\d{3}/ (validator). The suite marks its own dossiers with
- * the "ZZ" letter pair so teardown can find them regardless of whether the seed or a spec created them.
+ * The dossier numero must match /\d{2}-\d{2}-\d{3}/ (validator). The suite marks its own dossiers with the
+ * reserved year "99" prefix so teardown can find them regardless of whether the seed or a spec created them.
  */
-export const E2E_DOSSIER_MARKER = "-ZZ-"
+export const E2E_DOSSIER_MARKER = "99-"
 
 /** Removes every row the seed or the specs left behind, scoped to the E2E markers. */
 export async function cleanup(prisma: PrismaClient): Promise<void> {
   const dossiers = await prisma.dossier.findMany({
-    where: { organisationId: ORG_ID, numeroDossier: { contains: E2E_DOSSIER_MARKER } },
+    where: { organisationId: ORG_ID, numeroDossier: { startsWith: E2E_DOSSIER_MARKER } },
     select: { id: true },
   })
   const paniers = await prisma.panier.findMany({

@@ -9,7 +9,7 @@ import { fixtures } from "./fixtures"
  */
 
 const fx = fixtures()
-const DOSSIER_NUMERO = "25-ZZ-013"
+const DOSSIER_NUMERO = "99-99-013"
 
 test("l'export recadre la carte après le retrait d'une transaction éloignée", async ({ page }) => {
   const prisma = new PrismaClient()

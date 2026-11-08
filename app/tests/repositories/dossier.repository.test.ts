@@ -13,7 +13,7 @@ const previousOrganisationId = process.env.DEFAULT_ORGANISATION_ID
 beforeAll(async () => {
   const org = await prisma.organisation.create({ data: { nom: "Test Dossier Repo Org" } })
   orgId = org.id
-  const dossier = await prisma.dossier.create({ data: { organisationId: orgId, numeroDossier: "25-AB-001" } })
+  const dossier = await prisma.dossier.create({ data: { organisationId: orgId, numeroDossier: "25-12-001" } })
   dossierId = dossier.id
   const panier = await prisma.panier.create({
     data: { organisationId: orgId, dossierId, nom: "Panier test" },
@@ -29,7 +29,7 @@ beforeAll(async () => {
   const otherOrg = await prisma.organisation.create({ data: { nom: "Test Dossier Repo Other Org" } })
   otherOrgId = otherOrg.id
   const otherDossier = await prisma.dossier.create({
-    data: { organisationId: otherOrgId, numeroDossier: "25-AB-002" },
+    data: { organisationId: otherOrgId, numeroDossier: "25-12-002" },
   })
   const otherPanier = await prisma.panier.create({
     data: { organisationId: otherOrgId, dossierId: otherDossier.id, nom: "Panier autre org" },

@@ -40,16 +40,16 @@ describe("E2E — cycle de vie dossier → panier → transactions", () => {
 
   it("crée un dossier", async () => {
     const { createDossier, listDossiers } = await import("@/server/actions/dossier")
-    const res = await createDossier({ numeroDossier: "25-AB-001", nom: "Essai" })
+    const res = await createDossier({ numeroDossier: "25-12-001", nom: "Essai" })
     expect(res.ok).toBe(true)
     if (!res.ok) return
     dossierId = res.id
-    expect((await listDossiers()).map((d) => d.numeroDossier)).toContain("25-AB-001")
+    expect((await listDossiers()).map((d) => d.numeroDossier)).toContain("25-12-001")
   })
 
   it("refuse un numéro de dossier dupliqué", async () => {
     const { createDossier } = await import("@/server/actions/dossier")
-    const res = await createDossier({ numeroDossier: "25-AB-001" })
+    const res = await createDossier({ numeroDossier: "25-12-001" })
     expect(res.ok).toBe(false)
   })
 

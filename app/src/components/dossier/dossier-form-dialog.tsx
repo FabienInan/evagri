@@ -39,7 +39,7 @@ export function DossierFormDialog({
           <Input
             id="numero-dossier"
             value={numeroDossier}
-            placeholder="25-AB-001"
+            placeholder="25-12-001"
             onChange={(e) => setNumeroDossier(e.target.value)}
           />
         </div>

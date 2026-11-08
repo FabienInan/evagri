@@ -19,10 +19,10 @@ beforeEach(() => {
   listPaniersForDossier.mockReset()
   addTransactionsToPanier.mockReset()
   listDossiers.mockResolvedValue([
-    { id: "d1", numeroDossier: "25-AB-001", nom: "Essai", createdAt: "2026-01-01T00:00:00.000Z", panierCount: 1 },
+    { id: "d1", numeroDossier: "25-12-001", nom: "Essai", createdAt: "2026-01-01T00:00:00.000Z", panierCount: 1 },
   ])
   listPaniersForDossier.mockResolvedValue([
-    { id: "p1", nom: "Comparables", dossierId: "d1", numeroDossier: "25-AB-001", typeTransactionId: null, typeTransactionNom: null, createdAt: "2026-01-01T00:00:00.000Z", transactionCount: 0 },
+    { id: "p1", nom: "Comparables", dossierId: "d1", numeroDossier: "25-12-001", typeTransactionId: null, typeTransactionNom: null, createdAt: "2026-01-01T00:00:00.000Z", transactionCount: 0 },
   ])
 })
 

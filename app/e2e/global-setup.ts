@@ -180,7 +180,7 @@ export default async function globalSetup(): Promise<void> {
     const dossier = await prisma.dossier.create({
       data: {
         organisationId: ORG_ID,
-        numeroDossier: "25-ZZ-001",
+        numeroDossier: "99-99-001",
         nom: "Dossier e2e",
       },
     })
@@ -206,7 +206,7 @@ export default async function globalSetup(): Promise<void> {
     const fixtures = {
       orgId: ORG_ID,
       dossierId: dossier.id,
-      dossierNumero: "25-ZZ-001",
+      dossierNumero: "99-99-001",
       paniers: { source: panierSource.id, cible: panierCible.id, vide: panierVide.id },
       transactions: { t1, t2, t3, t4, t5, t6, t7, t9 },
       numeros: {

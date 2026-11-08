@@ -7,12 +7,12 @@ import {
 } from "@/validators/dossier.validator"
 
 describe("NUMERO_DOSSIER_REGEX", () => {
-  it("accepte le format AA-RR-DDD", () => {
-    expect(NUMERO_DOSSIER_REGEX.test("25-AB-001")).toBe(true)
+  it("accepte le format AA-AA-AAA en chiffres", () => {
+    expect(NUMERO_DOSSIER_REGEX.test("25-12-001")).toBe(true)
   })
 
   it("refuse les formats invalides", () => {
-    for (const bad of ["25-ab-001", "5-AB-001", "25-ABC-001", "25-AB-01", "", "25AB001"]) {
+    for (const bad of ["25-AB-001", "25-ab-001", "5-12-001", "25-123-001", "25-12-01", "", "2512001"]) {
       expect(NUMERO_DOSSIER_REGEX.test(bad)).toBe(false)
     }
   })
@@ -20,14 +20,14 @@ describe("NUMERO_DOSSIER_REGEX", () => {
 
 describe("createDossierSchema", () => {
   it("accepte un numéro valide, nom optionnel", () => {
-    expect(createDossierSchema.safeParse({ numeroDossier: "25-AB-001" }).success).toBe(true)
-    expect(createDossierSchema.safeParse({ numeroDossier: "25-AB-001", nom: "Essai" }).success).toBe(true)
+    expect(createDossierSchema.safeParse({ numeroDossier: "25-12-001" }).success).toBe(true)
+    expect(createDossierSchema.safeParse({ numeroDossier: "25-12-001", nom: "Essai" }).success).toBe(true)
   })
 
   it("normalise les espaces autour du numéro (trim)", () => {
-    const result = createDossierSchema.safeParse({ numeroDossier: "  25-AB-001 " })
+    const result = createDossierSchema.safeParse({ numeroDossier: "  25-12-001 " })
     expect(result.success).toBe(true)
-    if (result.success) expect(result.data.numeroDossier).toBe("25-AB-001")
+    if (result.success) expect(result.data.numeroDossier).toBe("25-12-001")
   })
 
   it("refuse un numéro mal formé", () => {

@@ -9,7 +9,7 @@ import { fixtures } from "./fixtures"
  */
 
 const fx = fixtures()
-const DOSSIER_NUMERO = "25-ZZ-012"
+const DOSSIER_NUMERO = "99-99-012"
 
 let prisma: PrismaClient
 let dossierId = ""

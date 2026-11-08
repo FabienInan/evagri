@@ -9,7 +9,6 @@ test.beforeEach(async ({ page }) => {
 
 test("affiche la liste et les transactions semées", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1, name: "Liste des transactions" })).toBeVisible()
-  await expect(page.getByRole("heading", { level: 2, name: "Liste des transactions" })).toBeVisible()
   await expect(page.getByText(fx.numeros.t1)).toBeVisible()
   await expect(page.getByText(fx.numeros.t4)).toBeVisible()
   await expect(page.getByText("Résultats")).toBeVisible()

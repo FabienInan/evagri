@@ -14,13 +14,13 @@ test("crée un dossier puis un panier depuis le détail", async ({ page }) => {
   await page.goto("/dossiers")
 
   await page.getByRole("button", { name: "Nouveau dossier" }).click()
-  await page.getByLabel("Numéro de dossier").fill("99-ZZ-999")
+  await page.getByLabel("Numéro de dossier").fill("99-99-999")
   await page.getByLabel("Nom (optionnel)").fill("Dossier créé par test")
   await page.getByRole("button", { name: "Créer" }).click()
 
   // La création route vers la page de détail du nouveau dossier.
   await expect(page).toHaveURL(/\/dossiers\/[0-9a-f-]+$/)
-  await expect(page.getByText("99-ZZ-999")).toBeVisible()
+  await expect(page.getByText("99-99-999")).toBeVisible()
   await expect(page.getByText("Aucun panier dans ce dossier.")).toBeVisible()
 
   await page.getByRole("button", { name: "Nouveau panier" }).click()
@@ -39,7 +39,7 @@ test("refuse un numéro de dossier au mauvais format", async ({ page }) => {
   await page.getByLabel("Numéro de dossier").fill("abc")
 
   await page.getByRole("button", { name: "Créer" }).click()
-  await expect(page.getByText("Format attendu : AA-RR-DDD (ex. 25-AB-001).")).toBeVisible()
+  await expect(page.getByText("Format attendu : AA-AA-AAA, chiffres uniquement (ex. 25-12-001).")).toBeVisible()
   // Le dialogue reste ouvert sur l'erreur : rien n'a été créé.
   await expect(page.getByRole("button", { name: "Créer" })).toBeVisible()
 })

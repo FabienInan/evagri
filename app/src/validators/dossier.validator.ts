@@ -1,14 +1,14 @@
 import { z } from "zod"
 import { formatZodError } from "@/validators/common"
 
-/** Numéro de dossier au format AA-RR-DDD (§7.7) : 2 chiffres, 2 majuscules, 3 chiffres. */
-export const NUMERO_DOSSIER_REGEX = /^\d{2}-[A-Z]{2}-\d{3}$/
+/** Numéro de dossier au format AA-AA-AAA (§7.7), chiffres uniquement : 2 chiffres, 2 chiffres, 3 chiffres. */
+export const NUMERO_DOSSIER_REGEX = /^\d{2}-\d{2}-\d{3}$/
 
 export const createDossierSchema = z.object({
   numeroDossier: z
     .string()
     .trim()
-    .regex(NUMERO_DOSSIER_REGEX, "Format attendu : AA-RR-DDD (ex. 25-AB-001)."),
+    .regex(NUMERO_DOSSIER_REGEX, "Format attendu : AA-AA-AAA, chiffres uniquement (ex. 25-12-001)."),
   nom: z.string().trim().max(200).optional(),
 })
 
