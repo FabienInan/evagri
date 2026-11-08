@@ -62,9 +62,6 @@ function createClusterIcon(colors: ReturnType<typeof getThemeColors>) {
   }
 }
 
-// Zoom level from which selected pins display their details permanently.
-const DETAIL_MIN_ZOOM = 12
-
 function detailHtml(t: MapTransaction): string {
   return `<div>
     <strong>${t.numeroInscription ?? "—"}</strong>
@@ -85,7 +82,6 @@ export function ClusterLayer({ transactions, selectedIds, onMarkerClick }: Clust
       iconCreateFunction: createClusterIcon(getThemeColors()),
       chunkedLoading: true,
     })
-    const selectedMarkers: { marker: L.Marker; html: string }[] = []
     transactions.forEach((t) => {
       const isSelected = selectedIds.has(t.id)
       const marker = L.marker([t.latitude, t.longitude], {
@@ -93,7 +89,13 @@ export function ClusterLayer({ transactions, selectedIds, onMarkerClick }: Clust
         selected: isSelected,
       } as MarkerOptionsWithSelection)
       if (isSelected) {
-        selectedMarkers.push({ marker, html: detailHtml(t) })
+        // Bulle permanente : Leaflet l'ouvre à chaque ajout du marqueur à la carte (événement « add »), donc
+        // elle suit le pin à travers les clusters, à tout niveau de zoom, et disparaît avec lui.
+        marker.bindTooltip(detailHtml(t), {
+          permanent: true,
+          direction: "top",
+          offset: L.point(0, -36),
+        })
       }
       if (onMarkerClick) {
         marker.on("click", () => onMarkerClick(t.id))
@@ -101,25 +103,6 @@ export function ClusterLayer({ transactions, selectedIds, onMarkerClick }: Clust
       group.addLayer(marker)
     })
     map.addLayer(group)
-
-    // Selected pins show their details as permanent tooltips once zoomed in close enough.
-    function syncDetailTooltips() {
-      const show = map.getZoom() >= DETAIL_MIN_ZOOM
-      for (const { marker, html } of selectedMarkers) {
-        const hasTooltip = !!marker.getTooltip()
-        if (show && !hasTooltip) {
-          marker.bindTooltip(html, {
-            permanent: true,
-            direction: "top",
-            offset: L.point(0, -36),
-          })
-        } else if (!show && hasTooltip) {
-          marker.unbindTooltip()
-        }
-      }
-    }
-    syncDetailTooltips()
-    map.on("zoomend", syncDetailTooltips)
 
     if (!hasAutoFittedRef.current && transactions.length > 0) {
       hasAutoFittedRef.current = true
@@ -132,7 +115,6 @@ export function ClusterLayer({ transactions, selectedIds, onMarkerClick }: Clust
     }
 
     return () => {
-      map.off("zoomend", syncDetailTooltips)
       map.removeLayer(group)
     }
   }, [map, transactions, selectedIds, onMarkerClick])

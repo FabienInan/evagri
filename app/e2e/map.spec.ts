@@ -60,3 +60,22 @@ test("dessine un polygone et ajoute la sélection au panier", async ({ page }) =
   await page.getByLabel("Dossier").selectOption({ label: `${fx.dossierNumero} — Dossier e2e` })
   await expect(page.getByLabel("Panier").locator("option", { hasText: "Cible e2e" })).toHaveCount(1)
 })
+
+test("la bulle d'un pin sélectionné s'affiche dès que le pin est visible, sans seuil de zoom", async ({ page }) => {
+  await page.goto("/transactions/map")
+  await page.locator(".leaflet-container").waitFor()
+  await expect(page.locator(".marker-cluster-custom, img.leaflet-marker-icon").first()).toBeVisible({ timeout: 20_000 })
+
+  // Déplie les clusters jusqu'à ce qu'un pin isolé soit visible.
+  for (let i = 0; i < 8 && (await page.locator("img.leaflet-marker-icon").count()) === 0; i++) {
+    await page.locator(".marker-cluster-custom").first().click()
+    await page.waitForTimeout(800)
+  }
+  const pin = page.locator("img.leaflet-marker-icon").first()
+  await expect(pin).toBeVisible()
+  await pin.click({ force: true })
+
+  // Le pin est sélectionné : sa bulle doit s'afficher immédiatement, quel que soit le niveau de zoom.
+  await expect(page.locator('img[src*="pin-selected"]')).toHaveCount(1)
+  await expect(page.locator(".leaflet-tooltip").first()).toBeVisible()
+})
