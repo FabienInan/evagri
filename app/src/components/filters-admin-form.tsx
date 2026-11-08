@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react"
-import { Globe } from "lucide-react"
+import { Save } from "lucide-react"
 import { createFilter, deleteFilter, publishFilters } from "@/server/actions/filters"
 import { useHeaderActions } from "@/components/header-actions"
 import { Button } from "@/components/ui/button"
@@ -26,6 +26,12 @@ export function FiltersAdminForm({
   const [search, setSearch] = useState("")
   const [selectedId, setSelectedId] = useState<string | null>(filters[0]?.id ?? null)
   const [lastSaved, setLastSaved] = useState<string | null>(null)
+  // Rien n'est envoyé au serveur avant « Enregistrer » : créations, suppressions et modifications sont en attente.
+  type PendingCreate = { tempId: string; input: CreateFilterInput }
+  const [pendingCreates, setPendingCreates] = useState<PendingCreate[]>([])
+  const [pendingDeletes, setPendingDeletes] = useState<string[]>([])
+  const [baseline, setBaseline] = useState<string>(() => JSON.stringify(filters))
+  const dirty = pendingCreates.length > 0 || pendingDeletes.length > 0 || JSON.stringify(items) !== baseline
   const [publishing, setPublishing] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [showCreate, setShowCreate] = useState(false)
@@ -69,15 +75,15 @@ export function FiltersAdminForm({
     setAction(
       <Button
         onClick={() => publishRef.current()}
-        disabled={publishing}
+        disabled={publishing || !dirty}
         className="h-9 gap-2 rounded-lg px-4"
       >
-        <Globe className="h-4 w-4" />
-        {publishing ? "Publication..." : "Publier la configuration"}
+        <Save className="h-4 w-4" />
+        {publishing ? "Enregistrement..." : "Enregistrer"}
       </Button>
     )
     return () => clearAction()
-  }, [publishing, lastSaved])
+  }, [publishing, dirty])
 
   const selected = useMemo(
     () => (items.find((f) => f.id === selectedId) as Filter | undefined) ?? null,
@@ -102,15 +108,9 @@ export function FiltersAdminForm({
     setItems((prev) => prev.map((f) => (f.id === id ? ({ ...f, ...patch } as Filter) : f)))
   }
 
-  function saveFilter(id: string, patch: Partial<Filter>) {
-    updateLocal(id, patch)
-    setLastSaved(id)
-    setTimeout(() => setLastSaved((current) => (current === id ? null : current)), 1500)
-  }
-
   function handleTypeChange(value: FilterType) {
     if (!selected) return
-    saveFilter(selected.id, {
+    updateLocal(selected.id, {
       typeFiltre: value,
       operateursDisponibles: DEFAULT_OPERATEURS[value],
     })
@@ -118,7 +118,7 @@ export function FiltersAdminForm({
 
   function handleToggleActive(checked: boolean) {
     if (!selected) return
-    saveFilter(selected.id, { estActif: checked })
+    updateLocal(selected.id, { estActif: checked })
   }
 
   // Réordonner un sous-ensemble filtré n'a pas de sens : le glisser-déposer est inactif pendant une recherche.
@@ -197,42 +197,75 @@ export function FiltersAdminForm({
       }
     }
 
-    try {
-      const result = await createFilter(input)
-      if (!result.ok) {
-        setCreateError(result.error)
-        return
-      }
-      setItems((prev) => [...prev, result.filter])
-      setSelectedId(result.filter.id)
-      setShowCreate(false)
-    } catch (err) {
-      setCreateError(err instanceof Error ? err.message : "Erreur lors de la création du filtre.")
+    // Pas d'appel serveur ici : le filtre est ajouté à la liste et créé à « Enregistrer ».
+    const tempId = `new-${crypto.randomUUID()}`
+    const champ = input.champId ? (champs.find((c) => c.id === input.champId) ?? null) : null
+    const filter: Filter = {
+      id: tempId,
+      nomFiltre: input.nomFiltre,
+      typeFiltre: input.typeFiltre,
+      estActif: true,
+      codeMachine: input.codeMachine,
+      champ: champ
+        ? {
+            id: champ.id,
+            codeMachine: champ.codeMachine,
+            nomAffichage: champ.nomAffichage,
+            typeDonnees: champ.typeDonnees,
+            unite: champ.unite,
+            typeFiltreRecommande: champ.typeFiltreRecommande,
+          }
+        : null,
+      operateursDisponibles: input.operateurs,
+      ordreAffichage: input.ordreAffichage,
     }
+    setItems((prev) => [...prev, filter])
+    setPendingCreates((prev) => [...prev, { tempId, input }])
+    setSelectedId(tempId)
+    setShowCreate(false)
   }
 
-  async function handleDelete(id: string) {
+  function handleDelete(id: string) {
     setActionError(null)
-    try {
-      const result = await deleteFilter(id)
-      if (!result.ok) {
-        setActionError(result.error)
-        return
-      }
-      const remaining = items.filter((f) => f.id !== id)
-      setItems(remaining)
-      setSelectedId((current) => (current === id ? (remaining[0]?.id ?? null) : current))
-    } catch {
-      setActionError("Échec de la suppression du filtre.")
+    const remaining = items.filter((f) => f.id !== id)
+    setItems(remaining)
+    if (id.startsWith("new-")) {
+      setPendingCreates((prev) => prev.filter((p) => p.tempId !== id))
+    } else {
+      setPendingDeletes((prev) => [...prev, id])
     }
+    setSelectedId((current) => (current === id ? (remaining[0]?.id ?? null) : current))
   }
 
+  /** Envoie tout en une fois : créations, suppressions, puis ordre, activation et type. */
   async function handlePublish() {
     setPublishing(true)
     setActionError(null)
     try {
+      const idMap = new Map<string, string>()
+      for (const pending of pendingCreates) {
+        const result = await createFilter(pending.input)
+        if (!result.ok) {
+          setActionError(result.error)
+          return
+        }
+        const realId = result.filter.id
+        idMap.set(pending.tempId, realId)
+        setItems((prev) => prev.map((f) => (f.id === pending.tempId ? { ...f, id: realId } : f)))
+        setSelectedId((current) => (current === pending.tempId ? realId : current))
+        setPendingCreates((prev) => prev.filter((p) => p.tempId !== pending.tempId))
+      }
+      for (const id of pendingDeletes) {
+        const result = await deleteFilter(id)
+        if (!result.ok) {
+          setActionError(result.error)
+          return
+        }
+        setPendingDeletes((prev) => prev.filter((d) => d !== id))
+      }
+      const ordered = items.map((f) => ({ ...f, id: idMap.get(f.id) ?? f.id }))
       const result = await publishFilters(
-        items.map((f) => ({
+        ordered.map((f) => ({
           id: f.id,
           ordreAffichage: f.ordreAffichage,
           estActif: f.estActif,
@@ -244,10 +277,11 @@ export function FiltersAdminForm({
         setActionError(result.error)
         return
       }
+      setBaseline(JSON.stringify(ordered))
       setLastSaved("__all__")
       setTimeout(() => setLastSaved((current) => (current === "__all__" ? null : current)), 1500)
     } catch {
-      setActionError("Échec de la publication de la configuration.")
+      setActionError("Échec de l'enregistrement de la configuration.")
     } finally {
       setPublishing(false)
     }
@@ -262,8 +296,10 @@ export function FiltersAdminForm({
   return (
     <div className="flex h-full flex-col gap-4 overflow-hidden">
       <div className="flex shrink-0 items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
+        <p className="flex items-center gap-3 text-sm text-muted-foreground">
           {items.length} filtre{items.length > 1 ? "s" : ""}
+          {dirty && <span className="font-medium text-foreground">Modifications non enregistrées</span>}
+          {lastSaved === "__all__" && !dirty && <span className="text-primary">Enregistré ✓</span>}
         </p>
         <Button size="sm" className="gap-2" onClick={() => setShowCreate(true)}>
           <Plus className="h-4 w-4" />
@@ -272,7 +308,7 @@ export function FiltersAdminForm({
       </div>
 
       {showCreate && (
-        <Modal title="Ajouter un filtre" onClose={() => setShowCreate(false)} className="max-w-2xl">
+        <Modal title="Ajouter un filtre" onClose={() => setShowCreate(false)} className="max-w-3xl">
           <FilterCreateCard
             champs={champs}
             newChampId={newChampId}
@@ -308,7 +344,6 @@ export function FiltersAdminForm({
         <FilterDetailsCard
           selected={selected}
           selectedRecommended={selectedRecommended}
-          lastSaved={lastSaved}
           onTypeChange={handleTypeChange}
           onToggleActive={handleToggleActive}
           onDelete={handleDelete}

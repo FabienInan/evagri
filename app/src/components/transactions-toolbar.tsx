@@ -20,7 +20,6 @@ export function TransactionsToolbar({ embedded = false }: { embedded?: boolean }
   const { visible: showFilters, toggle: toggleFilters } = useFilterPanelVisibility()
   if (isFiche) return null
 
-  const isMap = segments[1] === "map"
 
   return (
     // Non-embedded: -mx spans the scroll container's padding; negative top offsets the -my margin so the bar sticks flush with no see-through strip.
@@ -33,7 +32,6 @@ export function TransactionsToolbar({ embedded = false }: { embedded?: boolean }
           : "sticky -top-4 z-[1001] -mx-4 -my-4 lg:-top-6 lg:-mx-6 lg:-my-6"
       )}
     >
-      {isMap && <h2 className="truncate text-lg font-semibold text-foreground">Carte des transactions</h2>}
       <div className="flex shrink-0 items-center gap-2">
         <Button variant="outline" size="sm" className="gap-2" onClick={toggleFilters}>
           {showFilters ? (

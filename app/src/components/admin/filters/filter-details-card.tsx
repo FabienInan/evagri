@@ -19,20 +19,18 @@ import { FILTER_TYPE_LABELS, FILTER_TYPE_OPTIONS, type Filter } from "./filter-c
 export function FilterDetailsCard({
   selected,
   selectedRecommended,
-  lastSaved,
   onTypeChange,
   onToggleActive,
   onDelete,
 }: {
   selected: Filter | null
   selectedRecommended: FilterType | null
-  lastSaved: string | null
   onTypeChange: (value: FilterType) => void
   onToggleActive: (checked: boolean) => void
   onDelete: (id: string) => void
 }) {
   return (
-    <Card className="w-[380px] shrink-0 overflow-hidden border-border shadow-sm">
+    <Card className="w-[420px] shrink-0 overflow-hidden border-border shadow-sm">
       <CardHeader className="space-y-1 pb-4">
         <CardTitle className="text-lg font-semibold">{selected ? selected.nomFiltre : "Détails du filtre"}</CardTitle>
         <CardDescription className="text-sm">
@@ -113,9 +111,6 @@ export function FilterDetailsCard({
                 <Trash2 className="mr-2 h-4 w-4" />
                 Supprimer
               </Button>
-              {lastSaved === selected.id || lastSaved === "__all__" ? (
-                <p className="text-sm text-muted-foreground">Enregistré</p>
-              ) : null}
             </div>
           </>
         ) : null}

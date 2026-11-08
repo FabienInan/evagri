@@ -169,7 +169,7 @@ export function ChampsAdmin({
       </div>
 
       {showCreate && (
-        <Modal title="Nouveau champ enrichissable" onClose={() => setShowCreate(false)} className="max-w-3xl">
+        <Modal title="Nouveau champ enrichissable" onClose={() => setShowCreate(false)} className="max-w-4xl">
           <ChampCreateCard
             draft={draft}
             onDraftChange={setDraft}

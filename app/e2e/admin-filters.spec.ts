@@ -176,10 +176,11 @@ test("filtre la liste des filtres via la recherche", async ({ page }) => {
 test("change le type d'un filtre et le conserve après publication", async ({ page }) => {
   await detailTypeSelect(page).click()
   await page.getByRole("option", { name: "Recherche texte", exact: true }).click()
-  await expect(page.getByText("Enregistré", { exact: true })).toBeVisible()
+  // Une modification reste en attente tant qu'on n'a pas enregistré.
+  await expect(page.getByText("Modifications non enregistrées")).toBeVisible()
 
-  await page.getByRole("button", { name: "Publier la configuration" }).click()
-  await expect(page.getByText("Enregistré", { exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "Enregistrer", exact: true }).click()
+  await expect(page.getByText("Enregistré ✓")).toBeVisible()
 
   await page.reload()
   await expect(detailTypeSelect(page)).toContainText("Recherche texte")
@@ -195,7 +196,7 @@ test("propose le type recommandé et l'applique", async ({ page }) => {
 
   await page.getByRole("button", { name: "Appliquer" }).click()
   await expect(detailTypeSelect(page)).toContainText("Type de transaction")
-  await expect(page.getByText("Enregistré", { exact: true })).toBeVisible()
+  await expect(page.getByText("Modifications non enregistrées")).toBeVisible()
 })
 
 test("masque dans la liste des transactions un filtre désactivé", async ({ page }) => {
@@ -206,8 +207,8 @@ test("masque dans la liste des transactions un filtre désactivé", async ({ pag
   await toggle.click()
   await expect(toggle).not.toBeChecked()
 
-  await page.getByRole("button", { name: "Publier la configuration" }).click()
-  await expect(page.getByText("Enregistré", { exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "Enregistrer", exact: true }).click()
+  await expect(page.getByText("Enregistré ✓")).toBeVisible()
 
   await page.goto("/transactions")
   await expect(page.getByText("Type de transaction", { exact: true })).toBeVisible()
@@ -217,14 +218,14 @@ test("masque dans la liste des transactions un filtre désactivé", async ({ pag
   await openFilters(page)
   await row(page, "Statut d'analyse").getByText("Statut d'analyse").click()
   await page.getByRole("switch").click()
-  await page.getByRole("button", { name: "Publier la configuration" }).click()
+  await page.getByRole("button", { name: "Enregistrer", exact: true }).click()
   await expect(page.getByRole("switch")).toBeChecked()
 })
 
 test("conserve un filtre désactivé après rechargement", async ({ page }) => {
   await row(page, "Statut d'analyse").getByText("Statut d'analyse").click()
   await page.getByRole("switch").click()
-  await page.getByRole("button", { name: "Publier la configuration" }).click()
+  await page.getByRole("button", { name: "Enregistrer", exact: true }).click()
 
   await page.reload()
   await row(page, "Statut d'analyse").getByText("Statut d'analyse").click()
@@ -239,8 +240,8 @@ test("réordonne les filtres et publie l'ordre", async ({ page }) => {
   await handle.dragTo(row(page, "Statut d'analyse"))
   await expect(rows(page).first()).toContainText("Statut d'analyse")
 
-  await page.getByRole("button", { name: "Publier la configuration" }).click()
-  await expect(page.getByText("Enregistré", { exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "Enregistrer", exact: true }).click()
+  await expect(page.getByText("Enregistré ✓")).toBeVisible()
 
   await page.reload()
   await expect(rows(page).first()).toContainText("Statut d'analyse")
