@@ -7,6 +7,7 @@ import { listChampsEnrichissablesByOrganisation } from "@/repositories/champs.re
 import { serializeTransaction } from "@/serializers/transaction.serializer"
 import { IMPORTED_FIELDS } from "@/lib/imported-fields"
 import { PanierView } from "@/components/dossier/panier-view"
+import { Breadcrumb } from "@/components/breadcrumb"
 
 export const dynamic = "force-dynamic"
 
@@ -28,13 +29,22 @@ export default async function PanierPage({
   ])
 
   return (
-    <PanierView
-      panierId={id}
-      nom={panier.nom}
-      transactions={transactions.map(serializeTransaction)}
-      importedFields={IMPORTED_FIELDS}
-      champs={champs}
-      analyses={analyses.map(serializeAnalyse)}
-    />
+    <>
+      <Breadcrumb
+        items={[
+          { label: "Dossiers", href: "/dossiers" },
+          { label: panier.dossier.numeroDossier, href: `/dossiers/${panier.dossierId}` },
+          { label: panier.nom },
+        ]}
+      />
+      <PanierView
+        panierId={id}
+        nom={panier.nom}
+        transactions={transactions.map(serializeTransaction)}
+        importedFields={IMPORTED_FIELDS}
+        champs={champs}
+        analyses={analyses.map(serializeAnalyse)}
+      />
+    </>
   )
 }

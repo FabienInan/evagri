@@ -20,7 +20,8 @@ test("crée un dossier puis un panier depuis le détail", async ({ page }) => {
 
   // La création route vers la page de détail du nouveau dossier.
   await expect(page).toHaveURL(/\/dossiers\/[0-9a-f-]+$/)
-  await expect(page.getByText("99-99-999")).toBeVisible()
+  // Le numéro figure dans le fil d'ariane et dans le titre : on vérifie la présence sans ambiguïté.
+  await expect(page.getByText("99-99-999").first()).toBeVisible()
   await expect(page.getByText("Aucun panier dans ce dossier.")).toBeVisible()
 
   await page.getByRole("button", { name: "Nouveau panier" }).click()

@@ -23,7 +23,8 @@ test("affiche par défaut les mêmes colonnes de champs que la liste des transac
 test("affiche les transactions du panier puis en retire une", async ({ page }) => {
   await page.goto(`/paniers/${fx.paniers.source}`)
   await expect(page.getByRole("heading", { level: 1, name: "Panier" })).toBeVisible()
-  await expect(page.getByText("Comparables e2e")).toBeVisible()
+  // Le nom du panier figure dans le fil d'ariane et dans le titre.
+  await expect(page.getByText("Comparables e2e").first()).toBeVisible()
   await expect(page.getByText(fx.numeros.t1)).toBeVisible()
   await expect(page.getByText(fx.numeros.t2)).toBeVisible()
   await expect(page.getByText("(2 éléments)")).toBeVisible()

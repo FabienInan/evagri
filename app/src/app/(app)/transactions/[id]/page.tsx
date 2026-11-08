@@ -13,6 +13,8 @@ import {
   parseFiltersParam,
 } from "@/lib/transaction-filters"
 import { getPanierNavigation, getTransactionNavigation } from "@/server/transaction-order"
+import { findPanierById } from "@/repositories/dossier.repository"
+import { Breadcrumb, type BreadcrumbItem } from "@/components/breadcrumb"
 import type { TransactionNavigation } from "@/types/transaction"
 
 export const dynamic = "force-dynamic"
@@ -75,12 +77,29 @@ export default async function FicheTransactionPage({
     detailQuery = fromListe ? buildTransactionDetailQuery({ filters, sortField, sortOrder }) : ""
   }
 
+  // Fil d'ariane : Dossiers › dossier › panier › transaction, quand la fiche vient d'un panier ; sinon Transactions › transaction.
+  const numeroInscription = typeof fiche.fields.numero_inscription === "string" ? fiche.fields.numero_inscription : "—"
+  const breadcrumb: BreadcrumbItem[] = [{ label: "Transactions", href: "/transactions" }, { label: numeroInscription }]
+  if (panierId) {
+    const panier = await findPanierById(organisationId, panierId)
+    if (panier) {
+      breadcrumb.splice(0, 1,
+        { label: "Dossiers", href: "/dossiers" },
+        { label: panier.dossier.numeroDossier, href: `/dossiers/${panier.dossierId}` },
+        { label: panier.nom, href: `/paniers/${panier.id}` }
+      )
+    }
+  }
+
   return (
-    <FicheTransactionClient
-      key={fiche.statut}
-      fiche={fiche}
-      navigation={navigation}
-      detailQuery={detailQuery}
-    />
+    <>
+      <Breadcrumb items={breadcrumb} />
+      <FicheTransactionClient
+        key={fiche.statut}
+        fiche={fiche}
+        navigation={navigation}
+        detailQuery={detailQuery}
+      />
+    </>
   )
 }

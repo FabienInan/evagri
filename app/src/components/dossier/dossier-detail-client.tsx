@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useHeaderActions } from "@/components/header-actions"
+import { Breadcrumb } from "@/components/breadcrumb"
 import { PanierFormDialog } from "@/components/dossier/panier-form-dialog"
 import { AnalysesSection } from "@/components/dossier/analyses-section"
 import type { TypologieOption } from "@/types/typologie"
@@ -37,6 +38,7 @@ export function DossierDetailClient({
 
   return (
     <div className="space-y-4">
+      <Breadcrumb items={[{ label: "Dossiers", href: "/dossiers" }, { label: dossier.numeroDossier }]} />
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">{dossier.nom ?? "—"}</p>
         <Button size="sm" className="gap-2" onClick={() => setShowForm(true)}>
