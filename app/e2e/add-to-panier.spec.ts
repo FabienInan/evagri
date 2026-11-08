@@ -1,59 +1,61 @@
-import { expect, test } from "@playwright/test"
+import { expect, test, type Page } from "@playwright/test"
 import { fixtures } from "./fixtures"
 
-const fx = fixtures()
-const dossierOption = `${fx.dossierNumero} — Dossier e2e`
+/**
+ * « Ajouter au panier » ajoute au panier courant, choisi dans la barre latérale (sélecteurs Dossier et Panier).
+ * Le contexte est mémorisé dans le navigateur ; chaque test part d'un navigateur vierge.
+ */
 
-test("ajoute une transaction au panier depuis la liste", async ({ page }) => {
+const fx = fixtures()
+
+async function choisirPanierCourant(page: Page): Promise<void> {
+  await page.getByLabel("Dossier courant").selectOption({ label: fx.dossierNumero })
+  await page.getByLabel("Panier courant").selectOption({ label: "Cible e2e" })
+}
+
+test("ajoute une transaction au panier courant depuis la liste", async ({ page }) => {
   await page.goto("/transactions")
+  await choisirPanierCourant(page)
+
   const row = page.getByRole("row").filter({ hasText: fx.numeros.t1 })
   await row.getByRole("button", { name: "Ajouter au panier" }).click()
-
   await expect(page.getByRole("heading", { name: "Ajouter au panier" })).toBeVisible()
-
-  await page.getByLabel("Dossier").selectOption({ label: dossierOption })
-  await expect(page.getByLabel("Panier").locator("option", { hasText: "Cible e2e" })).toHaveCount(1)
-  await page.getByLabel("Panier").selectOption({ label: "Cible e2e" })
+  await expect(page.getByRole("dialog", { name: "Ajouter au panier" }).getByText("Cible e2e", { exact: true })).toBeVisible()
   await page.getByRole("button", { name: "Ajouter", exact: true }).click()
 
-  // Succès : la modale se referme et la transaction est bien présente dans le panier cible.
+  // Succès : la fenêtre se referme et la transaction est bien présente dans le panier cible.
   await expect(page.getByRole("heading", { name: "Ajouter au panier" })).toHaveCount(0)
   await page.goto(`/paniers/${fx.paniers.cible}`)
   await expect(page.getByText(fx.numeros.t1)).toBeVisible()
 })
 
-test("ajoute une transaction au panier depuis la fiche", async ({ page }) => {
+test("ajoute une transaction au panier courant depuis la fiche", async ({ page }) => {
+  await page.goto("/transactions")
+  await choisirPanierCourant(page)
+
   await page.goto(`/transactions/${fx.transactions.t2}`)
   await page.getByRole("button", { name: "Ajouter au panier" }).click()
 
   await expect(page.getByRole("heading", { name: "Ajouter au panier" })).toBeVisible()
   await expect(page.getByText("1 transaction sélectionnée.")).toBeVisible()
-
   await page.getByRole("button", { name: "Fermer" }).first().click()
   await expect(page.getByRole("heading", { name: "Ajouter au panier" })).toHaveCount(0)
 })
 
-test("préremplit le dialogue avec le dernier panier utilisé", async ({ page }) => {
-  await page.goto(`/transactions/${fx.transactions.t2}`)
-  await page.getByRole("button", { name: "Ajouter au panier" }).click()
-  await page.getByLabel("Dossier").selectOption({ label: dossierOption })
-  await page.getByLabel("Panier").selectOption({ label: "Cible e2e" })
-  await page.getByRole("button", { name: "Ajouter", exact: true }).click()
-  await expect(page.getByRole("heading", { name: "Ajouter au panier" })).toHaveCount(0)
-
-  // Nouvelle transaction : le couple dossier/panier du dernier ajout est déjà sélectionné.
-  await page.goto(`/transactions/${fx.transactions.t9}`)
-  await page.getByRole("button", { name: "Ajouter au panier" }).click()
-  await expect(page.getByLabel("Dossier")).toHaveValue(fx.dossierId)
-  await expect(page.getByLabel("Panier")).toHaveValue(fx.paniers.cible)
-})
-
-test("refuse de confirmer sans panier choisi", async ({ page }) => {
+test("sans panier courant, Ajouter est désactivé et renvoie vers la barre latérale", async ({ page }) => {
   await page.goto("/transactions")
   const row = page.getByRole("row").filter({ hasText: fx.numeros.t3 })
   await row.getByRole("button", { name: "Ajouter au panier" }).click()
-  await expect(page.getByRole("heading", { name: "Ajouter au panier" })).toBeVisible()
 
-  await page.getByRole("button", { name: "Ajouter", exact: true }).click()
-  await expect(page.getByText("Sélectionnez un panier.")).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Ajouter au panier" })).toBeVisible()
+  await expect(page.getByText(/barre latérale/)).toBeVisible()
+  await expect(page.getByRole("button", { name: "Ajouter", exact: true })).toBeDisabled()
+})
+
+test("le panier courant est conservé d'une page à l'autre", async ({ page }) => {
+  await page.goto("/transactions")
+  await choisirPanierCourant(page)
+
+  await page.goto(`/transactions/${fx.transactions.t9}`)
+  await expect(page.getByLabel("Panier courant")).toHaveValue(fx.paniers.cible)
 })

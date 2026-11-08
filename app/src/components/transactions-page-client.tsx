@@ -130,7 +130,7 @@ export function TransactionsPageClient({
   return (
     <div
       className={`grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 ${
-        showFilters ? "lg:grid-cols-[300px_1fr]" : ""
+        showFilters ? "lg:grid-cols-[300px_minmax(0,1fr)]" : ""
       }`}
     >
       {showFilters && (

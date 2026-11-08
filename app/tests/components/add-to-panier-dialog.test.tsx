@@ -3,72 +3,61 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, fireEvent, waitFor } from "@testing-library/react"
 import { AddToPanierDialog } from "@/components/dossier/add-to-panier-dialog"
 
-const listDossiers = vi.fn()
-const listPaniersForDossier = vi.fn()
 const addTransactionsToPanier = vi.fn()
+let currentPanier: { dossierId: string; dossierNumero?: string; panierId: string; panierNom?: string } | null = null
 
 vi.mock("@/server/actions/dossier", () => ({
-  listDossiers: () => listDossiers(),
-  listPaniersForDossier: (id: string) => listPaniersForDossier(id),
   addTransactionsToPanier: (input: unknown) => addTransactionsToPanier(input),
 }))
 
+vi.mock("@/components/current-panier-context", () => ({
+  useCurrentPanier: () => ({ current: currentPanier, chooseDossier: vi.fn(), choosePanier: vi.fn() }),
+}))
+
 beforeEach(() => {
-  localStorage.clear()
-  listDossiers.mockReset()
-  listPaniersForDossier.mockReset()
   addTransactionsToPanier.mockReset()
-  listDossiers.mockResolvedValue([
-    { id: "d1", numeroDossier: "25-12-001", nom: "Essai", createdAt: "2026-01-01T00:00:00.000Z", panierCount: 1 },
-  ])
-  listPaniersForDossier.mockResolvedValue([
-    { id: "p1", nom: "Comparables", dossierId: "d1", numeroDossier: "25-12-001", typeTransactionId: null, typeTransactionNom: null, createdAt: "2026-01-01T00:00:00.000Z", transactionCount: 0 },
-  ])
+  currentPanier = null
 })
 
 describe("AddToPanierDialog", () => {
-  it("charge les dossiers à l'ouverture", async () => {
+  it("n'a pas de sélecteur de dossier ni de panier : il ajoute au panier courant", () => {
+    currentPanier = { dossierId: "d1", dossierNumero: "25-12-001", panierId: "p1", panierNom: "Comparables" }
     render(<AddToPanierDialog transactionIds={["t1"]} open onOpenChange={() => {}} />)
-    await waitFor(() => expect(listDossiers).toHaveBeenCalled())
+
+    expect(screen.queryByLabelText("Dossier")).toBeNull()
+    expect(screen.queryByLabelText("Panier")).toBeNull()
+    expect(screen.getByText("Comparables")).toBeTruthy()
+    expect(screen.getByText("Dossier 25-12-001")).toBeTruthy()
   })
 
-  it("ajoute les transactions au panier choisi puis referme la modale", async () => {
-    addTransactionsToPanier.mockResolvedValue({ ok: true, added: 1 })
+  it("désactive Ajouter et explique où choisir le panier quand aucun n'est courant", () => {
+    render(<AddToPanierDialog transactionIds={["t1"]} open onOpenChange={() => {}} />)
+
+    expect(screen.getByRole("button", { name: "Ajouter" }).hasAttribute("disabled")).toBe(true)
+    expect(screen.getByText(/barre latérale/)).toBeTruthy()
+  })
+
+  it("ajoute les transactions au panier courant et ferme la fenêtre", async () => {
+    currentPanier = { dossierId: "d1", panierId: "p1", panierNom: "Comparables" }
+    addTransactionsToPanier.mockResolvedValue({ ok: true })
+    const onOpenChange = vi.fn()
+    render(<AddToPanierDialog transactionIds={["t1", "t2"]} open onOpenChange={onOpenChange} />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Ajouter" }))
+
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+    expect(addTransactionsToPanier).toHaveBeenCalledWith({ panierId: "p1", transactionIds: ["t1", "t2"] })
+  })
+
+  it("affiche l'erreur serveur et garde la fenêtre ouverte", async () => {
+    currentPanier = { dossierId: "d1", panierId: "p1", panierNom: "Comparables" }
+    addTransactionsToPanier.mockResolvedValue({ ok: false, error: "Panier introuvable." })
     const onOpenChange = vi.fn()
     render(<AddToPanierDialog transactionIds={["t1"]} open onOpenChange={onOpenChange} />)
-    await waitFor(() => expect(listDossiers).toHaveBeenCalled())
 
-    fireEvent.change(screen.getByLabelText("Dossier"), { target: { value: "d1" } })
-    await waitFor(() => expect(listPaniersForDossier).toHaveBeenCalledWith("d1"))
-    fireEvent.change(screen.getByLabelText("Panier"), { target: { value: "p1" } })
-    fireEvent.click(screen.getByRole("button", { name: /ajouter/i }))
+    fireEvent.click(screen.getByRole("button", { name: "Ajouter" }))
 
-    await waitFor(() =>
-      expect(addTransactionsToPanier).toHaveBeenCalledWith({ panierId: "p1", transactionIds: ["t1"] })
-    )
-    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
-  })
-
-  it("préremplit le dialogue avec le dernier couple dossier/panier", async () => {
-    localStorage.setItem(
-      "evagri:current-panier",
-      JSON.stringify({ dossierId: "d1", panierId: "p1" })
-    )
-    render(<AddToPanierDialog transactionIds={["t1"]} open onOpenChange={() => {}} />)
-
-    await waitFor(() =>
-      expect((screen.getByLabelText("Dossier") as HTMLSelectElement).value).toBe("d1")
-    )
-    await waitFor(() =>
-      expect((screen.getByLabelText("Panier") as HTMLSelectElement).value).toBe("p1")
-    )
-  })
-
-  it("affiche une erreur si aucun panier n'est choisi", async () => {
-    render(<AddToPanierDialog transactionIds={["t1"]} open onOpenChange={() => {}} />)
-    await waitFor(() => expect(listDossiers).toHaveBeenCalled())
-    fireEvent.click(screen.getByRole("button", { name: /ajouter/i }))
-    expect(await screen.findByText(/Sélectionnez un panier/i)).toBeTruthy()
-    expect(addTransactionsToPanier).not.toHaveBeenCalled()
+    await waitFor(() => expect(screen.getByText("Panier introuvable.")).toBeTruthy())
+    expect(onOpenChange).not.toHaveBeenCalled()
   })
 })

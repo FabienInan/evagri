@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import {
   CURRENT_PANIER_STORAGE_KEY,
-  readCurrentPanier,
+  parseCurrentPanier,
+  readCurrentPanierRaw,
   saveCurrentPanier,
 } from "@/lib/current-panier"
 
@@ -28,34 +29,51 @@ afterEach(() => {
 })
 
 describe("current panier", () => {
-  it("relit le contexte enregistré", () => {
+  it("relit le contexte enregistré, noms compris", () => {
     vi.stubGlobal("window", { localStorage: fakeStorage() })
 
-    saveCurrentPanier({ dossierId: "dossier-1", panierId: "panier-1" })
+    saveCurrentPanier({ dossierId: "dossier-1", dossierNumero: "25-12-001", panierId: "panier-1", panierNom: "Comparables" })
 
-    expect(readCurrentPanier()).toEqual({ dossierId: "dossier-1", panierId: "panier-1" })
+    expect(parseCurrentPanier(readCurrentPanierRaw())).toEqual({
+      dossierId: "dossier-1",
+      dossierNumero: "25-12-001",
+      panierId: "panier-1",
+      panierNom: "Comparables",
+    })
+  })
+
+  it("accepte un dossier choisi sans panier", () => {
+    vi.stubGlobal("window", { localStorage: fakeStorage() })
+
+    saveCurrentPanier({ dossierId: "dossier-1", panierId: "" })
+
+    expect(parseCurrentPanier(readCurrentPanierRaw())).toEqual({
+      dossierId: "dossier-1",
+      dossierNumero: undefined,
+      panierId: "",
+      panierNom: undefined,
+    })
+  })
+
+  it("efface le contexte quand on le remet à null", () => {
+    vi.stubGlobal("window", { localStorage: fakeStorage() })
+
+    saveCurrentPanier({ dossierId: "d", panierId: "p" })
+    saveCurrentPanier(null)
+
+    expect(readCurrentPanierRaw()).toBeNull()
   })
 
   it("retourne null quand aucun contexte n'est mémorisé", () => {
-    vi.stubGlobal("window", { localStorage: fakeStorage() })
-
-    expect(readCurrentPanier()).toBeNull()
+    expect(parseCurrentPanier(null)).toBeNull()
   })
 
   it("ignore un contenu JSON malformé", () => {
-    vi.stubGlobal("window", {
-      localStorage: fakeStorage({ [CURRENT_PANIER_STORAGE_KEY]: "{not json" }),
-    })
-
-    expect(readCurrentPanier()).toBeNull()
+    expect(parseCurrentPanier("{not json")).toBeNull()
   })
 
   it("ignore un contexte incomplet", () => {
-    vi.stubGlobal("window", {
-      localStorage: fakeStorage({ [CURRENT_PANIER_STORAGE_KEY]: JSON.stringify({ dossierId: "d" }) }),
-    })
-
-    expect(readCurrentPanier()).toBeNull()
+    expect(parseCurrentPanier(JSON.stringify({ dossierId: "d" }))).toBeNull()
   })
 
   it("ne lève pas quand le stockage est indisponible", () => {
@@ -70,7 +88,15 @@ describe("current panier", () => {
       },
     })
 
-    expect(readCurrentPanier()).toBeNull()
+    expect(readCurrentPanierRaw()).toBeNull()
     expect(() => saveCurrentPanier({ dossierId: "d", panierId: "p" })).not.toThrow()
+  })
+
+  it("lit la clé de stockage attendue", () => {
+    vi.stubGlobal("window", {
+      localStorage: fakeStorage({ [CURRENT_PANIER_STORAGE_KEY]: JSON.stringify({ dossierId: "d", panierId: "" }) }),
+    })
+
+    expect(parseCurrentPanier(readCurrentPanierRaw())?.dossierId).toBe("d")
   })
 })

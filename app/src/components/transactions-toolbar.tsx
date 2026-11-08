@@ -28,7 +28,7 @@ export function TransactionsToolbar({ embedded = false }: { embedded?: boolean }
       className={cn(
         "flex items-center justify-between gap-3 bg-background px-4 py-3 lg:px-6",
         embedded
-          ? "sticky -top-4 z-[1001] -mx-4 -my-4 lg:static lg:my-0 lg:-mx-6"
+          ? "sticky -top-4 z-[1001] -mx-4 -my-4 lg:static lg:mx-0 lg:my-0"
           : "sticky -top-4 z-[1001] -mx-4 -my-4 lg:-top-6 lg:-mx-6 lg:-my-6"
       )}
     >

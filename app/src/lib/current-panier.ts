@@ -1,42 +1,51 @@
 /**
- * Contexte d'ajout mémorisé dans le navigateur : dernier couple dossier/panier utilisé pour un ajout
- * réussi. Il préremplit le dialogue « Ajouter au panier » sans imposer le choix, qui reste modifiable.
+ * Contexte courant de travail, mémorisé dans le navigateur : le dossier et le panier choisis dans la barre latérale.
+ * « Ajouter au panier » ajoute à ce panier. `panierId` vide = dossier choisi, panier pas encore choisi.
  */
 export const CURRENT_PANIER_STORAGE_KEY = "evagri:current-panier"
 
 export interface CurrentPanier {
   dossierId: string
+  dossierNumero?: string
   panierId: string
+  panierNom?: string
 }
 
-/** Lecture défensive : stockage indisponible ou contenu inattendu → aucun contexte mémorisé. */
-export function readCurrentPanier(): CurrentPanier | null {
-  if (typeof window === "undefined") return null
+/** Lecture défensive d'une valeur brute du stockage : contenu inattendu → aucun contexte. */
+export function parseCurrentPanier(raw: string | null): CurrentPanier | null {
+  if (!raw) return null
   try {
-    const raw = window.localStorage.getItem(CURRENT_PANIER_STORAGE_KEY)
-    if (!raw) return null
     const parsed: unknown = JSON.parse(raw)
-    if (
-      typeof parsed === "object" &&
-      parsed !== null &&
-      typeof (parsed as Record<string, unknown>).dossierId === "string" &&
-      typeof (parsed as Record<string, unknown>).panierId === "string"
-    ) {
-      const { dossierId, panierId } = parsed as Record<string, string>
-      return { dossierId, panierId }
+    if (typeof parsed !== "object" || parsed === null) return null
+    const o = parsed as Record<string, unknown>
+    if (typeof o.dossierId !== "string" || typeof o.panierId !== "string") return null
+    return {
+      dossierId: o.dossierId,
+      panierId: o.panierId,
+      dossierNumero: typeof o.dossierNumero === "string" ? o.dossierNumero : undefined,
+      panierNom: typeof o.panierNom === "string" ? o.panierNom : undefined,
     }
-    return null
   } catch {
     return null
   }
 }
 
-/** Échec d'écriture (mode privé, quota) : le contexte n'est simplement pas mémorisé. */
-export function saveCurrentPanier(context: CurrentPanier): void {
+/** Stockage indisponible (mode privé, quota) : le contexte n'est simplement pas mémorisé. */
+export function saveCurrentPanier(context: CurrentPanier | null): void {
   if (typeof window === "undefined") return
   try {
-    window.localStorage.setItem(CURRENT_PANIER_STORAGE_KEY, JSON.stringify(context))
+    if (context) window.localStorage.setItem(CURRENT_PANIER_STORAGE_KEY, JSON.stringify(context))
+    else window.localStorage.removeItem(CURRENT_PANIER_STORAGE_KEY)
   } catch {
-    // Sans mémorisation, le prochain dialogue repartira de zéro comme avant.
+    // Sans mémorisation, le contexte repart de zéro au rechargement.
+  }
+}
+
+export function readCurrentPanierRaw(): string | null {
+  if (typeof window === "undefined") return null
+  try {
+    return window.localStorage.getItem(CURRENT_PANIER_STORAGE_KEY)
+  } catch {
+    return null
   }
 }
