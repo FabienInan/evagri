@@ -16,6 +16,8 @@ import { Switch } from "@/components/ui/switch"
 import type { FilterConfig, FilterInput } from "@/types/filter"
 import { parseMultiValue } from "@/lib/multi-value"
 import { cn } from "@/lib/utils"
+import { ValueSuggestInput } from "@/components/value-suggest-input"
+import { NOMS_MRC_QUEBEC } from "@/lib/referentiel/mrc-quebec"
 
 type VirtualOption = { label: string; value: string }
 
@@ -331,6 +333,19 @@ export function TransactionFilters({
                       <option value="true">Oui</option>
                       <option value="false">Non</option>
                     </select>
+                  ) : (f.champ?.codeMachine ?? f.codeMachine) === "mrc" ? (
+                    <ValueSuggestInput
+                      placeholder="valeur"
+                      multiValue={currentOperator === "in"}
+                      options={NOMS_MRC_QUEBEC}
+                      value={values[f.id]?.value || ""}
+                      onChange={(value) =>
+                        setValues((prev) => ({
+                          ...prev,
+                          [f.id]: { ...(prev[f.id] || { operator: defaultOperator(f.typeFiltre) }), value },
+                        }))
+                      }
+                    />
                   ) : (
                     <Input
                       className="min-w-0 flex-1 text-sm"
