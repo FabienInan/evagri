@@ -45,6 +45,7 @@ export default async function PanierPage({
         dateEvaluation={panier.dossier.dateEvaluation ? panier.dossier.dateEvaluation.toISOString().slice(0, 10) : null}
         tauxCroissancePct={serialized.tauxCroissancePct}
         typeTransactionNom={serialized.typeTransactionNom}
+        typeTransactionCode={serialized.typeTransactionCode}
       />
     </div>
   )

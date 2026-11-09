@@ -17,6 +17,8 @@ export type SerializedPanier = {
   numeroDossier: string
   typeTransactionId: string | null
   typeTransactionNom: string | null
+  /** Code du type (`Typologie.code`, ex. TERRES_CULTIVEES), qui choisit les colonnes affichées. */
+  typeTransactionCode: string | null
   /** Taux de croissance annuel en pourcentage (3.25 pour 3,25 %), fixé à la création du panier. */
   tauxCroissancePct: number | null
   createdAt: string
@@ -54,6 +56,7 @@ export function serializePanier(panier: PanierWithRelations): SerializedPanier {
     numeroDossier: panier.dossier.numeroDossier,
     typeTransactionId: panier.typeTransactionId,
     typeTransactionNom: panier.typeTransaction?.nom ?? null,
+    typeTransactionCode: panier.typeTransaction?.code ?? null,
     tauxCroissancePct: panier.tauxCroissance === null ? null : panier.tauxCroissance.toNumber() * 100,
     createdAt: panier.createdAt.toISOString(),
     transactionCount: panier._count.transactions,

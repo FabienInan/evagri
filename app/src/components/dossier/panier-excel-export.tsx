@@ -13,6 +13,7 @@ import {
 } from "@/lib/excel-export"
 import type { ImportedField } from "@/lib/imported-fields"
 import { computeIndicateursAjustesByTransaction } from "@/lib/analyse-dossier"
+import { collectFieldCodes } from "@/lib/panier-columns"
 import type { ChampEnrichissableConfig } from "@/types/champ"
 import type { SerializedTransaction } from "@/types/transaction"
 
@@ -34,6 +35,7 @@ export function PanierExcelExport({
   champs,
   dateEvaluation,
   tauxCroissancePct,
+  typeTransactionCode,
 }: {
   transactions: SerializedTransaction[]
   nom: string
@@ -41,8 +43,16 @@ export function PanierExcelExport({
   champs: ChampEnrichissableConfig[]
   dateEvaluation: string | null
   tauxCroissancePct: number | null
+  typeTransactionCode: string | null
 }) {
-  const columns = useMemo(() => buildExportColumns(importedFields, champs), [importedFields, champs])
+  const candidates = useMemo(
+    () => collectFieldCodes(champs, importedFields.map((field) => field.code), transactions),
+    [champs, importedFields, transactions]
+  )
+  const columns = useMemo(
+    () => buildExportColumns(importedFields, champs, typeTransactionCode, candidates),
+    [importedFields, champs, typeTransactionCode, candidates]
+  )
   const indicateursDisponibles = dateEvaluation !== null && tauxCroissancePct !== null
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(
@@ -95,6 +105,8 @@ export function PanierExcelExport({
         champs,
         adjustedByTransaction,
         selectedKeys: selected,
+        typeCode: typeTransactionCode,
+        candidates,
       })
       // Chargé à la demande : la génération du classeur ne pèse pas sur le chargement initial du panier.
       const XLSX = await import("xlsx")
@@ -110,10 +122,16 @@ export function PanierExcelExport({
     }
   }
 
-  const groups = NATURE_ORDER.map((nature) => ({
-    nature,
-    columns: columns.filter((column) => column.nature === nature),
-  })).filter((group) => group.columns.length > 0)
+  // Colonnes du type en tête, dans l'ordre prévu ; les autres colonnes restent disponibles, décochées par défaut.
+  const typeColumns = columns.filter((column) => column.inType)
+  const otherColumns = columns.filter((column) => !column.inType)
+  const groups = [
+    ...(typeColumns.length > 0 ? [{ title: "Colonnes de ce type de transaction", columns: typeColumns }] : []),
+    ...NATURE_ORDER.map((nature) => ({
+      title: EXPORT_NATURE_LABELS[nature],
+      columns: otherColumns.filter((column) => column.nature === nature),
+    })),
+  ].filter((group) => group.columns.length > 0)
 
   return (
     <>
@@ -160,8 +178,8 @@ export function PanierExcelExport({
             <fieldset className="space-y-3">
               <legend className="text-xs font-semibold text-muted-foreground">Colonnes à inclure</legend>
               {groups.map((group) => (
-                <div key={group.nature} className="space-y-1">
-                  <p className="text-xs font-medium text-foreground">{EXPORT_NATURE_LABELS[group.nature]}</p>
+                <div key={group.title} className="space-y-1">
+                  <p className="text-xs font-medium text-foreground">{group.title}</p>
                   <div className="grid gap-1 sm:grid-cols-2">
                     {group.columns.map((column) => (
                       <label

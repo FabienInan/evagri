@@ -1,16 +1,19 @@
 import type { ChampEnrichissableConfig, TypeDonneesChamp } from "@/types/champ"
 import { isImportedFieldCode, type ImportedField } from "@/lib/imported-fields"
 import type { SerializedTransaction, SerializedValue } from "@/types/transaction"
+import { panierColumnsForType, resolvePanierFieldCode } from "@/lib/panier-columns"
 
 export type ExportColumnNature = "importe" | "saisissable" | "calcule" | "ajuste"
 
 export interface ExportColumn {
-  /** codeMachine du champ, ou clé fixe pour un indicateur ajusté. */
+  /** codeMachine du champ réel, ou clé fixe pour un indicateur ajusté. */
   key: string
   label: string
   nature: ExportColumnNature
   typeDonnees: TypeDonneesChamp
   defaultVisible: boolean
+  /** Colonne prévue pour le type de transaction du panier (en tête de l'export). */
+  inType?: boolean
 }
 
 export const EXPORT_NATURE_LABELS: Record<ExportColumnNature, string> = {
@@ -47,7 +50,9 @@ export interface ExportAnalysisParams {
  */
 export function buildExportColumns(
   importedFields: ImportedField[],
-  champs: ChampEnrichissableConfig[]
+  champs: ChampEnrichissableConfig[],
+  typeCode: string | null = null,
+  candidates: readonly string[] = []
 ): ExportColumn[] {
   const imported: ExportColumn[] = importedFields.map((field) => ({
     key: field.code,
@@ -73,7 +78,35 @@ export function buildExportColumns(
       defaultVisible: champ.estAffiche,
     }))
 
-  return [...imported, ...enrichis, ...ADJUSTED_EXPORT_COLUMNS]
+  const base = [...imported, ...enrichis, ...ADJUSTED_EXPORT_COLUMNS]
+  const spec = panierColumnsForType(typeCode)
+  if (!spec) return base
+
+  // Colonnes du type, dans l'ordre prévu. Un nom absent de la base est rapproché d'un champ réel (casse,
+  // accents, une lettre d'écart) ; à défaut, la clé prévue est conservée.
+  const typed: ExportColumn[] = spec.map((column) => {
+    if (column.kind === "ajuste") {
+      return { key: column.key, label: column.label, nature: "ajuste", typeDonnees: column.typeDonnees, defaultVisible: true, inType: true }
+    }
+    const code = resolvePanierFieldCode(column.key, candidates) ?? column.key
+    const champ = champs.find((c) => c.codeMachine === code)
+    const nature: ExportColumnNature = champ
+      ? champ.nature === "CALCULE"
+        ? "calcule"
+        : champ.nature === "IMPORTE"
+          ? "importe"
+          : "saisissable"
+      : isImportedFieldCode(code)
+        ? "importe"
+        : "saisissable"
+    return { key: code, label: column.label, nature, typeDonnees: column.typeDonnees, defaultVisible: true, inType: true }
+  })
+
+  const typedKeys = new Set(typed.map((column) => column.key))
+  const rest = base
+    .filter((column) => !typedKeys.has(column.key))
+    .map((column) => ({ ...column, defaultVisible: false }))
+  return [...typed, ...rest]
 }
 
 function toNumber(value: unknown): number | null {
@@ -235,9 +268,12 @@ export function buildExportTable(input: {
   champs: ChampEnrichissableConfig[]
   adjustedByTransaction: Record<string, Record<string, number | null>>
   selectedKeys: Iterable<string>
+  typeCode?: string | null
+  candidates?: readonly string[]
 }): ExportTable {
   const selected = new Set(input.selectedKeys)
-  const columns = buildExportColumns(input.importedFields, input.champs).filter((column) => selected.has(column.key))
+  const columns = buildExportColumns(input.importedFields, input.champs, input.typeCode ?? null, input.candidates ?? [])
+    .filter((column) => selected.has(column.key))
 
   const rows = input.transactions.map((transaction) => {
     const adjusted = input.adjustedByTransaction[transaction.id] ?? {}

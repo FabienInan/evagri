@@ -11,6 +11,13 @@ import { removeTransactionFromPanier } from "@/server/actions/dossier"
 import { sortTransactionRows } from "@/lib/transaction-sort"
 import { buildPanierDetailQuery } from "@/lib/transaction-filters"
 import { buildTransactionFieldColumns } from "@/lib/transaction-columns"
+import { formatCellValue } from "@/lib/format"
+import { computeIndicateursAjustesByTransaction } from "@/lib/analyse-dossier"
+import {
+  collectFieldCodes,
+  panierColumnsForType,
+  resolvePanierFieldCode,
+} from "@/lib/panier-columns"
 import {
   DEFAULT_PANIER_SORT,
   loadPanierSort,
@@ -31,13 +38,43 @@ const PanierMapExport = dynamic(
 function usePanierColumns(
   importedFields: ImportedField[],
   champs: ChampEnrichissableConfig[],
+  typeCode: string | null,
+  candidates: readonly string[],
+  adjustedById: Record<string, Record<string, number | null>>,
   onView: (row: SerializedTransaction) => void,
   onRemove: (row: SerializedTransaction) => void
 ): DataTableColumn<SerializedTransaction>[] {
   return useMemo(() => {
-    // Mêmes colonnes et visibilité par défaut que la liste des transactions : seuls les champs importés
-    // apparaissent ; les champs enrichissables sont masqués par défaut et réactivables via « Colonnes ».
-    const fieldCols = buildTransactionFieldColumns({ importedFields, champs })
+    // Un panier typé affiche exactement les colonnes prévues pour son type ; sans type, on garde les colonnes
+    // de la liste des transactions (champs importés visibles, enrichissables masquées par défaut).
+    const spec = panierColumnsForType(typeCode)
+    const fieldCols: DataTableColumn<SerializedTransaction>[] = spec
+      ? spec.map((column) => {
+          if (column.kind === "ajuste") {
+            return {
+              key: column.key,
+              label: column.label,
+              numeric: true,
+              sortable: false,
+              defaultVisible: true,
+              minWidth: 130,
+              priority: 1,
+              render: (row) => formatCellValue(adjustedById[row.id]?.[column.key] ?? null, column.typeDonnees),
+            }
+          }
+          const code = resolvePanierFieldCode(column.key, candidates) ?? column.key
+          return {
+            key: code,
+            label: column.label,
+            numeric: column.typeDonnees === "DECIMAL" || column.typeDonnees === "ENTIER",
+            sortable: true,
+            defaultVisible: true,
+            minWidth: 130,
+            priority: 1,
+            render: (row) => formatCellValue(row.fields[code], column.typeDonnees),
+          }
+        })
+      : buildTransactionFieldColumns({ importedFields, champs })
 
     const actionCol: DataTableColumn<SerializedTransaction> = {
       key: "retirer",
@@ -72,7 +109,7 @@ function usePanierColumns(
     }
 
     return [...fieldCols, actionCol]
-  }, [importedFields, champs, onView, onRemove])
+  }, [importedFields, champs, typeCode, candidates, adjustedById, onView, onRemove])
 }
 
 export function PanierView({
@@ -84,6 +121,7 @@ export function PanierView({
   dateEvaluation,
   tauxCroissancePct,
   typeTransactionNom,
+  typeTransactionCode,
 }: {
   panierId: string
   nom: string
@@ -96,8 +134,13 @@ export function PanierView({
   tauxCroissancePct: number | null
   /** Type de transaction du panier, affiché à côté de son nom. */
   typeTransactionNom: string | null
+  /** Code du type (`Typologie.code`), qui choisit les colonnes affichées. */
+  typeTransactionCode: string | null
 }) {
   const [rows, setRows] = useState(transactions)
+  // Préférences de colonnes propres au type : un changement de configuration par type ne reprend pas l'ancien
+  // réglage enregistré dans le navigateur pour ce panier.
+  const tableStorageKey = `panier-table:${panierId}:${typeTransactionCode ?? "defaut"}`
   const sortStorageKey = panierSortStorageKey(panierId)
   const [sortField, setSortField] = useState(DEFAULT_PANIER_SORT.field)
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">(DEFAULT_PANIER_SORT.order)
@@ -143,7 +186,28 @@ export function PanierView({
     })
   }
 
-  const columns = usePanierColumns(importedFields, champs, handleView, handleRemove)
+  // Indicateurs ajustés affichés dans la liste : mêmes calculs que l'export, à partir du dossier et du panier.
+  const adjustedById = useMemo(
+    () =>
+      dateEvaluation !== null && tauxCroissancePct !== null
+        ? computeIndicateursAjustesByTransaction({ dateEvaluation, tauxCroissancePct }, rows)
+        : {},
+    [rows, dateEvaluation, tauxCroissancePct]
+  )
+  const candidates = useMemo(
+    () => collectFieldCodes(champs, importedFields.map((field) => field.code), rows),
+    [champs, importedFields, rows]
+  )
+
+  const columns = usePanierColumns(
+    importedFields,
+    champs,
+    typeTransactionCode,
+    candidates,
+    adjustedById,
+    handleView,
+    handleRemove
+  )
   const sorted = useMemo(
     () => sortTransactionRows(rows, sortField, sortOrder),
     [rows, sortField, sortOrder]
@@ -151,7 +215,7 @@ export function PanierView({
 
   return (
     <DataTable
-      storageKey={`panier-table:${panierId}`}
+      storageKey={tableStorageKey}
       columns={columns}
       rows={sorted}
       rowKey={(row) => row.id}
@@ -180,6 +244,7 @@ export function PanierView({
             champs={champs}
             dateEvaluation={dateEvaluation}
             tauxCroissancePct={tauxCroissancePct}
+            typeTransactionCode={typeTransactionCode}
           />
           <PanierMapExport transactions={rows} nom={nom} />
         </>
