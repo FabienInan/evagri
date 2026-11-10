@@ -163,3 +163,25 @@ export function toFicheSections(state: FicheLayoutState): FicheSection[] {
     champs: state.containers[section.id] ?? [],
   }))
 }
+
+/**
+ * Ajoute un champ à la section « Champs à enrichir » d'une disposition enregistrée (ou crée cette section).
+ * Renvoie la disposition inchangée si le champ y figure déjà.
+ */
+export function placeChampInSections(sections: FicheSection[], champId: string): FicheSection[] {
+  if (sections.some((section) => section.champs.includes(champId))) return sections
+
+  const next = sections.map((section) => ({ ...section, champs: [...section.champs] }))
+  const target = next.find((s) => s.id === DEFAULT_SECTION_ID || s.nom === DEFAULT_SECTION_NAME)
+  if (target) {
+    target.champs.push(champId)
+    return next
+  }
+  next.push({
+    id: newSectionId(),
+    nom: DEFAULT_SECTION_NAME,
+    ordre: next.length,
+    champs: [champId],
+  })
+  return next
+}

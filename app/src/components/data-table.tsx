@@ -335,6 +335,12 @@ export interface DataTableProps<T> {
   columnMenuAlphabetical?: boolean
   /** Adds a search field to the "Colonnes" menu to filter columns by label. Defaults to false. */
   columnMenuSearchable?: boolean
+  /**
+   * Masque automatiquement les colonnes qui ne tiennent pas dans la largeur (les dernières sont retirées).
+   * Mettre à false pour garder toutes les colonnes visibles par défaut : le tableau défile alors horizontalement,
+   * et le menu « Colonnes » permet toujours de masquer. Défaut : true.
+   */
+  fitToWidth?: boolean
 }
 
 export function DataTable<T>({
@@ -357,6 +363,7 @@ export function DataTable<T>({
   fillHeight = false,
   columnMenuAlphabetical = false,
   columnMenuSearchable = false,
+  fitToWidth = true,
 }: DataTableProps<T>) {
   const visibleStorageKey = `evagri:${storageKey}:visible-columns`
   const orderStorageKey = `evagri:${storageKey}:column-order`
@@ -368,8 +375,14 @@ export function DataTable<T>({
     [columns]
   )
   const columnMeta = useMemo(
-    () => columns.map((c) => ({ key: c.key, minWidth: c.minWidth ?? 120, priority: c.priority ?? 1 })),
-    [columns]
+    // Sans ajustement à la largeur, une largeur minimale nulle garde toutes les colonnes visibles.
+    () =>
+      columns.map((c) => ({
+        key: c.key,
+        minWidth: fitToWidth ? (c.minWidth ?? 120) : 0,
+        priority: c.priority ?? 1,
+      })),
+    [columns, fitToWidth]
   )
 
   const {

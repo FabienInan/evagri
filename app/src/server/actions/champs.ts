@@ -15,6 +15,7 @@ import { deriveEstLectureSeule, formatChampInputErrors, normalizeChampInput, val
 import { IMPORTED_FIELDS } from "@/lib/imported-fields"
 import { inferTypeDonneesFromRule } from "@/lib/calculator"
 import { recalculerChampsCalcules } from "@/services/calcul.service"
+import { placeChampInFicheLayout } from "@/server/fiche-layout"
 import type { ChampEnrichissableConfig, ChampEnrichissableInput, TypeDonneesChamp } from "@/types/champ"
 import { champInputSchema, type ChampInput } from "@/validators/champ.validator"
 
@@ -127,7 +128,13 @@ export async function createChamp(input: ChampInput): Promise<CreateChampResult>
     await recalculerChampsCalcules(organisationId)
   }
 
+  // Un champ à enrichir doit apparaître sur les fiches déjà existantes : on le place dans la disposition.
+  if (champ.nature !== "CALCULE") {
+    await placeChampInFicheLayout(organisationId, champ.id)
+  }
+
   revalidatePath("/admin/champs")
+  revalidatePath("/transactions")
   return { ok: true, champ }
 }
 

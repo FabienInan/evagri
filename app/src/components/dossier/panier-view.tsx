@@ -224,6 +224,8 @@ export function PanierView({
       onSort={handleSort}
       columnMenuAlphabetical
       columnMenuSearchable
+      // Un panier typé affiche toutes ses colonnes prévues par défaut, quitte à faire défiler le tableau.
+      fitToWidth={typeTransactionCode === null}
       title={
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate">{nom}</span>

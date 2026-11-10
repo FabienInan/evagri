@@ -1,7 +1,7 @@
 import type { FicheSection } from "@/types/champ"
 import { listChampsEnrichissablesByOrganisation } from "@/repositories/champs.repository"
-import { findSavedFicheLayout } from "@/repositories/fiche-layout.repository"
-import { buildDefaultFicheLayout } from "@/lib/fiche-layout"
+import { findSavedFicheLayout, saveFicheLayout } from "@/repositories/fiche-layout.repository"
+import { buildDefaultFicheLayout, placeChampInSections } from "@/lib/fiche-layout"
 import { TYPE_TRANSACTION_CODE } from "@/lib/fiche"
 
 /**
@@ -32,4 +32,16 @@ export async function getEffectiveFicheLayout(organisationId: string): Promise<F
   const enrichChampIds = (obligatoires.length > 0 ? obligatoires : saisissables).map((c) => c.id)
 
   return buildDefaultFicheLayout({ importedChampIds, enrichChampIds })
+}
+
+/**
+ * Place un champ nouvellement créé dans la disposition enregistrée, sinon il reste hors section et n'apparaît
+ * sur aucune fiche existante. Sans disposition enregistrée, la disposition par défaut le prend déjà en compte.
+ */
+export async function placeChampInFicheLayout(organisationId: string, champId: string): Promise<void> {
+  const saved = await findSavedFicheLayout(organisationId)
+  if (saved === null) return
+  const next = placeChampInSections(saved, champId)
+  if (next === saved) return
+  await saveFicheLayout(organisationId, next)
 }
