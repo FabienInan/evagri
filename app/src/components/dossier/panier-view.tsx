@@ -41,10 +41,23 @@ function usePanierColumns(
   typeCode: string | null,
   candidates: readonly string[],
   adjustedById: Record<string, Record<string, number | null>>,
+  numeroById: Record<string, number>,
   onView: (row: SerializedTransaction) => void,
   onRemove: (row: SerializedTransaction) => void
 ): DataTableColumn<SerializedTransaction>[] {
   return useMemo(() => {
+    // Numéro de la transaction dans la liste affichée (1, 2, 3…), repris sur la carte exportée.
+    const numeroCol: DataTableColumn<SerializedTransaction> = {
+      key: "numero_transaction",
+      label: "N°",
+      numeric: true,
+      sortable: false,
+      defaultVisible: true,
+      minWidth: 56,
+      priority: 10,
+      render: (row) => (numeroById[row.id] !== undefined ? String(numeroById[row.id]) : "—"),
+    }
+
     // Un panier typé affiche exactement les colonnes prévues pour son type ; sans type, on garde les colonnes
     // de la liste des transactions (champs importés visibles, enrichissables masquées par défaut).
     const spec = panierColumnsForType(typeCode)
@@ -122,8 +135,8 @@ function usePanierColumns(
       ),
     }
 
-    return [...fieldCols, actionCol]
-  }, [importedFields, champs, typeCode, candidates, adjustedById, onView, onRemove])
+    return [numeroCol, ...fieldCols, actionCol]
+  }, [importedFields, champs, typeCode, candidates, adjustedById, numeroById, onView, onRemove])
 }
 
 export function PanierView({
@@ -213,18 +226,27 @@ export function PanierView({
     [champs, importedFields, rows]
   )
 
+  const sorted = useMemo(
+    () => sortTransactionRows(rows, sortField, sortOrder),
+    [rows, sortField, sortOrder]
+  )
+  const numeroById = useMemo(() => {
+    const map: Record<string, number> = {}
+    sorted.forEach((row, index) => {
+      map[row.id] = index + 1
+    })
+    return map
+  }, [sorted])
+
   const columns = usePanierColumns(
     importedFields,
     champs,
     typeTransactionCode,
     candidates,
     adjustedById,
+    numeroById,
     handleView,
     handleRemove
-  )
-  const sorted = useMemo(
-    () => sortTransactionRows(rows, sortField, sortOrder),
-    [rows, sortField, sortOrder]
   )
 
   return (
@@ -262,7 +284,7 @@ export function PanierView({
             tauxCroissancePct={tauxCroissancePct}
             typeTransactionCode={typeTransactionCode}
           />
-          <PanierMapExport transactions={rows} nom={nom} />
+          <PanierMapExport transactions={sorted} nom={nom} numerotation="ordre" />
         </>
       }
       emptyMessage="Aucune transaction dans ce panier"

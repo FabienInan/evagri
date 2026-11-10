@@ -81,3 +81,20 @@ describe("pointsToBounds", () => {
     ])
   })
 })
+
+describe("buildMapPoints numérotation par ordre", () => {
+  it("numérote 1, 2, 3 selon la liste, en comptant les transactions non géolocalisées", () => {
+    const points = buildMapPoints(
+      [
+        { id: "a", latitude: 45.1, longitude: -72.1, fields: { numero_inscription: "111" } },
+        { id: "b", latitude: null, longitude: null, fields: { numero_inscription: "222" } },
+        { id: "c", latitude: 45.3, longitude: -72.3, fields: { numero_inscription: "333" } },
+      ] as never,
+      { numerotation: "ordre" }
+    )
+    expect(points.map((p) => [p.id, p.numero])).toEqual([
+      ["a", "1"],
+      ["c", "3"],
+    ])
+  })
+})

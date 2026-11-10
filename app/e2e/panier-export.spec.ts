@@ -13,9 +13,8 @@ test("exporte la carte du panier en PNG", async ({ page }) => {
   const button = page.getByRole("button", { name: "Exporter la carte" })
   await expect(button).toBeEnabled()
 
-  // Un pin par transaction géolocalisée, portant le seul numéro de vente (§7.10).
-  await expect(page.locator(".panier-export-pin-inner", { hasText: fx.numeros.t1 })).toHaveCount(1)
-  await expect(page.locator(".panier-export-pin-inner", { hasText: fx.numeros.t2 })).toHaveCount(1)
+  // Un pin par transaction géolocalisée, numéroté 1, 2… selon l'ordre de la liste du panier.
+  await expect(page.locator(".panier-export-pin-inner")).toHaveText(["1", "2"])
 
   const [download] = await Promise.all([page.waitForEvent("download"), button.click()])
 

@@ -67,11 +67,14 @@ function slugify(value: string): string {
 export function PanierMapExport({
   transactions,
   nom,
+  numerotation = "numero_vente",
 }: {
   transactions: SerializedTransaction[]
   nom: string
+  /** `ordre` : pastilles numérotées 1, 2, 3… selon la liste ; `numero_vente` : numéro de vente (défaut). */
+  numerotation?: "numero_vente" | "ordre"
 }) {
-  const points = useMemo(() => buildMapPoints(transactions), [transactions])
+  const points = useMemo(() => buildMapPoints(transactions, { numerotation }), [transactions, numerotation])
   const tauxClasses = useMemo(
     () => computeTauxClasses(points.flatMap((p) => (p.taux === null ? [] : [p.taux]))),
     [points]

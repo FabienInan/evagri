@@ -6,9 +6,10 @@ const fx = fixtures()
 test("affiche par défaut les mêmes colonnes de champs que la liste des transactions", async ({ page }) => {
   await page.goto(`/paniers/${fx.paniers.source}`)
 
-  // Mêmes champs importés visibles que /transactions, dans le même ordre, puis la colonne de retrait
-  // (sans libellé). Les champs enrichissables et les indicateurs calculés restent masqués par défaut.
+  // Numéro de la transaction dans la liste, puis mêmes champs importés visibles que /transactions, dans le même
+  // ordre, et la colonne de retrait (sans libellé). Les champs enrichissables et les indicateurs restent masqués.
   await expect(page.getByRole("columnheader")).toHaveText([
+    "N°",
     "N° d'inscription",
     "Date de vente",
     "Prix à l'acte",
