@@ -56,7 +56,6 @@ export const PANIER_COLUMNS_BY_TYPE: Record<string, PanierColumnSpec[]> = {
   ],
   TERRES_BOISEES: [
     ...COMMUN,
-    champ("superficie_boise_ha", "Superficie boisée (ha)", "DECIMAL"),
     champ("peuplement_feuillu", "Proportion de feuillus (%)", "ENTIER"),
     champ("densite_plantation", "Densité de plantation", "DECIMAL"),
     champ("superficie_acricole_ha", "Superficie acéricole (ha)", "DECIMAL"),

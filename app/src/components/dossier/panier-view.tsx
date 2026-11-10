@@ -167,7 +167,8 @@ export function PanierView({
   const [rows, setRows] = useState(transactions)
   // Préférences de colonnes propres au type : un changement de configuration par type ne reprend pas l'ancien
   // réglage enregistré dans le navigateur pour ce panier.
-  const tableStorageKey = `panier-table:${panierId}:${typeTransactionCode ?? "defaut"}`
+  // v2 : réinitialise les colonnes affichées enregistrées avant la configuration par type.
+  const tableStorageKey = `panier-table:v2:${panierId}:${typeTransactionCode ?? "defaut"}`
   const sortStorageKey = panierSortStorageKey(panierId)
   const [sortField, setSortField] = useState(DEFAULT_PANIER_SORT.field)
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">(DEFAULT_PANIER_SORT.order)
