@@ -25,6 +25,7 @@ import {
   savePanierSort,
 } from "@/lib/panier-sort-preference"
 import { PanierExcelExport } from "@/components/dossier/panier-excel-export"
+import { PanierDeleteButton } from "@/components/dossier/panier-delete-button"
 import type { ImportedField } from "@/lib/imported-fields"
 import type { SerializedTransaction } from "@/types/transaction"
 import type { ChampEnrichissableConfig } from "@/types/champ"
@@ -286,6 +287,7 @@ export function PanierView({
             typeTransactionCode={typeTransactionCode}
           />
           <PanierMapExport transactions={sorted} nom={nom} numerotation="ordre" />
+          <PanierDeleteButton panierId={panierId} nom={nom} />
         </>
       }
       emptyMessage="Aucune transaction dans ce panier"

@@ -149,3 +149,17 @@ export async function countEligibleTransactions(
     where: { id: { in: transactionIds }, organisationId, statut: "ANALYSEE" },
   })
 }
+
+/**
+ * Supprime le panier et ses liens vers les transactions. Les transactions elles-mêmes restent intactes :
+ * seul le regroupement disparaît. Retourne false si le panier n'appartient pas à l'organisation.
+ */
+export async function deletePanier(organisationId: string, panierId: string): Promise<boolean> {
+  return prisma.$transaction(async (tx) => {
+    const panier = await tx.panier.findFirst({ where: { id: panierId, organisationId }, select: { id: true } })
+    if (!panier) return false
+    await tx.panierTransaction.deleteMany({ where: { panierId } })
+    await tx.panier.delete({ where: { id: panierId } })
+    return true
+  })
+}

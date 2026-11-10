@@ -8,6 +8,7 @@ import {
   countEligibleTransactions,
   createDossier as repoCreateDossier,
   createPanier as repoCreatePanier,
+  deletePanier as repoDeletePanier,
   findDossierById,
   findDossierByNumero,
   findPanierById,
@@ -81,6 +82,23 @@ export async function createPanier(input: {
   const panier = await repoCreatePanier(organisationId, parsed.data)
   revalidatePath(`/dossiers/${parsed.data.dossierId}`)
   return { ok: true, id: panier.id }
+}
+
+/** Supprime un panier sans toucher aux transactions qu'il regroupait. Renvoie le dossier pour la redirection. */
+export async function deletePanier(
+  panierId: string
+): Promise<{ ok: true; dossierId: string } | { ok: false; error: string }> {
+  const organisationId = getCurrentOrganisationId()
+  const panier = await findPanierById(organisationId, panierId)
+  if (!panier) return { ok: false, error: "Panier introuvable." }
+
+  const dossierId = panier.dossierId
+  const deleted = await repoDeletePanier(organisationId, panierId)
+  if (!deleted) return { ok: false, error: "Panier introuvable." }
+
+  revalidatePath(`/dossiers/${dossierId}`)
+  revalidatePath(`/paniers/${panierId}`)
+  return { ok: true, dossierId }
 }
 
 /** Transactions déjà dans le panier : la liste masque « Ajouter au panier » pour celles-ci. */

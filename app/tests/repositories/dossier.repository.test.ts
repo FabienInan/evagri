@@ -130,6 +130,21 @@ describe("dossier.repository", () => {
     expect(await countEligibleTransactions(orgId, [analyseeId, nonAnalysee.id])).toBe(1)
   })
 
+  it("supprime un panier et ses liens, sans supprimer les transactions, et refuse une autre organisation", async () => {
+    const { deletePanier, addTransactionsToPanier } = await import("@/repositories/dossier.repository")
+    const panier = await prisma.panier.create({ data: { organisationId: orgId, dossierId, nom: "À supprimer" } })
+    await addTransactionsToPanier(orgId, panier.id, [analyseeId])
+
+    // Panier d'une autre organisation : rien n'est supprimé.
+    expect(await deletePanier(orgId, otherPanierId)).toBe(false)
+    expect(await prisma.panier.findUnique({ where: { id: otherPanierId } })).not.toBeNull()
+
+    expect(await deletePanier(orgId, panier.id)).toBe(true)
+    expect(await prisma.panier.findUnique({ where: { id: panier.id } })).toBeNull()
+    expect(await prisma.panierTransaction.count({ where: { panierId: panier.id } })).toBe(0)
+    expect(await prisma.transaction.findUnique({ where: { id: analyseeId } })).not.toBeNull()
+  })
+
   it("liste les dossiers avec le nombre de paniers", async () => {
     const { listDossiers } = await import("@/repositories/dossier.repository")
     const rows = await listDossiers(orgId)
