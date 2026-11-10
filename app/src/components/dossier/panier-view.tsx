@@ -48,7 +48,8 @@ function usePanierColumns(
     // Un panier typé affiche exactement les colonnes prévues pour son type ; sans type, on garde les colonnes
     // de la liste des transactions (champs importés visibles, enrichissables masquées par défaut).
     const spec = panierColumnsForType(typeCode)
-    const fieldCols: DataTableColumn<SerializedTransaction>[] = spec
+    const allFieldCols = buildTransactionFieldColumns({ importedFields, champs })
+    const typedCols: DataTableColumn<SerializedTransaction>[] = spec
       ? spec.map((column) => {
           if (column.kind === "ajuste") {
             return {
@@ -74,7 +75,20 @@ function usePanierColumns(
             render: (row) => formatCellValue(row.fields[code], column.typeDonnees),
           }
         })
-      : buildTransactionFieldColumns({ importedFields, champs })
+      : allFieldCols
+    // Un panier typé : ses colonnes sont visibles, et toutes les autres colonnes de transaction restent disponibles
+    // dans le menu « Colonnes », masquées par défaut.
+    const fieldCols: DataTableColumn<SerializedTransaction>[] = spec
+      ? (() => {
+          const typedKeys = new Set(typedCols.map((column) => column.key))
+          return [
+            ...typedCols,
+            ...allFieldCols
+              .filter((column) => !typedKeys.has(column.key))
+              .map((column) => ({ ...column, defaultVisible: false })),
+          ]
+        })()
+      : typedCols
 
     const actionCol: DataTableColumn<SerializedTransaction> = {
       key: "retirer",
