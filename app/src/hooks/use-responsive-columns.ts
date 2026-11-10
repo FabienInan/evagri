@@ -36,17 +36,24 @@ export function useResponsiveColumns(
   const measuredContainerRef = useRef<HTMLDivElement | null>(null)
   const columnsRef = useRef(columns)
   const requiredKeysRef = useRef(requiredKeys)
+  const initialVisibleRef = useRef(initialVisible)
 
   useEffect(() => {
     columnsRef.current = columns
     requiredKeysRef.current = requiredKeys
-  }, [columns, requiredKeys])
+    initialVisibleRef.current = initialVisible
+  }, [columns, requiredKeys, initialVisible])
 
   const calculate = useCallback((el: HTMLDivElement) => {
     const width = el.clientWidth
     if (width <= 0) return
+    // Seules les colonnes visibles par défaut entrent dans le calcul : les autres restent masquées tant que
+    // l'utilisateur ne les coche pas dans le menu « Colonnes ».
+    const candidates = columnsRef.current.filter(
+      (c) => initialVisibleRef.current.has(c.key) || requiredKeysRef.current.includes(c.key)
+    )
     setVisibleColumnsState(
-      computeVisibleColumns(columnsRef.current, width, requiredKeysRef.current)
+      computeVisibleColumns(candidates, width, requiredKeysRef.current)
     )
   }, [])
 

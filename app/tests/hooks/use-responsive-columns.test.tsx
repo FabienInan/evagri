@@ -124,7 +124,7 @@ describe("useResponsiveColumns", () => {
   })
 
   it("calculates visible columns from container width", () => {
-    const api = setup(new Set<string>(["a"]))
+    const api = setup(new Set<string>(["a", "b", "c"]))
 
     api.setWidth(180)
     act(() => observer?.trigger(180))
@@ -133,7 +133,7 @@ describe("useResponsiveColumns", () => {
   })
 
   it("persists manual toggle and stops auto calculation", () => {
-    const api = setup(new Set<string>(["a"]))
+    const api = setup(new Set<string>(["a", "b", "c"]))
 
     api.setWidth(180)
     act(() => observer?.trigger(180))
@@ -154,7 +154,7 @@ describe("useResponsiveColumns", () => {
   })
 
   it("reset clears preference and resumes auto calculation", () => {
-    const api = setup(new Set<string>(["a"]))
+    const api = setup(new Set<string>(["a", "b", "c"]))
 
     act(() => api.result.toggleColumn("c"))
 
@@ -165,5 +165,15 @@ describe("useResponsiveColumns", () => {
     expect(api.result.hasUserOverride).toBe(false)
     expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull()
     expect([...api.result.visibleColumns].sort()).toEqual(["a", "b"])
+  })
+
+  it("n'affiche jamais une colonne masquée par défaut, même sans contrainte de largeur", () => {
+    // Un panier typé ne cale pas la largeur (minWidth 0) : seules les colonnes par défaut doivent rester visibles.
+    const api = setup(new Set<string>(["a"]))
+
+    api.setWidth(1000)
+    act(() => observer?.trigger(1000))
+
+    expect([...api.result.visibleColumns]).toEqual(["a"])
   })
 })
