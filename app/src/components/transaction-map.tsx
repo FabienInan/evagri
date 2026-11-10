@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react"
 import { MapContainer, TileLayer } from "react-leaflet"
 import { DrawControl } from "@/components/transaction-map/draw-control"
 import { ClusterLayer } from "@/components/transaction-map/cluster-layer"
+import { TauxLegend } from "@/components/transaction-map/taux-legend"
+import { computeTauxClasses } from "@/lib/taux-classes"
 import { TransactionMapSelectedPanel } from "@/components/transaction-map/selected-panel"
 import { AddToPanierDialog } from "@/components/dossier/add-to-panier-dialog"
 import type { FilterInput } from "@/types/filter"
@@ -26,6 +28,14 @@ export function TransactionMap({ filters, onGeoFilter }: TransactionMapProps) {
     () => mapDataCache.get(filtersCacheKey) ?? []
   )
   const [loadError, setLoadError] = useState<string | null>(null)
+  // Classes de couleur du taux global, calculées sur les transactions affichées (quantiles, comme la légende).
+  const tauxClasses = useMemo(
+    () =>
+      computeTauxClasses(
+        transactions.flatMap((t) => (t.tauxGlobal === null || t.tauxGlobal === undefined ? [] : [t.tauxGlobal]))
+      ),
+    [transactions]
+  )
   const [polygon, setPolygon] = useState<{ lat: number; lng: number }[] | null>(null)
   const [addToPanierIds, setAddToPanierIds] = useState<string[] | null>(null)
   const { selectedIds: pickedIds, toggleSelected, clearSelected } = useSelectedTransactions()
@@ -106,9 +116,12 @@ export function TransactionMap({ filters, onGeoFilter }: TransactionMapProps) {
           transactions={transactions}
           selectedIds={selectedIds}
           onMarkerClick={toggleSelected}
+          tauxClasses={tauxClasses}
         />
         <DrawControl onPolygonChange={setPolygon} />
       </MapContainer>
+
+      <TauxLegend classes={tauxClasses} />
 
       {loadError && (
         <div className="absolute left-1/2 top-3 z-[1000] -translate-x-1/2 rounded-md border border-destructive/40 bg-card px-3 py-2 text-sm text-destructive shadow-md">

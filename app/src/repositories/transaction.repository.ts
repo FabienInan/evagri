@@ -163,6 +163,7 @@ export type MapTransaction = {
   dateVente: Date | null
   prixVente: Prisma.Decimal | null
   superficieTotaleHectare: Prisma.Decimal | null
+  tauxGlobal: Prisma.Decimal | null
   latitude: number | null
   longitude: number | null
   municipalite: string | null
@@ -177,6 +178,7 @@ const MAP_POPUP_CODES = [
   "prix_vente",
   "superficie_totale_hectare",
   "municipalite",
+  "taux_global",
 ] as const
 
 type MapValue = {
@@ -247,6 +249,7 @@ export async function findTransactionsForMap(
       dateVente: values.date_vente?.date ?? null,
       prixVente: values.prix_vente?.nombre ?? null,
       superficieTotaleHectare: values.superficie_totale_hectare?.nombre ?? null,
+      tauxGlobal: values.taux_global?.nombre ?? null,
       latitude,
       longitude,
       municipalite: values.municipalite?.texte ?? null,

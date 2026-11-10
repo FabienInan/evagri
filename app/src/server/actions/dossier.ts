@@ -13,6 +13,7 @@ import {
   findPanierById,
   listDossiers as repoListDossiers,
   listPaniersByDossier,
+  listTransactionIdsOfPanier,
   listTransactionsOfPanier,
   removeTransactionFromPanier as repoRemoveTransaction,
 } from "@/repositories/dossier.repository"
@@ -80,6 +81,14 @@ export async function createPanier(input: {
   const panier = await repoCreatePanier(organisationId, parsed.data)
   revalidatePath(`/dossiers/${parsed.data.dossierId}`)
   return { ok: true, id: panier.id }
+}
+
+/** Transactions déjà dans le panier : la liste masque « Ajouter au panier » pour celles-ci. */
+export async function getPanierTransactionIds(panierId: string): Promise<string[]> {
+  const organisationId = getCurrentOrganisationId()
+  const panier = await findPanierById(organisationId, panierId)
+  if (!panier) return []
+  return listTransactionIdsOfPanier(organisationId, panierId)
 }
 
 export async function addTransactionsToPanier(input: {

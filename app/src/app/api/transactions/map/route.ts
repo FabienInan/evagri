@@ -14,6 +14,7 @@ function serializeMapTransaction(t: MapTransaction) {
     // prime meridian), and truthiness would turn each of those into a null.
     prixVente: num(t.prixVente),
     superficieTotaleHectare: num(t.superficieTotaleHectare),
+    tauxGlobal: num(t.tauxGlobal),
     latitude: t.latitude ?? null,
     longitude: t.longitude ?? null,
     municipalite: t.municipalite ?? null,

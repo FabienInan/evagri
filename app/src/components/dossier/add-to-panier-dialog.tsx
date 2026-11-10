@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { FolderOpen, ListChecks, Plus, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Modal } from "@/components/dossier/modal"
 import { addTransactionsToPanier } from "@/server/actions/dossier"
@@ -14,7 +15,7 @@ function AddToPanierDialogContent({
 }: {
   transactionIds: string[]
   onOpenChange: (open: boolean) => void
-  onAdded?: () => void
+  onAdded?: (transactionIds: string[]) => void
 }) {
   const { current } = useCurrentPanier()
   const [error, setError] = useState<string | null>(null)
@@ -33,39 +34,50 @@ function AddToPanierDialogContent({
     }
     onOpenChange(false)
     // La fiche s'en sert pour passer à la transaction suivante de la liste filtrée.
-    onAdded?.()
+    onAdded?.(transactionIds)
   }
 
   const count = transactionIds.length
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {panierId ? (
-        <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
-          <p className="text-muted-foreground">Panier courant</p>
-          <p className="font-medium text-foreground">{current?.panierNom ?? "Panier sélectionné"}</p>
-          {current?.dossierNumero && (
-            <p className="text-xs text-muted-foreground">Dossier {current.dossierNumero}</p>
-          )}
-        </div>
+        <dl className="divide-y divide-border rounded-lg border border-border bg-muted/30 text-sm">
+          <div className="flex items-center gap-3 px-3 py-2.5">
+            <FolderOpen className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <dt className="w-16 shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">Dossier</dt>
+            <dd className="min-w-0 truncate font-medium text-foreground">{current?.dossierNumero ?? "—"}</dd>
+          </div>
+          <div className="flex items-center gap-3 px-3 py-2.5">
+            <ListChecks className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <dt className="w-16 shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">Panier</dt>
+            <dd className="min-w-0 truncate font-medium text-foreground">{current?.panierNom ?? "Panier sélectionné"}</dd>
+          </div>
+        </dl>
       ) : (
-        <p className="text-sm text-muted-foreground">
-          Aucun panier courant. Choisissez un dossier et un panier dans le menu, en haut de la barre latérale.
-        </p>
+        <div className="flex gap-3 rounded-lg border border-dashed border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+          <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <p>
+            Aucun panier courant. Choisissez un dossier et un panier dans la barre en haut de l&apos;écran.
+          </p>
+        </div>
       )}
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          <span className="font-semibold tabular-nums text-foreground">{count}</span>{" "}
+          transaction{count > 1 ? "s" : ""} sélectionnée{count > 1 ? "s" : ""}
+        </p>
+        {error && <p className="text-right text-sm text-destructive">{error}</p>}
+      </div>
 
-      <p className="text-xs text-muted-foreground">
-        {count} transaction{count > 1 ? "s" : ""} sélectionnée{count > 1 ? "s" : ""}.
-      </p>
-
-      <div className="flex justify-end gap-2 pt-1">
-        <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={saving}>
+      <div className="flex justify-end gap-2 border-t border-border pt-4">
+        <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
           Fermer
         </Button>
-        <Button size="sm" onClick={handleConfirm} disabled={saving || !panierId}>
-          Ajouter
+        <Button onClick={handleConfirm} disabled={saving || !panierId || count === 0}>
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          Ajouter au panier
         </Button>
       </div>
     </div>
@@ -81,7 +93,7 @@ export function AddToPanierDialog({
   transactionIds: string[]
   open: boolean
   onOpenChange: (open: boolean) => void
-  onAdded?: () => void
+  onAdded?: (transactionIds: string[]) => void
 }) {
   if (!open) return null
 

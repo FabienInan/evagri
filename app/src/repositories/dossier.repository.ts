@@ -122,6 +122,15 @@ export async function removeTransactionFromPanier(
   })
 }
 
+/** Identifiants des transactions déjà présentes dans un panier, sans charger leurs valeurs. */
+export async function listTransactionIdsOfPanier(organisationId: string, panierId: string): Promise<string[]> {
+  const rows = await prisma.panierTransaction.findMany({
+    where: { panierId, panier: { organisationId } },
+    select: { transactionId: true },
+  })
+  return rows.map((row) => row.transactionId)
+}
+
 export async function listTransactionsOfPanier(organisationId: string, panierId: string) {
   return prisma.transaction.findMany({
     where: {

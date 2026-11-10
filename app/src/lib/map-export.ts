@@ -6,6 +6,8 @@ export type MapExportPoint = {
   lat: number
   lng: number
   numero: string
+  /** Taux global ($/ha) de la transaction, ou null : détermine la couleur de la pastille. */
+  taux: number | null
 }
 
 /** Coordonnées finies : ni null, ni NaN, ni ±Infinity (0 reste une coordonnée valide). */
@@ -21,11 +23,14 @@ export function buildMapPoints(
   for (const t of transactions) {
     if (!isFiniteCoord(t.latitude) || !isFiniteCoord(t.longitude)) continue
     const numero = t.fields.numero_inscription
+    const taux = t.fields.taux_global
+    const tauxNombre = typeof taux === "number" ? taux : typeof taux === "string" && taux.trim() !== "" ? Number(taux) : NaN
     points.push({
       id: t.id,
       lat: t.latitude,
       lng: t.longitude,
       numero: typeof numero === "string" ? numero : "",
+      taux: Number.isFinite(tauxNombre) ? tauxNombre : null,
     })
   }
   return points

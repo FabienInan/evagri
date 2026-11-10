@@ -5,9 +5,10 @@ import { listDossiers, listPaniersForDossier } from "@/server/actions/dossier"
 import { useCurrentPanier } from "@/components/current-panier-context"
 import type { SerializedDossier, SerializedPanier } from "@/serializers/dossier.serializer"
 import { selectStyle } from "@/lib/select-style"
+import { FolderOpen, ListChecks } from "lucide-react"
 
 const SELECT_CLASS =
-  "h-8 w-44 min-w-0 truncate rounded-md border border-border bg-card px-2 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+  "h-8 w-40 min-w-0 truncate rounded-md border-0 bg-transparent text-sm font-medium text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
 
 /**
  * Dossier et panier courants, dans la barre horizontale du haut : c'est là qu'on choisit le panier où « Ajouter au
@@ -45,10 +46,12 @@ export function SidebarContext() {
   const paniersDuDossier = paniers.filter((p) => p.dossierId === dossierId)
 
   return (
-    <div className="flex min-w-0 items-center gap-3 rounded-lg border border-border bg-muted/40 px-3 py-1">
-      <label className="flex min-w-0 items-center gap-2">
+    <div className="flex min-w-0 items-stretch divide-x divide-border overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+      <label className="flex min-w-0 items-center gap-2 px-3 py-1">
+        <FolderOpen className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <span className="shrink-0 text-xs font-medium text-muted-foreground">Dossier</span>
-        <select style={selectStyle("0.5rem", "2.25rem")} 
+        <select
+          style={selectStyle("0.25rem", "1.75rem")}
           aria-label="Dossier courant"
           className={SELECT_CLASS}
           value={dossierId}
@@ -66,9 +69,11 @@ export function SidebarContext() {
         </select>
       </label>
 
-      <label className="flex min-w-0 items-center gap-2">
+      <label className="flex min-w-0 items-center gap-2 px-3 py-1">
+        <ListChecks className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <span className="shrink-0 text-xs font-medium text-muted-foreground">Panier</span>
-        <select style={selectStyle("0.5rem", "2.25rem")} 
+        <select
+          style={selectStyle("0.25rem", "1.75rem")}
           aria-label="Panier courant"
           className={SELECT_CLASS}
           value={panierId}

@@ -6,6 +6,7 @@ import L from "leaflet"
 import "./leaflet-plugins"
 import type { MapTransaction } from "./types"
 import { getThemeColors } from "@/lib/theme-colors"
+import { tauxClasseFor, type TauxClasse } from "@/lib/taux-classes"
 
 const pinIcon = new L.Icon({
   iconUrl: "/pin.svg",
@@ -22,10 +23,29 @@ const selectedPinIcon = new L.Icon({
   popupAnchor: [0, -38],
 })
 
+/** Pin de même forme que pin.svg, rempli de la couleur de sa classe de taux global. */
+const tauxPinCache = new Map<string, L.DivIcon>()
+export function tauxPinIcon(color: string): L.DivIcon {
+  let icon = tauxPinCache.get(color)
+  if (!icon) {
+    icon = L.divIcon({
+      className: "taux-pin",
+      html: `<svg width="24" height="36" viewBox="0 0 24 36" xmlns="http://www.w3.org/2000/svg"><path fill="${color}" stroke="#ffffff" stroke-width="1" d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24c0-6.6-5.4-12-12-12z"/><circle cx="12" cy="12" r="5" fill="#fff"/></svg>`,
+      iconSize: [24, 36],
+      iconAnchor: [12, 36],
+      popupAnchor: [0, -38],
+    })
+    tauxPinCache.set(color, icon)
+  }
+  return icon
+}
+
 type ClusterLayerProps = {
   transactions: MapTransaction[]
   selectedIds: Set<string>
   onMarkerClick?: (id: string) => void
+  /** Classes de taux global (quantiles) ; sans elles, tous les pins gardent la couleur par défaut. */
+  tauxClasses?: TauxClasse[]
 }
 
 interface MarkerOptionsWithSelection extends L.MarkerOptions {
@@ -72,7 +92,7 @@ function detailHtml(t: MapTransaction): string {
   </div>`
 }
 
-export function ClusterLayer({ transactions, selectedIds, onMarkerClick }: ClusterLayerProps) {
+export function ClusterLayer({ transactions, selectedIds, onMarkerClick, tauxClasses = [] }: ClusterLayerProps) {
   const map = useMap()
   // One-shot per map mount: don't re-center on every subsequent pin toggle.
   const hasAutoFittedRef = useRef(false)
@@ -84,8 +104,9 @@ export function ClusterLayer({ transactions, selectedIds, onMarkerClick }: Clust
     })
     transactions.forEach((t) => {
       const isSelected = selectedIds.has(t.id)
+      const classe = tauxClasseFor(t.tauxGlobal, tauxClasses)
       const marker = L.marker([t.latitude, t.longitude], {
-        icon: isSelected ? selectedPinIcon : pinIcon,
+        icon: isSelected ? selectedPinIcon : classe ? tauxPinIcon(classe.color) : pinIcon,
         selected: isSelected,
       } as MarkerOptionsWithSelection)
       if (isSelected) {
@@ -117,7 +138,7 @@ export function ClusterLayer({ transactions, selectedIds, onMarkerClick }: Clust
     return () => {
       map.removeLayer(group)
     }
-  }, [map, transactions, selectedIds, onMarkerClick])
+  }, [map, transactions, selectedIds, onMarkerClick, tauxClasses])
 
   return null
 }

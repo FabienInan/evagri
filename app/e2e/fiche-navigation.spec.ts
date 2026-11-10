@@ -95,7 +95,7 @@ test("passe à la suivante après un ajout au panier", async ({ page }) => {
   await page.getByLabel("Dossier courant").selectOption({ label: fx.dossierNumero })
   await page.getByLabel("Panier courant").selectOption({ label: "Cible e2e" })
   await page.getByRole("button", { name: "Ajouter au panier" }).click()
-  await page.getByRole("button", { name: "Ajouter", exact: true }).click()
+  await page.getByRole("dialog", { name: "Ajouter au panier" }).getByRole("button", { name: "Ajouter au panier", exact: true }).click()
 
   // Succès : la fiche suivante de la liste filtrée s'ouvre directement.
   await expect(page).toHaveURL(new RegExp(`/transactions/${fx.transactions.t9}\\?filters=`))

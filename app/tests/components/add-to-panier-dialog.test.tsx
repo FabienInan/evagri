@@ -27,14 +27,14 @@ describe("AddToPanierDialog", () => {
     expect(screen.queryByLabelText("Dossier")).toBeNull()
     expect(screen.queryByLabelText("Panier")).toBeNull()
     expect(screen.getByText("Comparables")).toBeTruthy()
-    expect(screen.getByText("Dossier 25-12-001")).toBeTruthy()
+    expect(screen.getByText("25-12-001")).toBeTruthy()
   })
 
   it("désactive Ajouter et explique où choisir le panier quand aucun n'est courant", () => {
     render(<AddToPanierDialog transactionIds={["t1"]} open onOpenChange={() => {}} />)
 
-    expect(screen.getByRole("button", { name: "Ajouter" }).hasAttribute("disabled")).toBe(true)
-    expect(screen.getByText(/barre latérale/)).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Ajouter au panier" }).hasAttribute("disabled")).toBe(true)
+    expect(screen.getByText(/barre en haut/)).toBeTruthy()
   })
 
   it("ajoute les transactions au panier courant et ferme la fenêtre", async () => {
@@ -43,7 +43,7 @@ describe("AddToPanierDialog", () => {
     const onOpenChange = vi.fn()
     render(<AddToPanierDialog transactionIds={["t1", "t2"]} open onOpenChange={onOpenChange} />)
 
-    fireEvent.click(screen.getByRole("button", { name: "Ajouter" }))
+    fireEvent.click(screen.getByRole("button", { name: "Ajouter au panier" }))
 
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
     expect(addTransactionsToPanier).toHaveBeenCalledWith({ panierId: "p1", transactionIds: ["t1", "t2"] })
@@ -55,7 +55,7 @@ describe("AddToPanierDialog", () => {
     const onOpenChange = vi.fn()
     render(<AddToPanierDialog transactionIds={["t1"]} open onOpenChange={onOpenChange} />)
 
-    fireEvent.click(screen.getByRole("button", { name: "Ajouter" }))
+    fireEvent.click(screen.getByRole("button", { name: "Ajouter au panier" }))
 
     await waitFor(() => expect(screen.getByText("Panier introuvable.")).toBeTruthy())
     expect(onOpenChange).not.toHaveBeenCalled()

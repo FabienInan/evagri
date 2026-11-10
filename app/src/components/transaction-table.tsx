@@ -1,12 +1,14 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Eye, Pencil, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { DataTable, type DataTableColumn } from "@/components/data-table"
 import { AddToPanierDialog } from "@/components/dossier/add-to-panier-dialog"
+import { useCurrentPanier } from "@/components/current-panier-context"
+import { getPanierTransactionIds } from "@/server/actions/dossier"
 import type { SerializedTransaction } from "@/types/transaction"
 import type { ImportedField } from "@/lib/imported-fields"
 import type { ChampEnrichissableConfig } from "@/types/champ"
@@ -41,11 +43,14 @@ function Actions({
   statut,
   detailQuery,
   onAddToPanier,
+  dejaDansPanier,
 }: {
   id: string
   statut: string
   detailQuery: string
   onAddToPanier: () => void
+  /** Vrai quand la transaction est déjà dans le panier courant : pas de « + » pour l'ajouter une seconde fois. */
+  dejaDansPanier: boolean
 }) {
   const router = useRouter()
   const isAnalysee = statut === "ANALYSEE"
@@ -64,15 +69,17 @@ function Actions({
           >
             <Eye className="h-4 w-4" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            title="Ajouter au panier"
-            onClick={onAddToPanier}
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
+          {!dejaDansPanier && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              title="Ajouter au panier"
+              onClick={onAddToPanier}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          )}
         </>
       ) : (
         <Button
@@ -94,7 +101,8 @@ function useTableColumns(
   importedFields: ImportedField[],
   champs: ChampEnrichissableConfig[],
   detailQuery: string,
-  onAddToPanier: (id: string) => void
+  onAddToPanier: (id: string) => void,
+  idsDansPanier: ReadonlySet<string>
 ): DataTableColumn<TransactionRow>[] {
   return useMemo(() => {
     const fieldCols = buildTransactionFieldColumns({ importedFields, champs })
@@ -133,13 +141,14 @@ function useTableColumns(
             statut={row.statut}
             detailQuery={detailQuery}
             onAddToPanier={() => onAddToPanier(row.id)}
+            dejaDansPanier={idsDansPanier.has(row.id)}
           />
         ),
       },
     ]
 
     return [...fieldCols, ...computedCols]
-  }, [importedFields, champs, detailQuery, onAddToPanier])
+  }, [importedFields, champs, detailQuery, onAddToPanier, idsDansPanier])
 }
 
 interface TransactionTableProps {
@@ -174,7 +183,36 @@ export function TransactionTable({
   fillHeight,
 }: TransactionTableProps) {
   const [addToPanierIds, setAddToPanierIds] = useState<string[] | null>(null)
-  const columns = useTableColumns(importedFields, champs, detailQuery, (id) => setAddToPanierIds([id]))
+  const { current } = useCurrentPanier()
+  const panierId = current?.panierId ?? ""
+  // Transactions déjà présentes dans le panier courant, rattachées à ce panier pour ne jamais afficher l'état d'un autre.
+  const [loadedPanier, setLoadedPanier] = useState<{ panierId: string; ids: Set<string> } | null>(null)
+
+  useEffect(() => {
+    if (!panierId) return
+    let cancelled = false
+    getPanierTransactionIds(panierId).then((ids) => {
+      if (!cancelled) setLoadedPanier({ panierId, ids: new Set(ids) })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [panierId])
+
+  const idsDansPanier = useMemo<ReadonlySet<string>>(
+    () => (panierId && loadedPanier?.panierId === panierId ? loadedPanier.ids : new Set<string>()),
+    [panierId, loadedPanier]
+  )
+
+  function marquerAjoutees(ids: string[]) {
+    if (!panierId) return
+    setLoadedPanier((prev) => {
+      const base = prev?.panierId === panierId ? prev.ids : new Set<string>()
+      return { panierId, ids: new Set([...base, ...ids]) }
+    })
+  }
+
+  const columns = useTableColumns(importedFields, champs, detailQuery, (id) => setAddToPanierIds([id]), idsDansPanier)
 
   return (
     <>
@@ -200,6 +238,7 @@ export function TransactionTable({
         onOpenChange={(open) => {
           if (!open) setAddToPanierIds(null)
         }}
+        onAdded={marquerAjoutees}
       />
     </>
   )

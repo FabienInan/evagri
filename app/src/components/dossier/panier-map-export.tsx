@@ -7,6 +7,8 @@ import { toPng } from "html-to-image"
 import { Download, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { buildMapPoints, pointsToBounds } from "@/lib/map-export"
+import { computeTauxClasses, TAUX_PALETTE, tauxClasseFor } from "@/lib/taux-classes"
+import { TauxLegend } from "@/components/transaction-map/taux-legend"
 import type { SerializedTransaction } from "@/serializers/transaction.serializer"
 import "@/components/transaction-map/leaflet-plugins"
 
@@ -34,11 +36,17 @@ function escapeHtml(value: string): string {
   })
 }
 
-/** Pastille arrondie portant le numéro de vente, centrée sur la coordonnée (ancre 0,0 + translate CSS). */
-function createPinIcon(numero: string): L.DivIcon {
+/**
+ * Pastille arrondie portant le numéro de vente, centrée sur la coordonnée (ancre 0,0 + translate CSS).
+ * Sa couleur suit la classe de taux global ; les deux plus claires reçoivent un texte foncé.
+ */
+function createPinIcon(numero: string, color: string | null): L.DivIcon {
+  const style = color
+    ? ` style="background:${color};color:${TAUX_PALETTE.indexOf(color as (typeof TAUX_PALETTE)[number]) < 2 ? "#1f2937" : "#ffffff"}"`
+    : ""
   return L.divIcon({
     className: "panier-export-pin",
-    html: `<div class="panier-export-pin-inner">${escapeHtml(numero || "—")}</div>`,
+    html: `<div class="panier-export-pin-inner"${style}>${escapeHtml(numero || "—")}</div>`,
     iconSize: [0, 0],
   })
 }
@@ -64,6 +72,10 @@ export function PanierMapExport({
   nom: string
 }) {
   const points = useMemo(() => buildMapPoints(transactions), [transactions])
+  const tauxClasses = useMemo(
+    () => computeTauxClasses(points.flatMap((p) => (p.taux === null ? [] : [p.taux]))),
+    [points]
+  )
   const bounds = useMemo(() => pointsToBounds(points), [points])
   const containerRef = useRef<HTMLDivElement>(null)
   // La carte n'est cadrée qu'à son montage : si les transactions changent ensuite, il faut la recadrer.
@@ -147,7 +159,7 @@ export function PanierMapExport({
         >
           {/* Le nœud capturé porte un positionnement neutre : html-to-image clone ses styles, donc un
               `left: -100000px` sur ce nœud décalerait le rendu hors du canvas et donnerait une image vide. */}
-          <div ref={containerRef} style={{ width: "100%", height: "100%" }}>
+          <div ref={containerRef} style={{ width: "100%", height: "100%", position: "relative" }}>
             <MapContainer
               ref={mapRef}
               bounds={bounds}
@@ -172,9 +184,14 @@ export function PanierMapExport({
                 }}
               />
               {points.map((p) => (
-                <Marker key={p.id} position={[p.lat, p.lng]} icon={createPinIcon(p.numero)} />
+                <Marker
+                  key={p.id}
+                  position={[p.lat, p.lng]}
+                  icon={createPinIcon(p.numero, tauxClasseFor(p.taux, tauxClasses)?.color ?? null)}
+                />
               ))}
             </MapContainer>
+            <TauxLegend classes={tauxClasses} />
           </div>
         </div>
       )}

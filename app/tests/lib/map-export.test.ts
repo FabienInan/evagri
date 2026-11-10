@@ -23,7 +23,7 @@ describe("buildMapPoints", () => {
     const points = buildMapPoints([
       tx("a", { latitude: 45.88, longitude: -72.48 }, { numero_inscription: "1234567" }),
     ])
-    expect(points).toEqual([{ id: "a", lat: 45.88, lng: -72.48, numero: "1234567" }])
+    expect(points).toEqual([{ id: "a", lat: 45.88, lng: -72.48, numero: "1234567", taux: null }])
   })
 
   it("écarte les transactions sans latitude ou sans longitude", () => {
@@ -45,7 +45,7 @@ describe("buildMapPoints", () => {
 
   it("accepte la coordonnée 0 (équateur / méridien) sans la confondre avec l'absence", () => {
     const points = buildMapPoints([tx("a", { latitude: 0, longitude: 0 })])
-    expect(points).toEqual([{ id: "a", lat: 0, lng: 0, numero: "" }])
+    expect(points).toEqual([{ id: "a", lat: 0, lng: 0, numero: "", taux: null }])
   })
 
   it("renvoie un numéro vide quand le numéro de vente est absent ou non textuel", () => {
