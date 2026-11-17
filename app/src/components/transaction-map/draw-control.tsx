@@ -35,8 +35,9 @@ export function DrawControl({ onPolygonChange }: DrawControlProps) {
           shapeOptions: {
             color: colors.primary,
             fillColor: colors.primary,
-            fillOpacity: 0.2,
-            weight: 2,
+            // Zone sélectionnée bien visible au-dessus des tuiles de la carte.
+            fillOpacity: 0.45,
+            weight: 3,
           },
         },
       },
