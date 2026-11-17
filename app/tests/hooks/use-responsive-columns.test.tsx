@@ -62,12 +62,14 @@ function setup(initialVisible: Set<string>, initialWidth: number = 0) {
     apiRef.current = result
     setWidthRef.current = setWidth
 
+    // Référence stable de la fonction du hook : évite de dépendre de l'objet `result` à chaque rendu.
+    const registerContainer = result.containerRef
     const setContainer = useCallback(
       (node: HTMLDivElement | null) => {
         containerRef.current = node
-        result.containerRef(node)
+        registerContainer(node)
       },
-      [result.containerRef]
+      [registerContainer]
     )
 
     useLayoutEffect(() => {
@@ -105,6 +107,11 @@ function setup(initialVisible: Set<string>, initialWidth: number = 0) {
 describe("useResponsiveColumns", () => {
   let observer: MockResizeObserver | null = null
 
+  // Le constructeur passe l'instance à ce rangement, sans alias de `this` dans une variable.
+  const keepObserver = (instance: MockResizeObserver) => {
+    observer = instance
+  }
+
   beforeEach(() => {
     clearColumnPreference()
     vi.stubGlobal(
@@ -112,7 +119,7 @@ describe("useResponsiveColumns", () => {
       class extends MockResizeObserver {
         constructor(callback: ResizeObserverCallback) {
           super(callback)
-          observer = this
+          keepObserver(this)
         }
       }
     )

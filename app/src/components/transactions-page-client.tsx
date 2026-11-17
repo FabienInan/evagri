@@ -43,6 +43,20 @@ export function TransactionsPageClient({
   const { visible: showFilters } = useFilterPanelVisibility()
   const sentinelRef = useRef<HTMLDivElement>(null)
 
+  // Resync with fresh server data (router.refresh) only while unfiltered: initialData is always the
+  // unfiltered first page, so applying it under an active filter would silently drop that filter.
+  // Ajustement pendant le rendu (et non dans un effet) : pas d'affichage intermédiaire périmé.
+  const [syncedFrom, setSyncedFrom] = useState({ initialData, filters })
+  if (syncedFrom.initialData !== initialData || syncedFrom.filters !== filters) {
+    setSyncedFrom({ initialData, filters })
+    if (!filters.length) {
+      setTransactions(initialData.transactions)
+      setTotal(initialData.total)
+      setPage(1)
+      setHasMore(initialData.transactions.length < initialData.total)
+    }
+  }
+
   const loadPage = useCallback(
     async (pageNum: number, activeFilters: FilterInput[], reset = false) => {
       setLoading(true)
@@ -68,21 +82,16 @@ export function TransactionsPageClient({
     [sortField, sortOrder]
   )
 
+  // Volontaire : on ne recharge que lorsque les filtres changent (ex. filtre posé depuis la carte, par l'URL).
+  // Dépendre de loadPage relancerait la requête à chaque changement de tri, alors que handleSort recharge déjà la
+  // première page. Le chargement de données à la suite d'un changement externe justifie l'effet ici.
   useEffect(() => {
     if (filters.length) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement déclenché par un changement de filtre
       loadPage(1, filters, true)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- voir le commentaire ci-dessus
   }, [filters])
-
-  // Resync with fresh server data (router.refresh) only while unfiltered: initialData is always the
-  // unfiltered first page, so applying it under an active filter would silently drop that filter.
-  useEffect(() => {
-    if (filters.length) return
-    setTransactions(initialData.transactions)
-    setTotal(initialData.total)
-    setPage(1)
-    setHasMore(initialData.transactions.length < initialData.total)
-  }, [initialData, filters])
 
   useEffect(() => {
     const el = sentinelRef.current

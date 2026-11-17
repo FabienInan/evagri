@@ -86,7 +86,3 @@ export async function geocodeLotsCadastraux(
 ): Promise<{ latitude: number; longitude: number } | null> {
   return (await geocodeLotsDetail(lots)).moyenne
 }
-
-export function clearCadastreCache() {
-  cache.clear()
-}

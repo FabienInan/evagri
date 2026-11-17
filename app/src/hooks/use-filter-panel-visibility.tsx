@@ -1,14 +1,7 @@
 "use client"
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react"
+import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react"
+import { useLocalStorageValue, writeLocalStorage } from "@/lib/local-storage-store"
 
 const STORAGE_KEY = "evagri-transactions-filter-panel-visible"
 
@@ -22,7 +15,8 @@ const FilterPanelVisibilityContext = createContext<FilterPanelVisibilityContextV
 /**
  * Shared filter-panel visibility for the transactions views. Mounted once in the transactions
  * layout so the toolbar (which renders the toggle) and the pages (which render the panel) read the
- * same state and stay in sync.
+ * same state and stay in sync. La valeur mémorisée se lit pendant le rendu (aucun effet) : pas de
+ * décalage après l'hydratation.
  */
 export function FilterPanelVisibilityProvider({
   children,
@@ -31,28 +25,12 @@ export function FilterPanelVisibilityProvider({
   children: ReactNode
   defaultValue?: boolean
 }) {
-  const [visible, setVisible] = useState(defaultValue)
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored !== null) setVisible(stored === "true")
-    } catch {
-      // ignore storage errors
-    }
-  }, [])
+  const stored = useLocalStorageValue(STORAGE_KEY)
+  const visible = stored === null ? defaultValue : stored === "true"
 
   const toggle = useCallback(() => {
-    setVisible((prev) => {
-      const next = !prev
-      try {
-        localStorage.setItem(STORAGE_KEY, String(next))
-      } catch {
-        // ignore storage errors
-      }
-      return next
-    })
-  }, [])
+    writeLocalStorage(STORAGE_KEY, String(!visible))
+  }, [visible])
 
   const value = useMemo(() => ({ visible, toggle }), [visible, toggle])
 

@@ -1,13 +1,15 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import {
   computeVisibleColumns,
-  loadColumnPreference,
+  parseColumnPreference,
   saveColumnPreference,
   clearColumnPreference,
+  DEFAULT_COLUMN_PREFERENCE_KEY,
   type ResponsiveColumn,
 } from "@/lib/responsive-columns"
+import { useLocalStorageValue } from "@/lib/local-storage-store"
 
 function useIsClient() {
   return useSyncExternalStore(
@@ -29,10 +31,19 @@ export function useResponsiveColumns(
     setContainer(node)
   }, [])
 
-  const [visibleColumns, setVisibleColumnsState] = useState<Set<string>>(() => initialVisible)
+  // Colonnes calculées automatiquement (largeur du conteneur) ou initiales.
+  const [computedVisible, setVisibleColumnsState] = useState<Set<string>>(() => initialVisible)
 
-  const [hasUserOverride, setHasUserOverride] = useState(false)
-  const initializedRef = useRef(false)
+  // Préférence de l'utilisateur : lue pendant le rendu depuis le stockage. Dès qu'elle existe, elle remplace le
+  // calcul automatique. Au rendu serveur et à l'hydratation, elle est absente : aucun décalage.
+  const storedRaw = useLocalStorageValue(storageKey ?? DEFAULT_COLUMN_PREFERENCE_KEY)
+  const savedKeys = useMemo(() => parseColumnPreference(storedRaw), [storedRaw])
+  const hasUserOverride = savedKeys !== null
+  const visibleColumns = useMemo(
+    () => (savedKeys !== null ? new Set(savedKeys) : computedVisible),
+    [savedKeys, computedVisible]
+  )
+
   const measuredContainerRef = useRef<HTMLDivElement | null>(null)
   const columnsRef = useRef(columns)
   const requiredKeysRef = useRef(requiredKeys)
@@ -57,17 +68,6 @@ export function useResponsiveColumns(
     )
   }, [])
 
-  // Load saved preference once on client to avoid SSR mismatch
-  useEffect(() => {
-    if (!isClient || initializedRef.current) return
-    initializedRef.current = true
-    const saved = loadColumnPreference(storageKey)
-    if (saved) {
-      setVisibleColumnsState(new Set(saved))
-      setHasUserOverride(true)
-    }
-  }, [isClient, storageKey])
-
   // Calculate visible columns when the container is first measured, but only
   // if no saved user preference exists. Guard prevents infinite loops if the
   // container ref is re-attached during initial render.
@@ -91,16 +91,15 @@ export function useResponsiveColumns(
     return () => observer.disconnect()
   }, [calculate, hasUserOverride, container, isClient])
 
-  const toggleColumn = useCallback((key: string) => {
-    setVisibleColumnsState((prev) => {
-      const next = new Set(prev)
+  const toggleColumn = useCallback(
+    (key: string) => {
+      const next = new Set(visibleColumns)
       if (next.has(key)) next.delete(key)
       else next.add(key)
       saveColumnPreference([...next], storageKey)
-      return next
-    })
-    setHasUserOverride(true)
-  }, [storageKey])
+    },
+    [visibleColumns, storageKey]
+  )
 
   /**
    * Freezes the current visible set as the user's preference. Called when the user changes the layout (order,
@@ -108,13 +107,10 @@ export function useResponsiveColumns(
    */
   const persistVisibleColumns = useCallback(() => {
     saveColumnPreference([...visibleColumns], storageKey)
-    setHasUserOverride(true)
   }, [visibleColumns, storageKey])
 
   const resetColumns = useCallback(() => {
     clearColumnPreference(storageKey)
-    setHasUserOverride(false)
-    initializedRef.current = false
     measuredContainerRef.current = null
     if (container) calculate(container)
   }, [calculate, container, storageKey])

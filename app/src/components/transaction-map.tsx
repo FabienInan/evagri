@@ -62,13 +62,19 @@ export function TransactionMap({ filters, onGeoFilter }: TransactionMapProps) {
   // Le pin ne s'affiche que pour le dossier actuellement choisi : un résultat périmé est ignoré.
   const pinToShow = dossierPin && dossierPin.dossierId === dossierId ? dossierPin.localisation : null
 
-  useEffect(() => {
+  // Changement de filtres : le cache s'affiche tout de suite, sans effet (ajustement pendant le rendu).
+  const [cacheKeySeen, setCacheKeySeen] = useState(filtersCacheKey)
+  if (cacheKeySeen !== filtersCacheKey) {
+    setCacheKeySeen(filtersCacheKey)
     const cached = mapDataCache.get(filtersCacheKey)
     if (cached) {
       setTransactions(cached)
       setLoadError(null)
-      return
     }
+  }
+
+  useEffect(() => {
+    if (mapDataCache.has(filtersCacheKey)) return
     let cancelled = false
     const query = filters?.length
       ? `?filters=${encodeURIComponent(JSON.stringify(filters))}`

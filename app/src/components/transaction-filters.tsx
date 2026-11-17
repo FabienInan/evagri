@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, type FormEvent } from "react"
+import { useMemo, useState, type FormEvent } from "react"
 import { Search, RotateCcw, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -118,11 +118,14 @@ export function TransactionFilters({
 
   // Resync with the URL-backed filters: a filter applied elsewhere (e.g. a map geo selection) would
   // otherwise never appear as a chip, because state is only seeded from the prop on first render.
-  useEffect(() => {
+  // Ajustement pendant le rendu (et non dans un effet) : l'état se met à jour avant l'affichage.
+  const [syncedFrom, setSyncedFrom] = useState({ initialValues, initialFilters })
+  if (syncedFrom.initialValues !== initialValues || syncedFrom.initialFilters !== initialFilters) {
+    setSyncedFrom({ initialValues, initialFilters })
     setValues(initialValues.values)
     setRevente(initialValues.revente)
     setActiveFilters(initialFilters)
-  }, [initialValues, initialFilters])
+  }
 
   function buildFilters(
     nextValues: Record<string, { operator: string; value: string }>,
@@ -130,7 +133,7 @@ export function TransactionFilters({
     preserveGeo: FilterInput[] = []
   ): FilterInput[] {
     const active: FilterInput[] = Object.entries(nextValues)
-      .filter(([_, v]) => v.value !== "")
+      .filter(([, v]) => v.value !== "")
       .map(([id, v]) => {
         const config = filtersConfig.find((f) => f.id === id)
         const field = config?.codeMachine || config?.champ?.codeMachine || id

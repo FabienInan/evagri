@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useState, useTransition } from "react"
+import { useMemo, useState, useTransition } from "react"
+import { useLocalStorageValue } from "@/lib/local-storage-store"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import { Eye, Trash2 } from "lucide-react"
@@ -20,7 +21,7 @@ import {
 } from "@/lib/panier-columns"
 import {
   DEFAULT_PANIER_SORT,
-  loadPanierSort,
+  parsePanierSort,
   panierSortStorageKey,
   savePanierSort,
 } from "@/lib/panier-sort-preference"
@@ -171,24 +172,15 @@ export function PanierView({
   // v2 : réinitialise les colonnes affichées enregistrées avant la configuration par type.
   const tableStorageKey = `panier-table:v2:${panierId}:${typeTransactionCode ?? "defaut"}`
   const sortStorageKey = panierSortStorageKey(panierId)
-  const [sortField, setSortField] = useState(DEFAULT_PANIER_SORT.field)
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">(DEFAULT_PANIER_SORT.order)
+  // Tri mémorisé par panier, lu pendant le rendu : pas d'effet, donc pas de décalage après l'hydratation.
+  const sort = parsePanierSort(useLocalStorageValue(sortStorageKey)) ?? DEFAULT_PANIER_SORT
+  const sortField = sort.field
+  const sortOrder = sort.order
   const [, startTransition] = useTransition()
   const router = useRouter()
 
-  // Lecture après montage : le rendu serveur et l'hydratation restent identiques.
-  useEffect(() => {
-    const saved = loadPanierSort(sortStorageKey)
-    if (saved) {
-      setSortField(saved.field)
-      setSortOrder(saved.order)
-    }
-  }, [sortStorageKey])
-
   function handleSort(field: string) {
     const nextOrder = field === sortField && sortOrder === "asc" ? "desc" : "asc"
-    setSortField(field)
-    setSortOrder(nextOrder)
     savePanierSort(sortStorageKey, { field, order: nextOrder })
   }
 

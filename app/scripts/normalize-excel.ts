@@ -227,7 +227,6 @@ function verifyOutput() {
     assert.strictEqual(resineuxRow["Feuillus/Résineux"], "Résineux")
   }
 
-  const inputBuffer = fs.readFileSync(INPUT_PATH)
   const hasRangeDensity = bois.some((r) => r["Densité plantation"] === 0.745)
   assert.ok(hasRangeDensity, "Expected at least one density range converted to median 0.745")
 

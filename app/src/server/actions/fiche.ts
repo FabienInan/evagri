@@ -38,10 +38,7 @@ export async function saveFiche(input: unknown): Promise<FicheActionResult> {
   const record = await findTransactionFiche(organisationId, parsed.data.id)
   if (!record) return { ok: false, error: "Transaction introuvable." }
 
-  const [champs, sections] = await Promise.all([
-    listChampsEnrichissablesByOrganisation(organisationId),
-    getEffectiveFicheLayout(organisationId),
-  ])
+  const champs = await listChampsEnrichissablesByOrganisation(organisationId)
   // Enregistrer ne valide pas : les règles bloquantes et les avertissements ne s'appliquent qu'à Finaliser
   // (setFicheStatut). Une fiche incomplète peut donc être sauvegardée en cours de saisie.
   await saveFicheValues(

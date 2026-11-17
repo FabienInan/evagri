@@ -1,3 +1,5 @@
+import { writeLocalStorage } from "@/lib/local-storage-store"
+
 export type PanierSort = { field: string; order: "asc" | "desc" }
 
 export const DEFAULT_PANIER_SORT: PanierSort = { field: "date_vente", order: "desc" }
@@ -7,11 +9,10 @@ export function panierSortStorageKey(panierId: string): string {
   return `evagri:panier-table:${panierId}:sort`
 }
 
-export function loadPanierSort(storageKey: string): PanierSort | null {
-  if (typeof globalThis.localStorage === "undefined") return null
+/** Lit un tri enregistré (texte brut de localStorage). Null si absent ou invalide. */
+export function parsePanierSort(raw: string | null): PanierSort | null {
+  if (!raw) return null
   try {
-    const raw = globalThis.localStorage.getItem(storageKey)
-    if (!raw) return null
     const parsed: unknown = JSON.parse(raw)
     if (
       typeof parsed === "object" &&
@@ -27,7 +28,16 @@ export function loadPanierSort(storageKey: string): PanierSort | null {
   }
 }
 
+export function loadPanierSort(storageKey: string): PanierSort | null {
+  if (typeof globalThis.localStorage === "undefined") return null
+  try {
+    return parsePanierSort(globalThis.localStorage.getItem(storageKey))
+  } catch {
+    return null
+  }
+}
+
+/** Enregistre le tri et notifie les composants qui le lisent (voir useLocalStorageValue). */
 export function savePanierSort(storageKey: string, sort: PanierSort): void {
-  if (typeof globalThis.localStorage === "undefined") return
-  globalThis.localStorage.setItem(storageKey, JSON.stringify(sort))
+  writeLocalStorage(storageKey, JSON.stringify(sort))
 }

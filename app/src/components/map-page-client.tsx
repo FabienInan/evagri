@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import dynamic from "next/dynamic"
 import { Card, CardContent } from "@/components/ui/card"
 import { TransactionFilters } from "@/components/transaction-filters"

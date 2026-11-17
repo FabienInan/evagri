@@ -11,7 +11,7 @@ export default function LoginPage() {
             <span className="text-2xl font-bold text-primary-foreground">E</span>
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Evagri</h1>
-          <p className="mt-2 text-muted-foreground">Connectez-vous pour accéder à l'application</p>
+          <p className="mt-2 text-muted-foreground">Connectez-vous pour accéder à l&apos;application</p>
         </div>
         <LoginForm />
       </div>

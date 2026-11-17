@@ -1,3 +1,4 @@
+import { writeLocalStorage } from "@/lib/local-storage-store"
 export type ResponsiveColumn = {
   key: string
   minWidth: number
@@ -36,11 +37,13 @@ export function computeVisibleColumns(
 
 const STORAGE_KEY = "evagri:transaction-table:visible-columns"
 
-export function loadColumnPreference(storageKey: string = STORAGE_KEY): string[] | null {
-  if (typeof globalThis.localStorage === "undefined" || !globalThis.localStorage) return null
+/** Clé localStorage des colonnes visibles, utilisée par défaut par le hook. */
+export const DEFAULT_COLUMN_PREFERENCE_KEY = STORAGE_KEY
+
+/** Lit une liste de colonnes enregistrée (texte brut de localStorage). Null si absente ou invalide. */
+export function parseColumnPreference(raw: string | null): string[] | null {
+  if (!raw) return null
   try {
-    const raw = globalThis.localStorage.getItem(storageKey)
-    if (!raw) return null
     const parsed = JSON.parse(raw)
     if (Array.isArray(parsed) && parsed.every((k) => typeof k === "string")) {
       return parsed
@@ -51,14 +54,22 @@ export function loadColumnPreference(storageKey: string = STORAGE_KEY): string[]
   }
 }
 
+export function loadColumnPreference(storageKey: string = STORAGE_KEY): string[] | null {
+  if (typeof globalThis.localStorage === "undefined" || !globalThis.localStorage) return null
+  try {
+    return parseColumnPreference(globalThis.localStorage.getItem(storageKey))
+  } catch {
+    return null
+  }
+}
+
+/** Enregistre les colonnes visibles et notifie les composants qui les lisent (voir useLocalStorageValue). */
 export function saveColumnPreference(keys: string[], storageKey: string = STORAGE_KEY) {
-  if (typeof globalThis.localStorage === "undefined" || !globalThis.localStorage) return
-  globalThis.localStorage.setItem(storageKey, JSON.stringify(keys))
+  writeLocalStorage(storageKey, JSON.stringify(keys))
 }
 
 export function clearColumnPreference(storageKey: string = STORAGE_KEY) {
-  if (typeof globalThis.localStorage === "undefined" || !globalThis.localStorage) return
-  globalThis.localStorage.removeItem(storageKey)
+  writeLocalStorage(storageKey, null)
 }
 
 const ORDER_STORAGE_KEY = "evagri:transaction-table:column-order"

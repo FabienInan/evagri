@@ -188,8 +188,6 @@ export const SectionsEditor = forwardRef<SectionsEditorHandle, {
   const [newSectionName, setNewSectionName] = useState("")
   const [activeId, setActiveId] = useState<string | null>(null)
   const [activeType, setActiveType] = useState<"champ" | "section" | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
 
   const champById = useMemo(() => new Map(champs.map((c) => [c.id, c])), [champs])
   const labelOf = (id: string) => champById.get(id)?.nomAffichage ?? id
@@ -292,17 +290,12 @@ export const SectionsEditor = forwardRef<SectionsEditorHandle, {
 
   /** Returns null on success, or the error message, so the parent owns where the failure is shown. */
   async function handleSave(): Promise<string | null> {
-    setSaving(true)
     try {
       const result = await saveFicheLayout(toFicheSections({ containers, sections }))
       if (!result.ok) return result.error
-      setSaved(true)
-      setTimeout(() => setSaved(false), 1500)
       return null
     } catch {
       return "Échec de l'enregistrement de la disposition."
-    } finally {
-      setSaving(false)
     }
   }
 

@@ -52,7 +52,7 @@ describe("Modal", () => {
     const onPick = vi.fn()
     const Portal = () =>
       createPortal(
-        <button type="button" role="option" onClick={onPick}>
+        <button type="button" role="option" aria-selected="false" onClick={onPick}>
           Terres cultivées
         </button>,
         document.body
