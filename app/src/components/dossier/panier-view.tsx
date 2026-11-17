@@ -1,5 +1,6 @@
 "use client"
 
+import type { DossierLocalisation } from "@/components/transaction-map/dossier-pin"
 import { useMemo, useState, useTransition } from "react"
 import { useLocalStorageValue } from "@/lib/local-storage-store"
 import dynamic from "next/dynamic"
@@ -151,6 +152,7 @@ export function PanierView({
   tauxCroissancePct,
   typeTransactionNom,
   typeTransactionCode,
+  dossierLocalisation,
 }: {
   panierId: string
   nom: string
@@ -165,6 +167,8 @@ export function PanierView({
   typeTransactionNom: string | null
   /** Code du type (`Typologie.code`), qui choisit les colonnes affichées. */
   typeTransactionCode: string | null
+  /** Localisation du dossier du panier, affichée en pin jaune sur la carte exportée. */
+  dossierLocalisation: DossierLocalisation | null
 }) {
   const [rows, setRows] = useState(transactions)
   // Préférences de colonnes propres au type : un changement de configuration par type ne reprend pas l'ancien
@@ -278,7 +282,12 @@ export function PanierView({
             tauxCroissancePct={tauxCroissancePct}
             typeTransactionCode={typeTransactionCode}
           />
-          <PanierMapExport transactions={sorted} nom={nom} numerotation="ordre" />
+          <PanierMapExport
+            transactions={sorted}
+            nom={nom}
+            numerotation="ordre"
+            dossier={dossierLocalisation}
+          />
           <PanierDeleteButton panierId={panierId} nom={nom} />
         </>
       }

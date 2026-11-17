@@ -1,0 +1,31 @@
+import { expect, test } from "@playwright/test"
+
+test("filtres restaurés au retour à la liste", async ({ page }) => {
+  await page.goto("/transactions")
+  await expect(page.getByRole("columnheader", { name: "Prix à l'acte" })).toBeVisible()
+  const revente = page.getByRole("switch").first()
+  await revente.click()
+  await page.getByRole("button", { name: "Rechercher" }).click()
+  await expect.poll(() => new URL(page.url()).searchParams.has("filters")).toBe(true)
+  const withFilter = page.url()
+  await page.goto("/dossiers")
+  await page.getByRole("link", { name: "Liste des transactions" }).first().click()
+  await expect.poll(() => new URL(page.url()).searchParams.has("filters")).toBe(true)
+  console.log("RESTORED", page.url().includes("filters="), withFilter.length)
+})
+
+test("filtres retirés ne reviennent pas", async ({ page }) => {
+  await page.goto("/transactions")
+  await expect(page.getByRole("columnheader", { name: "Prix à l'acte" })).toBeVisible()
+  await page.getByRole("switch").first().click()
+  await page.getByRole("button", { name: "Rechercher" }).click()
+  await expect.poll(() => new URL(page.url()).searchParams.has("filters")).toBe(true)
+  await page.getByRole("switch").first().click()
+  await page.getByRole("button", { name: "Rechercher" }).click()
+  await expect.poll(() => new URL(page.url()).searchParams.has("filters")).toBe(false)
+  await page.goto("/dossiers")
+  await page.getByRole("link", { name: "Liste des transactions" }).first().click()
+  await page.waitForTimeout(800)
+  console.log("CLEARED_STAYS_CLEAR", !new URL(page.url()).searchParams.has("filters"))
+  expect(new URL(page.url()).searchParams.has("filters")).toBe(false)
+})

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { buildMapPoints, pointsToBounds } from "@/lib/map-export"
 import { computeTauxClasses, TAUX_PALETTE, tauxClasseFor } from "@/lib/taux-classes"
 import { TauxLegend } from "@/components/transaction-map/taux-legend"
+import type { DossierLocalisation } from "@/components/transaction-map/dossier-pin"
 import type { SerializedTransaction } from "@/serializers/transaction.serializer"
 import "@/components/transaction-map/leaflet-plugins"
 
@@ -51,6 +52,16 @@ function createPinIcon(numero: string, color: string | null): L.DivIcon {
   })
 }
 
+/** Pin jaune du dossier, même couleur que sur la carte de l'application, avec son numéro de dossier. */
+const DOSSIER_PIN_COLOR = "#facc15"
+function createDossierPinIcon(numeroDossier: string): L.DivIcon {
+  return L.divIcon({
+    className: "panier-export-pin",
+    html: `<div class="panier-export-pin-inner" style="background:${DOSSIER_PIN_COLOR};color:#1f2937">Dossier ${escapeHtml(numeroDossier)}</div>`,
+    iconSize: [0, 0],
+  })
+}
+
 function slugify(value: string): string {
   return value
     .normalize("NFD")
@@ -68,18 +79,28 @@ export function PanierMapExport({
   transactions,
   nom,
   numerotation = "numero_vente",
+  dossier = null,
 }: {
   transactions: SerializedTransaction[]
   nom: string
   /** `ordre` : pastilles numérotées 1, 2, 3… selon la liste ; `numero_vente` : numéro de vente (défaut). */
   numerotation?: "numero_vente" | "ordre"
+  /** Dossier du panier : son pin jaune est ajouté à la carte et pris en compte dans le cadrage. */
+  dossier?: DossierLocalisation | null
 }) {
   const points = useMemo(() => buildMapPoints(transactions, { numerotation }), [transactions, numerotation])
   const tauxClasses = useMemo(
     () => computeTauxClasses(points.flatMap((p) => (p.taux === null ? [] : [p.taux]))),
     [points]
   )
-  const bounds = useMemo(() => pointsToBounds(points), [points])
+  // Le cadrage englobe les transactions et le pin du dossier, pour que les deux figurent sur l'image.
+  const bounds = useMemo(
+    () =>
+      pointsToBounds(
+        dossier ? [...points, { lat: dossier.latitude, lng: dossier.longitude }] : points
+      ),
+    [points, dossier]
+  )
   const containerRef = useRef<HTMLDivElement>(null)
   // La carte n'est cadrée qu'à son montage : si les transactions changent ensuite, il faut la recadrer.
   const mapRef = useRef<L.Map | null>(null)
@@ -193,6 +214,13 @@ export function PanierMapExport({
                   icon={createPinIcon(p.numero, tauxClasseFor(p.taux, tauxClasses)?.color ?? null)}
                 />
               ))}
+              {dossier && (
+                <Marker
+                  position={[dossier.latitude, dossier.longitude]}
+                  icon={createDossierPinIcon(dossier.numeroDossier)}
+                  zIndexOffset={1000}
+                />
+              )}
             </MapContainer>
             <TauxLegend classes={tauxClasses} />
           </div>

@@ -106,6 +106,14 @@ function setup(initialVisible: Set<string>, initialWidth: number = 0) {
 
 describe("useResponsiveColumns", () => {
   let observer: MockResizeObserver | null = null
+  let windowWidth = 1200
+
+  /** Redimensionne la fenêtre puis notifie le conteneur : seul ce cas recalcule les colonnes. */
+  function resizeObserved(width: number) {
+    windowWidth += 1
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: windowWidth, writable: true })
+    observer?.trigger(width)
+  }
 
   // Le constructeur passe l'instance à ce rangement, sans alias de `this` dans une variable.
   const keepObserver = (instance: MockResizeObserver) => {
@@ -130,11 +138,25 @@ describe("useResponsiveColumns", () => {
     vi.unstubAllGlobals()
   })
 
+  it("ne recalcule pas les colonnes quand seule la largeur du conteneur change (volet de filtres)", () => {
+    const api = setup(new Set<string>(["a", "b", "c"]))
+
+    api.setWidth(180)
+    act(() => resizeObserved(180))
+    const beforePanel = [...api.result.visibleColumns].sort()
+
+    // Le volet s'ouvre : le conteneur se rétrécit, la fenêtre ne change pas.
+    api.setWidth(120)
+    act(() => observer?.trigger(120))
+
+    expect([...api.result.visibleColumns].sort()).toEqual(beforePanel)
+  })
+
   it("calculates visible columns from container width", () => {
     const api = setup(new Set<string>(["a", "b", "c"]))
 
     api.setWidth(180)
-    act(() => observer?.trigger(180))
+    act(() => resizeObserved(180))
 
     expect([...api.result.visibleColumns].sort()).toEqual(["a", "b"])
   })
@@ -143,7 +165,7 @@ describe("useResponsiveColumns", () => {
     const api = setup(new Set<string>(["a", "b", "c"]))
 
     api.setWidth(180)
-    act(() => observer?.trigger(180))
+    act(() => resizeObserved(180))
     expect([...api.result.visibleColumns].sort()).toEqual(["a", "b"])
 
     act(() => api.result.toggleColumn("c"))
@@ -155,7 +177,7 @@ describe("useResponsiveColumns", () => {
     )
 
     api.setWidth(120)
-    act(() => observer?.trigger(120))
+    act(() => resizeObserved(120))
 
     expect([...api.result.visibleColumns].sort()).toEqual(["a", "b", "c"])
   })
@@ -166,7 +188,7 @@ describe("useResponsiveColumns", () => {
     act(() => api.result.toggleColumn("c"))
 
     api.setWidth(180)
-    act(() => observer?.trigger(180))
+    act(() => resizeObserved(180))
     act(() => api.result.resetColumns())
 
     expect(api.result.hasUserOverride).toBe(false)
@@ -179,7 +201,7 @@ describe("useResponsiveColumns", () => {
     const api = setup(new Set<string>(["a"]))
 
     api.setWidth(1000)
-    act(() => observer?.trigger(1000))
+    act(() => resizeObserved(1000))
 
     expect([...api.result.visibleColumns]).toEqual(["a"])
   })

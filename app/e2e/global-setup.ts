@@ -183,6 +183,8 @@ export default async function globalSetup(): Promise<void> {
         numeroDossier: "99-99-001",
         nom: "Dossier e2e",
         dateEvaluation: new Date("2026-01-01"),
+        latitude: 45.88,
+        longitude: -72.48,
       },
     })
     const panierSource = await prisma.panier.create({

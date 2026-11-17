@@ -26,6 +26,15 @@ export default async function PanierPage({
     listChampsEnrichissablesByOrganisation(organisationId),
   ])
   const serialized = serializePanier(panier)
+  // Localisation du dossier : son pin jaune figure sur la carte exportée du panier.
+  const dossierLocalisation =
+    panier.dossier.latitude !== null && panier.dossier.longitude !== null
+      ? {
+          numeroDossier: panier.dossier.numeroDossier,
+          latitude: Number(panier.dossier.latitude),
+          longitude: Number(panier.dossier.longitude),
+        }
+      : null
 
   return (
     <div className="space-y-4">
@@ -46,6 +55,7 @@ export default async function PanierPage({
         tauxCroissancePct={serialized.tauxCroissancePct}
         typeTransactionNom={serialized.typeTransactionNom}
         typeTransactionCode={serialized.typeTransactionCode}
+        dossierLocalisation={dossierLocalisation}
       />
     </div>
   )

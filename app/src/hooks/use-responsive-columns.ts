@@ -80,7 +80,12 @@ export function useResponsiveColumns(
 
   useEffect(() => {
     if (hasUserOverride || !container || !isClient) return
+    // Les colonnes ne se recalculent que lorsque la fenêtre change de taille. Un changement de largeur du
+    // conteneur seul (ouverture ou fermeture du volet de filtres) ne modifie pas les colonnes affichées.
+    let lastWindowWidth = window.innerWidth
     const observer = new ResizeObserver((entries) => {
+      if (window.innerWidth === lastWindowWidth) return
+      lastWindowWidth = window.innerWidth
       for (const entry of entries) {
         if (entry.contentRect.width > 0) {
           calculate(entry.target as HTMLDivElement)
