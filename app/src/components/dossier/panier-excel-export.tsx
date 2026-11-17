@@ -165,8 +165,8 @@ export function PanierExcelExport({
               </p>
               {!indicateursDisponibles && (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Ces deux valeurs sont fixées à la création du dossier et du panier : sans elles, les indicateurs ajustés
-                  ne sont pas calculés.
+                  Sans date d&apos;évaluation ni taux de croissance, les indicateurs ajustés ne sont pas calculés. Le taux se
+                  modifie depuis la barre du panier.
                 </p>
               )}
             </div>

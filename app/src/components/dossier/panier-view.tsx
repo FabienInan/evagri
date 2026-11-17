@@ -290,6 +290,7 @@ export function PanierView({
             dossier={dossierLocalisation}
           />
           <PanierTauxCroissanceButton panierId={panierId} tauxCroissancePct={tauxCroissancePct} />
+          <span aria-hidden="true" className="mx-1 hidden h-5 w-px bg-border sm:block" />
           <PanierDeleteButton panierId={panierId} nom={nom} />
         </>
       }

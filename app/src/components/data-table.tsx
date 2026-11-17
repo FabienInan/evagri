@@ -457,8 +457,8 @@ export function DataTable<T>({
   return (
     <Wrapper className={cn("flex flex-col min-w-0", fillHeight && "lg:h-full lg:min-h-0")} ref={containerRef}>
       {(title !== undefined || totalCount !== undefined || toolbar) && (
-        <div className="flex items-center justify-between border-b px-4 py-1">
-          <span className="text-sm font-semibold text-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b px-4 py-2.5">
+          <span className="min-w-0 text-sm font-semibold text-foreground">
             {title}
             {totalCount !== undefined && (
               <span className="ml-2 text-xs font-normal text-muted-foreground">
@@ -466,7 +466,7 @@ export function DataTable<T>({
               </span>
             )}
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {toolbar}
             <ColumnMenu
               columns={columns}

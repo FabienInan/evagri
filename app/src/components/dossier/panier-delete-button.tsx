@@ -33,9 +33,9 @@ export function PanierDeleteButton({ panierId, nom }: { panierId: string; nom: s
   return (
     <>
       <Button
-        variant="outline"
+        variant="ghost"
         size="sm"
-        className="gap-2 text-destructive hover:text-destructive"
+        className="h-8 gap-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
         onClick={() => {
           setError(null)
           setConfirmOpen(true)
