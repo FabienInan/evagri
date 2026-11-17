@@ -9,6 +9,7 @@ import {
   countEligibleTransactions,
   createDossier as repoCreateDossier,
   createPanier as repoCreatePanier,
+  updatePanierTauxCroissance as repoUpdatePanierTaux,
   deletePanier as repoDeletePanier,
   findDossierById,
   findDossierByNumero,
@@ -33,6 +34,7 @@ import {
   addTransactionsSchema,
   createDossierSchema,
   createPanierSchema,
+  updatePanierTauxSchema,
   formatDossierInputErrors,
   previewLotsSchema,
 } from "@/validators/dossier.validator"
@@ -152,6 +154,22 @@ export async function createPanier(input: {
   const panier = await repoCreatePanier(organisationId, parsed.data)
   revalidatePath(`/dossiers/${parsed.data.dossierId}`)
   return { ok: true, id: panier.id }
+}
+
+/** Modifie le taux de croissance d'un panier existant : l'export des indicateurs ajustés en tient compte. */
+export async function updatePanierTauxCroissance(input: {
+  panierId: string
+  tauxCroissancePct: number
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const organisationId = getCurrentOrganisationId()
+  const parsed = updatePanierTauxSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: formatDossierInputErrors(parsed.error) }
+
+  const updated = await repoUpdatePanierTaux(organisationId, parsed.data.panierId, parsed.data.tauxCroissancePct)
+  if (!updated) return { ok: false, error: "Panier introuvable." }
+
+  revalidatePath(`/paniers/${parsed.data.panierId}`)
+  return { ok: true }
 }
 
 /** Supprime un panier sans toucher aux transactions qu'il regroupait. Renvoie le dossier pour la redirection. */

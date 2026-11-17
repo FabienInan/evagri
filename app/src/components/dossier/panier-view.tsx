@@ -28,6 +28,7 @@ import {
 } from "@/lib/panier-sort-preference"
 import { PanierExcelExport } from "@/components/dossier/panier-excel-export"
 import { PanierDeleteButton } from "@/components/dossier/panier-delete-button"
+import { PanierTauxCroissanceButton } from "@/components/dossier/panier-taux-croissance-button"
 import type { ImportedField } from "@/lib/imported-fields"
 import type { SerializedTransaction } from "@/types/transaction"
 import type { ChampEnrichissableConfig } from "@/types/champ"
@@ -288,6 +289,7 @@ export function PanierView({
             numerotation="ordre"
             dossier={dossierLocalisation}
           />
+          <PanierTauxCroissanceButton panierId={panierId} tauxCroissancePct={tauxCroissancePct} />
           <PanierDeleteButton panierId={panierId} nom={nom} />
         </>
       }

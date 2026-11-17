@@ -42,15 +42,22 @@ export const createDossierSchema = z.object({
 
 export const previewLotsSchema = z.object({ lotsCadastraux: lotsCadastrauxSchema })
 
+/** Taux de croissance annuel en pourcentage (ex. 3.25), utilisé à l'export. */
+const tauxCroissancePctSchema = z
+  .number({ message: "Le taux de croissance est obligatoire." })
+  .min(0, "Le taux de croissance ne peut pas être négatif.")
+  .max(100, "Le taux de croissance doit être inférieur à 100 %.")
+
 export const createPanierSchema = z.object({
   dossierId: z.string().min(1),
   nom: z.string().trim().min(1, "Le nom du panier est requis.").max(200),
   typeTransactionId: z.string().min(1).nullable().optional(),
-  /** Taux de croissance annuel en pourcentage (ex. 3.25), utilisé à l'export. */
-  tauxCroissancePct: z
-    .number({ message: "Le taux de croissance est obligatoire." })
-    .min(0, "Le taux de croissance ne peut pas être négatif.")
-    .max(100, "Le taux de croissance doit être inférieur à 100 %."),
+  tauxCroissancePct: tauxCroissancePctSchema,
+})
+
+export const updatePanierTauxSchema = z.object({
+  panierId: z.string().min(1),
+  tauxCroissancePct: tauxCroissancePctSchema,
 })
 
 export const addTransactionsSchema = z.object({

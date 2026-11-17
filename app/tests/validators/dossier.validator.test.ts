@@ -4,6 +4,7 @@ import {
   createDossierSchema,
   createPanierSchema,
   addTransactionsSchema,
+  updatePanierTauxSchema,
 } from "@/validators/dossier.validator"
 
 describe("NUMERO_DOSSIER_REGEX", () => {
@@ -146,5 +147,18 @@ describe("coordonnées saisies à la main", () => {
     expect(createDossierSchema.safeParse({ ...base, latitude: 43.7, longitude: -79.4 }).success).toBe(false)
     expect(createDossierSchema.safeParse({ ...base, latitude: 40.7, longitude: -74 }).success).toBe(false)
     expect(createDossierSchema.safeParse({ ...base, latitude: 46, longitude: -50 }).success).toBe(false)
+  })
+})
+
+describe("updatePanierTauxSchema", () => {
+  it("accepte un taux valide", () => {
+    expect(updatePanierTauxSchema.safeParse({ panierId: "p1", tauxCroissancePct: 3.25 }).success).toBe(true)
+    expect(updatePanierTauxSchema.safeParse({ panierId: "p1", tauxCroissancePct: 0 }).success).toBe(true)
+  })
+
+  it("refuse un taux négatif, supérieur à 100 % ou absent", () => {
+    expect(updatePanierTauxSchema.safeParse({ panierId: "p1", tauxCroissancePct: -1 }).success).toBe(false)
+    expect(updatePanierTauxSchema.safeParse({ panierId: "p1", tauxCroissancePct: 120 }).success).toBe(false)
+    expect(updatePanierTauxSchema.safeParse({ panierId: "p1", tauxCroissancePct: Number.NaN }).success).toBe(false)
   })
 })

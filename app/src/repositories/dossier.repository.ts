@@ -56,6 +56,19 @@ export async function listPaniersByDossier(organisationId: string, dossierId: st
   })
 }
 
+/** Modifie le taux de croissance d'un panier (fraction stockée, comme à la création). Renvoie false si absent. */
+export async function updatePanierTauxCroissance(
+  organisationId: string,
+  panierId: string,
+  tauxCroissancePct: number
+): Promise<boolean> {
+  const { count } = await prisma.panier.updateMany({
+    where: { id: panierId, organisationId },
+    data: { tauxCroissance: tauxCroissancePct / 100 },
+  })
+  return count > 0
+}
+
 export async function createPanier(
   organisationId: string,
   data: { dossierId: string; nom: string; typeTransactionId?: string | null; tauxCroissancePct: number }
