@@ -5,7 +5,7 @@ import { render, screen, fireEvent } from "@testing-library/react"
 import { Modal } from "@/components/dossier/modal"
 
 describe("Modal", () => {
-  it("se ferme avec la croix, le fond et la touche Échap", () => {
+  it("se ferme avec la croix et la touche Échap", () => {
     const onClose = vi.fn()
     render(
       <Modal title="Test" onClose={onClose}>
@@ -14,10 +14,22 @@ describe("Modal", () => {
     )
 
     fireEvent.click(screen.getByRole("button", { name: "Fermer" }))
-    fireEvent.click(screen.getByRole("dialog", { name: "Test" }).parentElement as HTMLElement)
     fireEvent.keyDown(window, { key: "Escape" })
 
-    expect(onClose).toHaveBeenCalledTimes(3)
+    expect(onClose).toHaveBeenCalledTimes(2)
+  })
+
+  it("ne se ferme pas quand on clique en dehors de la fenêtre", () => {
+    const onClose = vi.fn()
+    render(
+      <Modal title="Test" onClose={onClose}>
+        <p>contenu</p>
+      </Modal>
+    )
+
+    fireEvent.click(screen.getByRole("dialog", { name: "Test" }).parentElement as HTMLElement)
+
+    expect(onClose).not.toHaveBeenCalled()
   })
 
   it("ne se ferme pas quand on clique dans son contenu", () => {

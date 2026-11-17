@@ -87,7 +87,7 @@ export function DossierFormDialog({
   }
 
   return (
-    <Modal title="Nouveau dossier" onClose={onClose}>
+    <Modal title="Nouveau dossier" onClose={onClose} className="max-w-xl">
       <div className="space-y-3">
         <div className="space-y-1.5">
           <Label htmlFor="numero-dossier">Numéro de dossier</Label>

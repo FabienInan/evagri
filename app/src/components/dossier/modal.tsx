@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
-/** Overlay maison : `ui/` n'expose pas de composant Dialog. Clic sur le fond ou la croix pour fermer. */
+/** Overlay maison : `ui/` n'expose pas de composant Dialog. Fermeture par la croix ou Échap, jamais par un clic sur le fond. */
 export function Modal({
   title,
   onClose,
@@ -19,7 +19,7 @@ export function Modal({
   /** Remplace la largeur par défaut (max-w-md) pour les formulaires plus riches. */
   className?: string
 }) {
-  // Échap ferme la fenêtre, comme la croix et un clic sur le fond.
+  // Échap ferme la fenêtre, comme la croix. Un clic en dehors ne la ferme pas.
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") onClose()
@@ -31,7 +31,6 @@ export function Modal({
   return (
     <div
       className="fixed inset-0 z-[10050] flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
     >
       <Card
         role="dialog"
