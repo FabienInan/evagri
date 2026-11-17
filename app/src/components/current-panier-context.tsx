@@ -12,6 +12,13 @@ import {
 /** Événement local : les changements faits dans cet onglet sont notifiés aux abonnés (le stockage ne le fait pas). */
 const CHANGE_EVENT = "evagri:current-panier-change"
 
+/** Événement : la liste des paniers a changé (création ou suppression) ; la barre horizontale la recharge. */
+export const PANIERS_CHANGED_EVENT = "evagri:paniers-changed"
+
+export function notifyPaniersChanged() {
+  window.dispatchEvent(new Event(PANIERS_CHANGED_EVENT))
+}
+
 function subscribe(onChange: () => void) {
   window.addEventListener("storage", onChange)
   window.addEventListener(CHANGE_EVENT, onChange)
@@ -25,6 +32,8 @@ type CurrentPanierContextValue = {
   current: CurrentPanier | null
   chooseDossier: (dossier: { id: string; numeroDossier: string }) => void
   choosePanier: (panier: { id: string; nom: string }) => void
+  /** Vide le panier courant s'il s'agit de celui qui vient d'être supprimé. */
+  forgetPanier: (panierId: string) => void
 }
 
 const CurrentPanierContext = createContext<CurrentPanierContextValue | undefined>(undefined)
@@ -59,9 +68,17 @@ export function CurrentPanierProvider({ children }: { children: ReactNode }) {
     [current, write]
   )
 
+  const forgetPanier = useCallback(
+    (panierId: string) => {
+      if (!current || current.panierId !== panierId) return
+      write({ dossierId: current.dossierId, dossierNumero: current.dossierNumero, panierId: "" })
+    },
+    [current, write]
+  )
+
   const value = useMemo(
-    () => ({ current, chooseDossier, choosePanier }),
-    [current, chooseDossier, choosePanier]
+    () => ({ current, chooseDossier, choosePanier, forgetPanier }),
+    [current, chooseDossier, choosePanier, forgetPanier]
   )
 
   return <CurrentPanierContext.Provider value={value}>{children}</CurrentPanierContext.Provider>

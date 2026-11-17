@@ -1,25 +1,9 @@
 import { filterByPolygon, findGeoFilter } from "@/lib/filters"
 import { getCurrentOrganisationId } from "@/repositories/organisation.repository"
 import { findTransactionsForMap, type MapTransaction } from "@/repositories/transaction.repository"
+import { serializeMapTransaction } from "@/serializers/transaction.serializer"
 import { filterMapParamsSchema } from "@/validators/filter.validator"
 import { NextResponse } from "next/server"
-
-function serializeMapTransaction(t: MapTransaction) {
-  const num = (value: { toString(): string } | null) => (value == null ? null : Number(value))
-  return {
-    id: t.id,
-    numeroInscription: t.numeroInscription ?? null,
-    dateVente: t.dateVente ? t.dateVente.toISOString() : null,
-    // Explicit null checks (not truthiness): 0 is a legitimate price, area, and coordinate (equator,
-    // prime meridian), and truthiness would turn each of those into a null.
-    prixVente: num(t.prixVente),
-    superficieTotaleHectare: num(t.superficieTotaleHectare),
-    tauxGlobal: num(t.tauxGlobal),
-    latitude: t.latitude ?? null,
-    longitude: t.longitude ?? null,
-    municipalite: t.municipalite ?? null,
-  }
-}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)

@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from "vitest"
 import { createPortal } from "react-dom"
 import { render, screen, fireEvent } from "@testing-library/react"
-import { Modal } from "@/components/dossier/modal"
+import { Modal } from "@/components/modal"
 
 describe("Modal", () => {
   it("se ferme avec la croix et la touche Échap", () => {

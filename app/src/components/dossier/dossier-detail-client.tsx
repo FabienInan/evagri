@@ -10,14 +10,10 @@ import { Badge } from "@/components/ui/badge"
 import { useHeaderActions } from "@/components/header-actions"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { PanierFormDialog } from "@/components/dossier/panier-form-dialog"
+import { formatDateIsoFr } from "@/lib/format"
+import { notifyPaniersChanged } from "@/components/current-panier-context"
 import type { TypologieOption } from "@/types/typologie"
 import type { SerializedDossier, SerializedPanier } from "@/serializers/dossier.serializer"
-
-/** AAAA-MM-JJ → JJ/MM/AAAA, pour l'affichage. */
-export function formatDateFr(isoDate: string): string {
-  const [year, month, day] = isoDate.split("-")
-  return `${day}/${month}/${year}`
-}
 
 export function DossierDetailClient({
   dossier,
@@ -47,7 +43,7 @@ export function DossierDetailClient({
           {dossier.dateEvaluation && (
             <>
               {" · "}Date d&apos;évaluation{" "}
-              <span className="font-medium text-foreground">{formatDateFr(dossier.dateEvaluation)}</span>
+              <span className="font-medium text-foreground">{formatDateIsoFr(dossier.dateEvaluation)}</span>
             </>
           )}
         </p>
@@ -100,6 +96,7 @@ export function DossierDetailClient({
           onClose={() => setShowForm(false)}
           onCreated={(id) => {
             setShowForm(false)
+            notifyPaniersChanged()
             router.push(`/paniers/${id}`)
           }}
         />

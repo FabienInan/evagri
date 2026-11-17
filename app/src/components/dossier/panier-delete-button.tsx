@@ -4,12 +4,14 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Modal } from "@/components/dossier/modal"
+import { Modal } from "@/components/modal"
 import { deletePanier } from "@/server/actions/dossier"
+import { notifyPaniersChanged, useCurrentPanier } from "@/components/current-panier-context"
 
 /** Supprime le panier après confirmation, puis renvoie vers le dossier. Les transactions sont conservées. */
 export function PanierDeleteButton({ panierId, nom }: { panierId: string; nom: string }) {
   const router = useRouter()
+  const { forgetPanier } = useCurrentPanier()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -23,6 +25,8 @@ export function PanierDeleteButton({ panierId, nom }: { panierId: string; nom: s
       setError(res.error)
       return
     }
+    forgetPanier(panierId)
+    notifyPaniersChanged()
     router.push(`/dossiers/${res.dossierId}`)
   }
 

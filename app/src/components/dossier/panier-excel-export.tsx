@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import { FileSpreadsheet, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Modal } from "@/components/dossier/modal"
+import { Modal } from "@/components/modal"
 import {
   buildExportColumns,
   buildExportFileName,
@@ -16,13 +16,9 @@ import { computeIndicateursAjustesByTransaction } from "@/lib/analyse-dossier"
 import { collectFieldCodes } from "@/lib/panier-columns"
 import type { ChampEnrichissableConfig } from "@/types/champ"
 import type { SerializedTransaction } from "@/types/transaction"
+import { formatDateIsoFr } from "@/lib/format"
 
 const NATURE_ORDER: ExportColumnNature[] = ["importe", "saisissable", "calcule", "ajuste"]
-
-function formatDate(isoDate: string): string {
-  const [year, month, day] = isoDate.split("-")
-  return `${day}/${month}/${year}`
-}
 
 /**
  * Export Excel d'un panier (§7.9). Les indicateurs ajustés se calculent à l'export, à partir de la date d'évaluation
@@ -158,7 +154,7 @@ export function PanierExcelExport({
               <p className="text-muted-foreground">
                 Date d&apos;évaluation :{" "}
                 <span className="font-medium text-foreground">
-                  {dateEvaluation ? formatDate(dateEvaluation) : "non renseignée"}
+                  {dateEvaluation ? formatDateIsoFr(dateEvaluation) : "non renseignée"}
                 </span>
               </p>
               <p className="text-muted-foreground">

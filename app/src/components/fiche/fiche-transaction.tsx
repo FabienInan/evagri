@@ -10,7 +10,7 @@ import { FieldValue } from "@/components/fiche/field-value"
 import { IndicateursPanel } from "@/components/fiche/indicateurs-panel"
 import { DocumentsPanel } from "@/components/fiche/documents-panel"
 import { AddToPanierDialog } from "@/components/dossier/add-to-panier-dialog"
-import { Modal } from "@/components/dossier/modal"
+import { Modal } from "@/components/modal"
 import { Button } from "@/components/ui/button"
 import { saveFiche, setFicheStatut, type FicheFieldError } from "@/server/actions/fiche"
 import {

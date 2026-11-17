@@ -9,7 +9,7 @@ import { recommendFilterType, recommendedTypeForField, DEFAULT_OPERATEURS, moveI
 import type { FilterType } from "@/types/filter"
 import type { CreateFilterInput } from "@/server/actions/filters"
 import { FilterCreateCard } from "@/components/admin/filters/filter-create-card"
-import { Modal } from "@/components/dossier/modal"
+import { Modal } from "@/components/modal"
 import { FilterList } from "@/components/admin/filters/filter-list"
 import { FilterDetailsCard } from "@/components/admin/filters/filter-details-card"
 import { VIRTUAL_FILTERS, type Champ, type Filter } from "@/components/admin/filters/filter-constants"

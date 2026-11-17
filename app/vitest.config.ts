@@ -7,6 +7,8 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: true,
+    // Garde : refuse de lancer les tests sur une base distante (voir tests/setup/database-guard.ts).
+    setupFiles: ["./tests/setup/load-database-guard.ts"],
     // Les specs Playwright (e2e/) ne sont pas des tests Vitest : `npm run test:e2e` les exécute.
     include: ["tests/**/*.{test,spec}.{ts,tsx}"],
   },

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { listDossiers, listPaniersForDossier } from "@/server/actions/dossier"
-import { useCurrentPanier } from "@/components/current-panier-context"
+import { PANIERS_CHANGED_EVENT, useCurrentPanier } from "@/components/current-panier-context"
 import type { SerializedDossier, SerializedPanier } from "@/serializers/dossier.serializer"
 import { selectStyle } from "@/lib/select-style"
 import { FolderOpen, ListChecks } from "lucide-react"
@@ -18,6 +18,8 @@ export function SidebarContext() {
   const { current, chooseDossier, choosePanier } = useCurrentPanier()
   const [dossiers, setDossiers] = useState<SerializedDossier[]>([])
   const [paniers, setPaniers] = useState<SerializedPanier[]>([])
+  // Incrémenté à chaque création ou suppression de panier : relance le chargement des paniers.
+  const [paniersVersion, setPaniersVersion] = useState(0)
   const dossierId = current?.dossierId ?? ""
   const panierId = current?.panierId ?? ""
 
@@ -32,6 +34,12 @@ export function SidebarContext() {
   }, [])
 
   useEffect(() => {
+    const onChanged = () => setPaniersVersion((v) => v + 1)
+    window.addEventListener(PANIERS_CHANGED_EVENT, onChanged)
+    return () => window.removeEventListener(PANIERS_CHANGED_EVENT, onChanged)
+  }, [])
+
+  useEffect(() => {
     if (!dossierId) return
     let cancelled = false
     listPaniersForDossier(dossierId).then((data) => {
@@ -40,7 +48,7 @@ export function SidebarContext() {
     return () => {
       cancelled = true
     }
-  }, [dossierId])
+  }, [dossierId, paniersVersion])
 
   // Les paniers affichés appartiennent au dossier courant (évite de montrer ceux de l'ancien dossier).
   const paniersDuDossier = paniers.filter((p) => p.dossierId === dossierId)

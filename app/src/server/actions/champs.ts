@@ -121,7 +121,9 @@ export async function createChamp(input: ChampInput): Promise<CreateChampResult>
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return { ok: false, error: "Un champ existe déjà avec ce code machine." }
     }
-    throw error
+    // Erreur inattendue : journalisée, et renvoyée à l'interface sans relancer l'exception (règle { ok, error }).
+    console.error("createChamp: échec d'enregistrement", error)
+    return { ok: false, error: "Impossible d'enregistrer le champ. Réessayez." }
   }
 
   if (normalized.regleCalcul) {

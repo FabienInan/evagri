@@ -1,5 +1,11 @@
 import type { TypeDonneesChamp } from "@/types/champ"
 
+/** Date ISO AAAA-MM-JJ affichée JJ/MM/AAAA. */
+export function formatDateIsoFr(isoDate: string): string {
+  const [year, month, day] = isoDate.split("-")
+  return `${day}/${month}/${year}`
+}
+
 export function formatCurrency(value: number | null | undefined) {
   if (value === null || value === undefined) return "—"
   return new Intl.NumberFormat("fr-CA", {

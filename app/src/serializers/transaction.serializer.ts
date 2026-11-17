@@ -1,3 +1,4 @@
+import type { MapTransaction } from "@/repositories/transaction.repository"
 import { Prisma } from "@prisma/client"
 import Decimal from "decimal.js"
 import type { SerializedTransaction, SerializedValue } from "@/types/transaction"
@@ -69,4 +70,22 @@ export function serializeTransactionSummary(
   transaction: TransactionBase & { valeurs: ValueRow[] }
 ): SerializedTransaction {
   return toSerialized(transaction, hydrateFields(transaction.valeurs))
+}
+
+/** Transaction de la carte : coordonnées et indicateurs d'un pin, sérialisés pour JSON. */
+export function serializeMapTransaction(t: MapTransaction) {
+  const num = (value: { toString(): string } | null) => (value == null ? null : Number(value))
+  return {
+    id: t.id,
+    numeroInscription: t.numeroInscription ?? null,
+    dateVente: t.dateVente ? t.dateVente.toISOString() : null,
+    // Explicit null checks (not truthiness): 0 is a legitimate price, area, and coordinate (equator,
+    // prime meridian), and truthiness would turn each of those into a null.
+    prixVente: num(t.prixVente),
+    superficieTotaleHectare: num(t.superficieTotaleHectare),
+    tauxGlobal: num(t.tauxGlobal),
+    latitude: t.latitude ?? null,
+    longitude: t.longitude ?? null,
+    municipalite: t.municipalite ?? null,
+  }
 }

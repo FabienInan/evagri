@@ -51,10 +51,6 @@ function parseDate(value: unknown): Date | null {
   return null
 }
 
-function parseNumber(value: unknown): number | null {
-  return parseFrenchNumber(value)
-}
-
 function parseLots(value: unknown): string[] {
   if (value === null || value === undefined || value === "") return []
   if (Array.isArray(value)) return value.map(String)
@@ -187,8 +183,8 @@ type ResolvedCoordinates = { latitude: number; longitude: number; fromFile: bool
 /** Coordinates already present in the file (now imported `latitude`/`longitude` fields), else geocoded from
  *  the cadastral lots. The write of the resolved values happens in `importSheet`, against the imported fields. */
 async function resolveCoordinates(raw: ParsedRow): Promise<ResolvedCoordinates> {
-  const latitude = parseNumber(raw.latitude)
-  const longitude = parseNumber(raw.longitude)
+  const latitude = parseFrenchNumber(raw.latitude)
+  const longitude = parseFrenchNumber(raw.longitude)
   if (latitude !== null && longitude !== null) {
     return { latitude, longitude, fromFile: true }
   }

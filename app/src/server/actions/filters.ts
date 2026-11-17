@@ -90,7 +90,9 @@ export async function createFilter(input: CreateFilterInput): Promise<CreateFilt
           : "Un filtre existe déjà pour ce code virtuel.",
       }
     }
-    throw error
+    // Erreur inattendue : journalisée, et renvoyée à l'interface sans relancer l'exception (règle { ok, error }).
+    console.error("createFilter: échec d'enregistrement", error)
+    return { ok: false, error: "Impossible d'enregistrer le filtre. Réessayez." }
   }
 
   revalidatePath("/admin/filters")

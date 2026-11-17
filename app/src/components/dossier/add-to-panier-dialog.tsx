@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { FolderOpen, ListChecks, Plus, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Modal } from "@/components/dossier/modal"
+import { Modal } from "@/components/modal"
 import { addTransactionsToPanier } from "@/server/actions/dossier"
 import { useCurrentPanier } from "@/components/current-panier-context"
 
