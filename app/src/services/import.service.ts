@@ -1,5 +1,5 @@
 import Decimal from "decimal.js"
-import { geocodeLotCadastral } from "@/lib/cadastre"
+import { geocodeLotsCadastraux } from "@/lib/cadastre"
 import { IMPORTED_FIELDS } from "@/lib/imported-fields"
 import { parseBooleanish, parseFrenchNumber } from "@/lib/normalization/parsing"
 import { normalizeEnrichmentText, normalizeNumeroInscription } from "@/lib/normalization/transforms"
@@ -184,14 +184,6 @@ export interface ImportSheetInput {
 
 type ResolvedCoordinates = { latitude: number; longitude: number; fromFile: boolean } | null
 
-async function geocodeFromLots(lots: string[]): Promise<{ latitude: number; longitude: number } | null> {
-  const results = await Promise.all(lots.slice(0, 5).map((lot) => geocodeLotCadastral(lot)))
-  const found = results.filter((r): r is { latitude: number; longitude: number } => r !== null)
-  if (found.length === 0) return null
-  const sum = found.reduce((acc, r) => ({ lat: acc.lat + r.latitude, lon: acc.lon + r.longitude }), { lat: 0, lon: 0 })
-  return { latitude: sum.lat / found.length, longitude: sum.lon / found.length }
-}
-
 /** Coordinates already present in the file (now imported `latitude`/`longitude` fields), else geocoded from
  *  the cadastral lots. The write of the resolved values happens in `importSheet`, against the imported fields. */
 async function resolveCoordinates(raw: ParsedRow): Promise<ResolvedCoordinates> {
@@ -203,7 +195,7 @@ async function resolveCoordinates(raw: ParsedRow): Promise<ResolvedCoordinates> 
 
   // parseLots: raw rows may hold the unparsed Excel cell (string/number), not string[]
   const lots = parseLots(raw.lots_cadastraux)
-  const lotCoords = lots.length ? await geocodeFromLots(lots) : null
+  const lotCoords = lots.length ? await geocodeLotsCadastraux(lots) : null
   if (!lotCoords) return null
   return { ...lotCoords, fromFile: false }
 }

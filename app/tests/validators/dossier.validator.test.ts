@@ -20,9 +20,9 @@ describe("NUMERO_DOSSIER_REGEX", () => {
 
 describe("createDossierSchema", () => {
   it("accepte un numéro valide, nom optionnel, avec la date d'évaluation", () => {
-    expect(createDossierSchema.safeParse({ numeroDossier: "25-12-001", dateEvaluation: "2026-01-01" }).success).toBe(true)
+    expect(createDossierSchema.safeParse({ numeroDossier: "25-12-001", dateEvaluation: "2026-01-01", lotsCadastraux: ["4 128 182"] }).success).toBe(true)
     expect(
-      createDossierSchema.safeParse({ numeroDossier: "25-12-001", nom: "Essai", dateEvaluation: "2026-01-01" }).success
+      createDossierSchema.safeParse({ numeroDossier: "25-12-001", nom: "Essai", dateEvaluation: "2026-01-01", lotsCadastraux: ["4 128 182"] }).success
     ).toBe(true)
   })
 
@@ -32,13 +32,48 @@ describe("createDossierSchema", () => {
   })
 
   it("normalise les espaces autour du numéro (trim)", () => {
-    const result = createDossierSchema.safeParse({ numeroDossier: "  25-12-001 ", dateEvaluation: "2026-01-01" })
+    const result = createDossierSchema.safeParse({ numeroDossier: "  25-12-001 ", dateEvaluation: "2026-01-01", lotsCadastraux: ["4 128 182"] })
     expect(result.success).toBe(true)
     if (result.success) expect(result.data.numeroDossier).toBe("25-12-001")
   })
 
+  it("accepte plusieurs lots", () => {
+    expect(
+      createDossierSchema.safeParse({
+        numeroDossier: "25-12-001",
+        dateEvaluation: "2026-01-01",
+        lotsCadastraux: ["4 128 182", "4 128 183"],
+      }).success
+    ).toBe(true)
+  })
+
+  it("refuse un dossier sans lot", () => {
+    expect(
+      createDossierSchema.safeParse({ numeroDossier: "25-12-001", dateEvaluation: "2026-01-01", lotsCadastraux: [] })
+        .success
+    ).toBe(false)
+  })
+
+  it("refuse un lot avec des lettres", () => {
+    expect(
+      createDossierSchema.safeParse({ numeroDossier: "25-12-001", dateEvaluation: "2026-01-01", lotsCadastraux: ["A12"] })
+        .success
+    ).toBe(false)
+  })
+
+  it("exige latitude et longitude ensemble", () => {
+    const base = { numeroDossier: "25-12-001", dateEvaluation: "2026-01-01", lotsCadastraux: ["4 128 182"] }
+    expect(createDossierSchema.safeParse({ ...base, latitude: 46.8 }).success).toBe(false)
+    expect(createDossierSchema.safeParse({ ...base, latitude: 46.8, longitude: -71.2 }).success).toBe(true)
+  })
+
+  it("refuse une latitude hors limites", () => {
+    const base = { numeroDossier: "25-12-001", dateEvaluation: "2026-01-01", lotsCadastraux: ["4 128 182"] }
+    expect(createDossierSchema.safeParse({ ...base, latitude: 120, longitude: -71.2 }).success).toBe(false)
+  })
+
   it("refuse un numéro mal formé", () => {
-    expect(createDossierSchema.safeParse({ numeroDossier: "25-ab-1", dateEvaluation: "2026-01-01" }).success).toBe(false)
+    expect(createDossierSchema.safeParse({ numeroDossier: "25-ab-1", dateEvaluation: "2026-01-01", lotsCadastraux: ["4 128 182"] }).success).toBe(false)
   })
 })
 
@@ -69,5 +104,47 @@ describe("addTransactionsSchema", () => {
 
   it("accepte au moins une transaction", () => {
     expect(addTransactionsSchema.safeParse({ panierId: "p1", transactionIds: ["t1"] }).success).toBe(true)
+  })
+})
+
+describe("format des lots (identique à l'import)", () => {
+  const base = { numeroDossier: "25-12-001", dateEvaluation: "2026-01-01" }
+
+  it("normalise les lots en groupes de trois chiffres", () => {
+    const r = createDossierSchema.safeParse({ ...base, lotsCadastraux: ["4128182", " 4 128 183 "] })
+    expect(r.success).toBe(true)
+    if (r.success) expect(r.data.lotsCadastraux).toEqual(["4 128 182", "4 128 183"])
+  })
+
+  it("supprime les doublons", () => {
+    const r = createDossierSchema.safeParse({ ...base, lotsCadastraux: ["4 128 182", "4128182"] })
+    expect(r.success).toBe(true)
+    if (r.success) expect(r.data.lotsCadastraux).toEqual(["4 128 182"])
+  })
+
+  it("refuse les lettres, tirets et points", () => {
+    for (const bad of ["4-128-182", "4.128", "A12", "12B"]) {
+      expect(createDossierSchema.safeParse({ ...base, lotsCadastraux: [bad] }).success).toBe(false)
+    }
+  })
+
+  it("refuse plus de 5 lots", () => {
+    const lots = ["1", "2", "3", "4", "5", "6"]
+    expect(createDossierSchema.safeParse({ ...base, lotsCadastraux: lots }).success).toBe(false)
+  })
+})
+
+describe("coordonnées saisies à la main", () => {
+  const base = { numeroDossier: "25-12-001", dateEvaluation: "2026-01-01", lotsCadastraux: ["4 128 182"] }
+
+  it("accepte des coordonnées au Québec", () => {
+    expect(createDossierSchema.safeParse({ ...base, latitude: 45.5, longitude: -73.6 }).success).toBe(true)
+    expect(createDossierSchema.safeParse({ ...base, latitude: 52, longitude: -70 }).success).toBe(true)
+  })
+
+  it("refuse des coordonnées hors Québec (Ontario, États-Unis, Atlantique)", () => {
+    expect(createDossierSchema.safeParse({ ...base, latitude: 43.7, longitude: -79.4 }).success).toBe(false)
+    expect(createDossierSchema.safeParse({ ...base, latitude: 40.7, longitude: -74 }).success).toBe(false)
+    expect(createDossierSchema.safeParse({ ...base, latitude: 46, longitude: -50 }).success).toBe(false)
   })
 })

@@ -12,6 +12,9 @@ import type { FilterInput } from "@/types/filter"
 import { pointInPolygon } from "@/lib/geo"
 import type { MapTransaction } from "@/components/transaction-map/types"
 import { useSelectedTransactions } from "@/components/selected-transactions-context"
+import { useCurrentPanier } from "@/components/current-panier-context"
+import { getDossierLocalisation } from "@/server/actions/dossier"
+import { DossierPin, type DossierLocalisation } from "@/components/transaction-map/dossier-pin"
 import "@/components/transaction-map/leaflet-plugins"
 
 interface TransactionMapProps {
@@ -39,6 +42,25 @@ export function TransactionMap({ filters, onGeoFilter }: TransactionMapProps) {
   const [polygon, setPolygon] = useState<{ lat: number; lng: number }[] | null>(null)
   const [addToPanierIds, setAddToPanierIds] = useState<string[] | null>(null)
   const { selectedIds: pickedIds, toggleSelected, clearSelected } = useSelectedTransactions()
+
+  // Pin jaune du dossier en cours (choisi dans la barre latérale), placé à ses coordonnées.
+  const { current } = useCurrentPanier()
+  const dossierId = current?.dossierId ?? null
+  const [dossierPin, setDossierPin] = useState<{ dossierId: string; localisation: DossierLocalisation | null } | null>(
+    null
+  )
+  useEffect(() => {
+    if (!dossierId) return
+    let cancelled = false
+    getDossierLocalisation(dossierId).then((localisation) => {
+      if (!cancelled) setDossierPin({ dossierId, localisation })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [dossierId])
+  // Le pin ne s'affiche que pour le dossier actuellement choisi : un résultat périmé est ignoré.
+  const pinToShow = dossierPin && dossierPin.dossierId === dossierId ? dossierPin.localisation : null
 
   useEffect(() => {
     const cached = mapDataCache.get(filtersCacheKey)
@@ -118,6 +140,7 @@ export function TransactionMap({ filters, onGeoFilter }: TransactionMapProps) {
           onMarkerClick={toggleSelected}
           tauxClasses={tauxClasses}
         />
+        {pinToShow && <DossierPin localisation={pinToShow} />}
         <DrawControl onPolygonChange={setPolygon} />
       </MapContainer>
 

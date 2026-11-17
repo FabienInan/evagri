@@ -196,6 +196,11 @@ model Dossier {
   actif          Boolean          @default(true)
   /** Date d'évaluation du dossier, fixée à la création : sert au calcul des indicateurs ajustés à l'export. */
   dateEvaluation DateTime? @map("date_evaluation") @db.Date
+  /** Numéros de lots cadastraux du dossier : sert au géocodage (Demeter) à la création. */
+  lotsCadastraux String[]        @default([]) @map("lots_cadastraux")
+  /** Coordonnées du dossier : géocodées à partir des lots, ou saisies à la main si aucun lot n'est trouvé. */
+  latitude       Decimal?        @db.Decimal(9, 6)
+  longitude      Decimal?        @db.Decimal(9, 6)
   organisation   Organisation     @relation(fields: [organisationId], references: [id])
   paniers        Panier[]
 

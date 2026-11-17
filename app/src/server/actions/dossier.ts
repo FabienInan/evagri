@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { Prisma } from "@prisma/client"
 import { getCurrentOrganisationId } from "@/repositories/organisation.repository"
+import { geocodeLotsCadastraux, geocodeLotsDetail } from "@/lib/cadastre"
 import {
   addTransactionsToPanier as repoAddTransactions,
   countEligibleTransactions,
@@ -33,6 +34,7 @@ import {
   createDossierSchema,
   createPanierSchema,
   formatDossierInputErrors,
+  previewLotsSchema,
 } from "@/validators/dossier.validator"
 
 export async function listDossiers(): Promise<SerializedDossier[]> {
@@ -44,7 +46,13 @@ export async function createDossier(input: {
   numeroDossier: string
   nom?: string
   dateEvaluation: string
-}): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  lotsCadastraux: string[]
+  latitude?: number
+  longitude?: number
+}): Promise<
+  | { ok: true; id: string }
+  | { ok: false; error: string; coordonneesRequises?: boolean }
+> {
   const organisationId = getCurrentOrganisationId()
   const parsed = createDossierSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: formatDossierInputErrors(parsed.error) }
@@ -52,17 +60,79 @@ export async function createDossier(input: {
   const existing = await findDossierByNumero(organisationId, parsed.data.numeroDossier)
   if (existing) return { ok: false, error: "Un dossier existe déjà avec ce numéro." }
 
+  // Coordonnées : géocodage Demeter des lots (même méthode que l'import). Si aucun lot n'est trouvé,
+  // les coordonnées saisies à la main sont requises.
+  const lots = parsed.data.lotsCadastraux
+  const geocoded = await geocodeLotsCadastraux(lots)
+  const { numeroDossier, nom, dateEvaluation } = parsed.data
+  let coords: { latitude: number; longitude: number }
+  if (geocoded) {
+    coords = geocoded
+  } else if (parsed.data.latitude !== undefined && parsed.data.longitude !== undefined) {
+    coords = { latitude: parsed.data.latitude, longitude: parsed.data.longitude }
+  } else {
+    return {
+      ok: false,
+      error: "Aucun lot trouvé au cadastre : saisissez la latitude et la longitude.",
+      coordonneesRequises: true,
+    }
+  }
+
   // Le pré-contrôle ci-dessus couvre le cas séquentiel ; une course concurrente peut encore heurter la
   // contrainte unique @@unique([organisationId, numeroDossier]) — on la mappe en erreur lisible (jamais de 500).
   try {
-    const dossier = await repoCreateDossier(organisationId, parsed.data)
+    const dossier = await repoCreateDossier(organisationId, {
+      numeroDossier,
+      nom,
+      dateEvaluation,
+      lotsCadastraux: lots,
+      ...coords,
+    })
     revalidatePath("/dossiers")
     return { ok: true, id: dossier.id }
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return { ok: false, error: "Un dossier existe déjà avec ce numéro." }
     }
-    throw error
+    return { ok: false, error: "Impossible d'enregistrer le dossier. Réessayez." }
+  }
+}
+
+/** Coordonnées trouvées au cadastre pour des lots, avant création : lot par lot et moyenne des lots trouvés. */
+export async function previewLotsCadastraux(input: { lotsCadastraux: string[] }): Promise<
+  | {
+      ok: true
+      lots: { lot: string; latitude: number | null; longitude: number | null }[]
+      moyenne: { latitude: number; longitude: number } | null
+    }
+  | { ok: false; error: string }
+> {
+  const parsed = previewLotsSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: formatDossierInputErrors(parsed.error) }
+
+  const { parLot, moyenne } = await geocodeLotsDetail(parsed.data.lotsCadastraux)
+  return {
+    ok: true,
+    lots: parLot.map((p) => ({
+      lot: p.lot,
+      latitude: p.coordonnees?.latitude ?? null,
+      longitude: p.coordonnees?.longitude ?? null,
+    })),
+    moyenne,
+  }
+}
+
+/** Localisation d'un dossier (numéro et coordonnées), pour afficher son pin sur la carte. Null si absent ou sans coordonnées. */
+export async function getDossierLocalisation(
+  dossierId: string
+): Promise<{ numeroDossier: string; latitude: number; longitude: number } | null> {
+  const organisationId = getCurrentOrganisationId()
+  const dossier = await findDossierById(organisationId, dossierId)
+  if (!dossier || dossier.latitude === null || dossier.longitude === null) return null
+  return {
+    numeroDossier: dossier.numeroDossier,
+    latitude: Number(dossier.latitude),
+    longitude: Number(dossier.longitude),
   }
 }
 

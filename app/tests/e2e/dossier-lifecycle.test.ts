@@ -4,6 +4,21 @@ import { prisma } from "@/lib/prisma"
 // Les actions "use server" appellent revalidatePath ; hors requête Next il n'y a pas de cache à revalider.
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 
+// Géocodage Demeter simulé : le lot "9 999 999" n'existe pas au cadastre, les autres sont trouvés.
+vi.mock("@/lib/cadastre", () => {
+  const trouve = (lot: string) => (lot.replace(/\s/g, "") === "9999999" ? null : { latitude: 46.8, longitude: -71.2 })
+  return {
+    geocodeLotsCadastraux: vi.fn(async (lots: string[]) => {
+      const found = lots.map(trouve).filter((c): c is { latitude: number; longitude: number } => c !== null)
+      return found.length ? { latitude: 46.8, longitude: -71.2 } : null
+    }),
+    geocodeLotsDetail: vi.fn(async (lots: string[]) => {
+      const parLot = lots.map((lot) => ({ lot, coordonnees: trouve(lot) }))
+      return { parLot, moyenne: parLot.some((p) => p.coordonnees) ? { latitude: 46.8, longitude: -71.2 } : null }
+    }),
+  }
+})
+
 let orgId = ""
 let analyseeId = ""
 let nonAnalyseeId = ""
@@ -40,7 +55,12 @@ describe("E2E — cycle de vie dossier → panier → transactions", () => {
 
   it("crée un dossier", async () => {
     const { createDossier, listDossiers } = await import("@/server/actions/dossier")
-    const res = await createDossier({ numeroDossier: "25-12-001", nom: "Essai", dateEvaluation: "2026-01-01" })
+    const res = await createDossier({
+      numeroDossier: "25-12-001",
+      nom: "Essai",
+      dateEvaluation: "2026-01-01",
+      lotsCadastraux: ["4 128 182", "4 128 183"],
+    })
     expect(res.ok).toBe(true)
     if (!res.ok) return
     dossierId = res.id
@@ -49,13 +69,83 @@ describe("E2E — cycle de vie dossier → panier → transactions", () => {
 
   it("refuse un numéro de dossier dupliqué", async () => {
     const { createDossier } = await import("@/server/actions/dossier")
-    const res = await createDossier({ numeroDossier: "25-12-001", dateEvaluation: "2026-01-01" })
+    const res = await createDossier({ numeroDossier: "25-12-001", dateEvaluation: "2026-01-01", lotsCadastraux: ["4 128 182"] })
+    expect(res.ok).toBe(false)
+  })
+
+  it("lot introuvable sans coordonnées : demande la saisie manuelle", async () => {
+    const { createDossier } = await import("@/server/actions/dossier")
+    const res = await createDossier({
+      numeroDossier: "25-12-009",
+      dateEvaluation: "2026-01-01",
+      lotsCadastraux: ["9 999 999"],
+    })
+    expect(res.ok).toBe(false)
+    if (!res.ok) expect(res.coordonneesRequises).toBe(true)
+  })
+
+  it("lot introuvable avec coordonnées saisies : enregistre les coordonnées manuelles", async () => {
+    const { createDossier, listDossiers } = await import("@/server/actions/dossier")
+    const res = await createDossier({
+      numeroDossier: "25-12-010",
+      dateEvaluation: "2026-01-01",
+      lotsCadastraux: ["9 999 999"],
+      latitude: 45.5,
+      longitude: -73.6,
+    })
+    expect(res.ok).toBe(true)
+    const created = (await listDossiers()).find((d) => d.numeroDossier === "25-12-010")
+    expect(created).toMatchObject({ latitude: 45.5, longitude: -73.6, lotsCadastraux: ["9 999 999"] })
+  })
+
+  it("lot trouvé : coordonnées géocodées, saisie manuelle ignorée", async () => {
+    const { createDossier, listDossiers } = await import("@/server/actions/dossier")
+    const res = await createDossier({
+      numeroDossier: "25-12-011",
+      dateEvaluation: "2026-01-01",
+      lotsCadastraux: ["4 128 182"],
+      latitude: 45.5,
+      longitude: -73.6,
+    })
+    expect(res.ok).toBe(true)
+    const created = (await listDossiers()).find((d) => d.numeroDossier === "25-12-011")
+    expect(created).toMatchObject({ latitude: 46.8, longitude: -71.2 })
+  })
+
+  it("refuse des coordonnées saisies hors du Québec", async () => {
+    const { createDossier } = await import("@/server/actions/dossier")
+    const res = await createDossier({
+      numeroDossier: "25-12-012",
+      dateEvaluation: "2026-01-01",
+      lotsCadastraux: ["9 999 999"],
+      latitude: 40.7,
+      longitude: -74,
+    })
+    expect(res.ok).toBe(false)
+  })
+
+  it("prévisualise les coordonnées trouvées lot par lot", async () => {
+    const { previewLotsCadastraux } = await import("@/server/actions/dossier")
+    const res = await previewLotsCadastraux({ lotsCadastraux: ["4128182", "9 999 999"] })
+    expect(res).toEqual({
+      ok: true,
+      lots: [
+        { lot: "4 128 182", latitude: 46.8, longitude: -71.2 },
+        { lot: "9 999 999", latitude: null, longitude: null },
+      ],
+      moyenne: { latitude: 46.8, longitude: -71.2 },
+    })
+  })
+
+  it("refuse un numéro de lot au format invalide dans la prévisualisation", async () => {
+    const { previewLotsCadastraux } = await import("@/server/actions/dossier")
+    const res = await previewLotsCadastraux({ lotsCadastraux: ["A12"] })
     expect(res.ok).toBe(false)
   })
 
   it("refuse un numéro de dossier mal formé", async () => {
     const { createDossier } = await import("@/server/actions/dossier")
-    const res = await createDossier({ numeroDossier: "25-ab-1", dateEvaluation: "2026-01-01" })
+    const res = await createDossier({ numeroDossier: "25-ab-1", dateEvaluation: "2026-01-01", lotsCadastraux: ["4 128 182"] })
     expect(res.ok).toBe(false)
   })
 

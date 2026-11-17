@@ -14,7 +14,7 @@ vi.mock("@/repositories/transaction.repository", () => ({
   findDedupKeysByNumeros: vi.fn(async () => []),
 }))
 vi.mock("@/lib/cadastre", () => ({
-  geocodeLotCadastral: vi.fn(async () => ({ latitude: 46.1, longitude: -71.2 })),
+  geocodeLotsCadastraux: vi.fn(async () => ({ latitude: 46.1, longitude: -71.2 })),
 }))
 
 function champ(codeMachine: string, typeDonnees: string): EnrichmentChamp {

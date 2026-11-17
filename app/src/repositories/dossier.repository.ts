@@ -21,7 +21,14 @@ export async function findDossierByNumero(organisationId: string, numeroDossier:
 
 export async function createDossier(
   organisationId: string,
-  data: { numeroDossier: string; nom?: string; dateEvaluation: string }
+  data: {
+    numeroDossier: string
+    nom?: string
+    dateEvaluation: string
+    lotsCadastraux: string[]
+    latitude: number
+    longitude: number
+  }
 ) {
   return prisma.dossier.create({
     data: {
@@ -29,6 +36,9 @@ export async function createDossier(
       numeroDossier: data.numeroDossier,
       nom: data.nom ?? null,
       dateEvaluation: new Date(data.dateEvaluation),
+      lotsCadastraux: data.lotsCadastraux,
+      latitude: data.latitude,
+      longitude: data.longitude,
       createurId: null,
     },
   })

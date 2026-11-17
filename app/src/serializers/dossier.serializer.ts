@@ -6,6 +6,10 @@ export type SerializedDossier = {
   nom: string | null
   /** Date d'évaluation au format AAAA-MM-JJ, fixée à la création du dossier. */
   dateEvaluation: string | null
+  lotsCadastraux: string[]
+  /** Coordonnées du dossier (géocodées ou saisies), en degrés décimaux. */
+  latitude: number | null
+  longitude: number | null
   createdAt: string
   panierCount: number
 }
@@ -35,6 +39,9 @@ export function serializeDossier(dossier: DossierWithCount): SerializedDossier {
     numeroDossier: dossier.numeroDossier,
     nom: dossier.nom,
     dateEvaluation: dossier.dateEvaluation ? dossier.dateEvaluation.toISOString().slice(0, 10) : null,
+    lotsCadastraux: dossier.lotsCadastraux,
+    latitude: dossier.latitude === null ? null : Number(dossier.latitude),
+    longitude: dossier.longitude === null ? null : Number(dossier.longitude),
     createdAt: dossier.createdAt.toISOString(),
     panierCount: dossier._count.paniers,
   }

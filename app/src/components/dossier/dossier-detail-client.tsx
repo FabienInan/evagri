@@ -57,6 +57,18 @@ export function DossierDetailClient({
         </Button>
       </div>
 
+      <p className="text-xs text-muted-foreground">
+        Lots : <span className="text-foreground">{dossier.lotsCadastraux.length ? dossier.lotsCadastraux.join(", ") : "—"}</span>
+        {dossier.latitude !== null && dossier.longitude !== null && (
+          <>
+            {" · "}Coordonnées{" "}
+            <span className="font-medium text-foreground">
+              {dossier.latitude.toFixed(6)}, {dossier.longitude.toFixed(6)}
+            </span>
+          </>
+        )}
+      </p>
+
       {paniers.length === 0 ? (
         <p className="text-sm text-muted-foreground">Aucun panier dans ce dossier.</p>
       ) : (
