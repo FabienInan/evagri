@@ -6,6 +6,7 @@ import {
   panierColumnsForType,
   resolvePanierFieldCode,
 } from "@/lib/panier-columns"
+import { buildExportColumns } from "@/lib/excel-export"
 import { IMPORTED_FIELDS } from "@/lib/imported-fields"
 import type { ChampEnrichissableConfig } from "@/types/champ"
 
@@ -69,6 +70,41 @@ describe("panierColumnsForType", () => {
     expect(keys).toContain("taux_global_ajuste")
     expect(keys).toContain("taux_residuel_cultive_ajuste")
     expect(keys).not.toContain("taux_global")
+  })
+})
+
+describe("buildExportColumns avec un type", () => {
+  const champs: ChampEnrichissableConfig[] = [
+    {
+      id: "1",
+      codeMachine: "superficie_cultive_ha",
+      nomAffichage: "Superficie cultivée",
+      typeDonnees: "DECIMAL",
+      nature: "SAISISSABLE",
+      unite: "ha",
+      actif: true,
+      estAffiche: true,
+      ordreAffichage: 0,
+    } as unknown as ChampEnrichissableConfig,
+  ]
+
+  it("place les colonnes du type en tête, dans l'ordre prévu, et décoche le reste", () => {
+    const columns = buildExportColumns(IMPORTED_FIELDS, champs, "TERRES_BOISEES", ["superficie_cultive_ha"])
+    const typed = columns.filter((c) => c.inType)
+    expect(typed.map((c) => c.label)[0]).toBe("N° d'inscription")
+    expect(typed.every((c) => c.defaultVisible)).toBe(true)
+    expect(columns.filter((c) => !c.inType).every((c) => !c.defaultVisible)).toBe(true)
+  })
+
+  it("résout un nom absent de la base vers le champ réel proche", () => {
+    const columns = buildExportColumns(IMPORTED_FIELDS, champs, "FERME", ["superficie_cultivee_ha"])
+    const cultivee = columns.find((c) => c.label === "Superficie cultivée (ha)")
+    expect(cultivee?.key).toBe("superficie_cultivee_ha")
+  })
+
+  it("sans type, garde les colonnes par défaut", () => {
+    const columns = buildExportColumns(IMPORTED_FIELDS, champs)
+    expect(columns.some((c) => c.inType)).toBe(false)
   })
 })
 

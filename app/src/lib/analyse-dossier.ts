@@ -1,4 +1,4 @@
-import { computeAdjustedValues, type ExportAnalysisParams } from "@/lib/indicateurs-ajustes"
+import { computeAdjustedValues, type ExportAnalysisParams } from "@/lib/excel-export"
 import type { SerializedTransaction } from "@/types/transaction"
 
 /** Valeurs ajustées d'une transaction, indexées par clé d'indicateur (voir ADJUSTED_EXPORT_COLUMNS). */

@@ -277,8 +277,11 @@ export function PanierView({
           <PanierExcelExport
             transactions={rows}
             nom={nom}
+            importedFields={importedFields}
+            champs={champs}
             dateEvaluation={dateEvaluation}
             tauxCroissancePct={tauxCroissancePct}
+            typeTransactionCode={typeTransactionCode}
           />
           <PanierMapExport
             transactions={sorted}
