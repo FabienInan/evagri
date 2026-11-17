@@ -61,11 +61,12 @@ describe("classeur du panier", () => {
     expect(wb.SheetNames).toHaveLength(1)
     const ws = wb.Sheets[wb.SheetNames[0]]
 
+    expect(ws.A3.v).toBe("# vente")
     expect(ws.B3.v).toBe("No d'enr.")
     expect(ws.V3.v).toBe("Taux résiduel ($/ha)")
-    expect(ws.B1.v).toBe("Date d'évaluation")
-    expect(ws.C1.v).toBe(excelDateSerial("2026-01-01"))
-    expect(ws.C2.v).toBe(5)
+    expect(ws.A1.v).toBe("Date d'évaluation")
+    expect(ws.B1.v).toBe(excelDateSerial("2026-01-01"))
+    expect(ws.B2.v).toBe(5)
 
     expect(ws.B4.v).toBe("E2E-001")
     expect(ws.F4.v).toBe("1234567, 2345678")
@@ -81,7 +82,7 @@ describe("classeur du panier", () => {
       tauxCroissancePct: 5,
     })
     const ws = XLSX.read(bytes, { cellFormula: true }).Sheets["Panier"] ?? XLSX.read(bytes, { cellFormula: true }).Sheets[XLSX.read(bytes).SheetNames[0]]
-    expect(ws.H4.f).toBe('IFERROR(G4*(1+$C$2/100)^(($C$1-C4)/365),"")')
+    expect(ws.H4.f).toBe('IFERROR(G4*(1+$B$2/100)^(($B$1-C4)/365),"")')
     expect(ws.H4.v).toBeCloseTo(107844.97, 1)
     expect(ws.V4.f).toBe('IFERROR(H4/N4,"")')
     expect(ws.V4.v).toBeCloseTo(107844.97 / 20, 1)
@@ -91,7 +92,7 @@ describe("classeur du panier", () => {
     const many = Array.from({ length: 80 }, (_, i) => ({ ...transaction, id: `t${i}` }) as SerializedTransaction)
     const bytes = await buildPanierWorkbook(TEMPLATE, many, { dateEvaluation: "2026-01-01", tauxCroissancePct: 5 })
     const table = new TextDecoder().decode((await readZip(bytes)).get("xl/tables/table1.xml"))
-    expect(table).toContain('ref="B3:V83"')
+    expect(table).toContain('ref="A3:V83"')
   })
 })
 
@@ -103,7 +104,7 @@ describe("tableau du classeur", () => {
       m[1].replace(/&apos;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&")
     )
     const ws = XLSX.read(bytes).Sheets[XLSX.read(bytes).SheetNames[0]]
-    const headers = "BCDEFGHIJKLMNOPQRSTUV".split("").map((c) => String(ws[`${c}3`].v))
+    const headers = "ABCDEFGHIJKLMNOPQRSTUV".split("").map((c) => String(ws[`${c}3`].v))
     expect(names).toEqual(headers)
   })
 })
@@ -112,5 +113,39 @@ describe("nom du fichier", () => {
   it("dérive un nom de fichier propre du nom du panier", () => {
     expect(buildExportFileName("Terres été 2026 / test")).toBe("export-terres-ete-2026-test.xlsx")
     expect(buildExportFileName("   ")).toBe("export-panier.xlsx")
+  })
+})
+
+describe("choix des colonnes", () => {
+  it("n'exporte que les colonnes choisies, dans l'ordre du modèle, et recalcule les références", async () => {
+    const bytes = await buildPanierWorkbook(
+      TEMPLATE,
+      [transaction],
+      { dateEvaluation: "2026-01-01", tauxCroissancePct: 5 },
+      ["B", "C", "G", "H"]
+    )
+    const ws = XLSX.read(bytes, { cellFormula: true }).Sheets[XLSX.read(bytes).SheetNames[0]]
+    expect(ws.A3.v).toBe("No d'enr.")
+    expect(ws.D3.v).toBe("Prix de vente ajusté ($)")
+    expect(ws.E3).toBeUndefined()
+    expect(ws.D4.f).toBe('IFERROR(C4*(1+$B$2/100)^(($B$1-B4)/365),"")')
+  })
+
+  it("écrit la valeur calculée quand une colonne source n'est pas exportée", async () => {
+    const bytes = await buildPanierWorkbook(
+      TEMPLATE,
+      [transaction],
+      { dateEvaluation: "2026-01-01", tauxCroissancePct: 5 },
+      ["B", "H"]
+    )
+    const ws = XLSX.read(bytes, { cellFormula: true }).Sheets[XLSX.read(bytes).SheetNames[0]]
+    expect(ws.B4.f).toBeUndefined()
+    expect(ws.B4.v).toBeCloseTo(107844.97, 1)
+  })
+
+  it("refuse une sélection vide", async () => {
+    await expect(
+      buildPanierWorkbook(TEMPLATE, [transaction], { dateEvaluation: "2026-01-01", tauxCroissancePct: 5 }, [])
+    ).rejects.toThrow()
   })
 })

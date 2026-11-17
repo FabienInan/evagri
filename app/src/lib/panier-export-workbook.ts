@@ -29,8 +29,15 @@ const FIRST_DATA_ROW = 4
 const BODY_ROW_HEIGHT = 38.45
 
 type CellContent = { v: number | string | null; f?: string }
+type Letters = (templateLetter: string) => string | null
 type RowContext = { dateEvaluation: string | null; tauxCroissancePct: number | null }
-type ColumnSpec = { letter: string; header: string; content: (t: SerializedTransaction, row: number, ctx: RowContext) => CellContent }
+type ColumnSpec = {
+  letter: string
+  header: string
+  content: (t: SerializedTransaction, row: number, ctx: RowContext) => CellContent
+  /** Formule Excel si les colonnes sources sont exportées ; sinon la valeur calculée est écrite telle quelle. */
+  formula?: (row: number, letters: Letters) => string | null
+}
 
 function num(value: unknown): number | null {
   if (typeof value === "number") return Number.isFinite(value) ? value : null
@@ -82,10 +89,9 @@ const COLUMNS: ColumnSpec[] = [
   {
     letter: "H",
     header: "Prix de vente ajusté ($)",
-    content: (t, row, ctx) => ({
-      v: prixAjuste(t, ctx) ?? "",
-      f: `IFERROR(G${row}*(1+$C$2/100)^(($C$1-C${row})/365),"")`,
-    }),
+    content: (t, _row, ctx) => ({ v: prixAjuste(t, ctx) ?? "" }),
+    formula: (row, L) =>
+      L("G") && L("C") ? `IFERROR(${L("G")}${row}*(1+$B$2/100)^((\$B$1-${L("C")}${row})/365),"")` : null,
   },
   { letter: "I", header: "MRC", content: (t) => ({ v: text(field(t, "mrc")) }) },
   { letter: "J", header: "Municipalité", content: (t) => ({ v: text(field(t, "municipalite")) }) },
@@ -111,16 +117,20 @@ const COLUMNS: ColumnSpec[] = [
   {
     letter: "V",
     header: "Taux résiduel ($/ha)",
-    content: (t, row, ctx) => {
+    content: (t, _row, ctx) => {
       const superficie = num(field(t, "superficie_totale_hectare"))
       const prix = prixAjuste(t, ctx)
-      return {
-        v: prix !== null && superficie !== null && superficie > 0 ? prix / superficie : "",
-        f: `IFERROR(H${row}/N${row},"")`,
-      }
+      return { v: prix !== null && superficie !== null && superficie > 0 ? prix / superficie : "" }
     },
+    formula: (row, L) => (L("H") && L("N") ? `IFERROR(${L("H")}${row}/${L("N")}${row},"")` : null),
   },
 ]
+
+/** Colonnes proposées à l'export, dans l'ordre du modèle. */
+export const EXPORT_COLUMN_OPTIONS: { letter: string; header: string }[] = COLUMNS.map((c) => ({
+  letter: c.letter,
+  header: c.header,
+}))
 
 function escapeXml(value: string): string {
   return value
@@ -180,69 +190,128 @@ function headerStyles(sheetXml: string): Map<string, number> {
   return result
 }
 
+function colLetter(index: number): string {
+  let n = index
+  let out = ""
+  while (n > 0) {
+    const rem = (n - 1) % 26
+    out = String.fromCharCode(65 + rem) + out
+    n = Math.floor((n - 1) / 26)
+  }
+  return out
+}
+
+/** Colonnes du modèle (A..V) qui ont une largeur ou un style dans la feuille modèle, indexées par lettre. */
+function templateCols(sheetXml: string): Map<number, { width?: string; style?: string }> {
+  const result = new Map<number, { width?: string; style?: string }>()
+  const block = /<cols>([\s\S]*?)<\/cols>/.exec(sheetXml)?.[1] ?? ""
+  for (const m of block.matchAll(/<col ([^>]*)\/>/g)) {
+    const attrs = Object.fromEntries([...m[1].matchAll(/(\w+)="([^"]*)"/g)].map((a) => [a[1], a[2]]))
+    const min = Number(attrs.min)
+    const max = Math.min(Number(attrs.max), 40)
+    for (let i = min; i <= max; i++) result.set(i, { width: attrs.width, style: attrs.style })
+  }
+  return result
+}
+
 function rowsXml(
   transactions: SerializedTransaction[],
   ctx: RowContext,
+  columns: ColumnSpec[],
   headers: Map<string, number>,
   bodies: Map<string, number>
-): { rows: string; lastRow: number } {
+): { rows: string; lastRow: number; letters: Map<string, string> } {
+  const letters = new Map(columns.map((c, i) => [c.letter, colLetter(i + 1)]))
+  const L: Letters = (templateLetter) => letters.get(templateLetter) ?? null
   const parts: string[] = []
-  // Lignes 1 et 2 : paramètres de calcul, en C1 (date d'évaluation) et C2 (taux de croissance %), lus par les formules.
+
+  // Lignes 1 et 2 : paramètres de calcul, en B1 (date d'évaluation) et B2 (taux de croissance %), lus par les formules.
   const labelStyle = bodies.get("B")
-  const dateStyle = 7
-  const numberStyle = 10
   parts.push(
     `<row r="1" ht="20" customHeight="1">` +
-      cellXml("B1", labelStyle, { v: "Date d'évaluation" }) +
-      cellXml("C1", dateStyle, { v: excelDateSerial(ctx.dateEvaluation) }) +
+      cellXml("A1", labelStyle, { v: "Date d'évaluation" }) +
+      cellXml("B1", 7, { v: excelDateSerial(ctx.dateEvaluation) }) +
       `</row>`,
     `<row r="2" ht="20" customHeight="1">` +
-      cellXml("B2", labelStyle, { v: "Taux de croissance (%)" }) +
-      cellXml("C2", numberStyle, { v: ctx.tauxCroissancePct }) +
+      cellXml("A2", labelStyle, { v: "Taux de croissance (%)" }) +
+      cellXml("B2", 10, { v: ctx.tauxCroissancePct }) +
       `</row>`
   )
 
-  parts.push(
-    `<row r="${HEADER_ROW}" ht="73.5" customHeight="1">` +
-      COLUMNS.map((c) => cellXml(`${c.letter}${HEADER_ROW}`, headers.get(c.letter), { v: c.header })).join("") +
-      `</row>`
-  )
+  const headerCells = columns.map((c, i) => cellXml(`${colLetter(i + 1)}${HEADER_ROW}`, headers.get(c.letter), { v: c.header }))
+  parts.push(`<row r="${HEADER_ROW}" ht="73.5" customHeight="1">${headerCells.join("")}</row>`)
 
   const rowCount = Math.max(transactions.length, 1)
   for (let i = 0; i < rowCount; i++) {
     const r = FIRST_DATA_ROW + i
     const transaction = transactions[i]
-    const cells = COLUMNS.map((c) =>
-      cellXml(`${c.letter}${r}`, bodies.get(c.letter), transaction ? c.content(transaction, r, ctx) : null)
-    )
+    const cells = columns.map((c, index) => {
+      const ref = `${colLetter(index + 1)}${r}`
+      if (!transaction) return cellXml(ref, bodies.get(c.letter), null)
+      const content = c.content(transaction, r, ctx)
+      const formula = c.formula?.(r, L) ?? null
+      return cellXml(ref, bodies.get(c.letter), formula ? { v: content.v, f: formula } : { v: content.v })
+    })
     parts.push(`<row r="${r}" ht="${BODY_ROW_HEIGHT}" customHeight="1">${cells.join("")}</row>`)
   }
-  return { rows: parts.join(""), lastRow: FIRST_DATA_ROW + rowCount - 1 }
+  return { rows: parts.join(""), lastRow: FIRST_DATA_ROW + rowCount - 1, letters }
 }
 
+/**
+ * Classeur du panier. `selected` : lettres des colonnes du modèle à exporter (toutes par défaut), gardées dans
+ * l'ordre du modèle. Les formules ne sont écrites que si leurs colonnes sources sont exportées.
+ */
 export async function buildPanierWorkbook(
   template: Uint8Array,
   transactions: SerializedTransaction[],
-  ctx: RowContext
+  ctx: RowContext,
+  selected: readonly string[] = COLUMNS.map((c) => c.letter)
 ): Promise<Uint8Array> {
+  const chosen = COLUMNS.filter((c) => selected.includes(c.letter))
+  if (chosen.length === 0) throw new Error("Sélectionnez au moins une colonne.")
+
   const entries: ZipEntries = await readZip(template)
   const sheet = new TextDecoder().decode(entries.get(SHEET_PATH))
   const bodies = bodyStyles(sheet)
   const headers = headerStyles(sheet)
+  const widths = templateCols(sheet)
 
-  const { rows, lastRow } = rowsXml(transactions, ctx, headers, bodies)
-  const head = sheet.slice(0, sheet.indexOf("<sheetData"))
-  const tail = sheet.slice(sheet.indexOf("</sheetData>") + "</sheetData>".length)
-  const newSheet = head.replace(/<dimension ref="[^"]*"\/>/, `<dimension ref="A1:V${lastRow}"/>`) +
-    `<sheetData>${rows}</sheetData>` + tail
-  entries.set(SHEET_PATH, new TextEncoder().encode(newSheet))
+  const { rows, lastRow } = rowsXml(transactions, ctx, chosen, headers, bodies)
+  const lastLetter = colLetter(chosen.length)
 
+  // Largeurs : chaque colonne exportée garde la largeur de sa colonne dans le modèle.
+  const colsXml =
+    "<cols>" +
+    chosen
+      .map((c, i) => {
+        const templateIndex = COLUMNS.findIndex((x) => x.letter === c.letter) + 1
+        const w = widths.get(templateIndex)?.width
+        return w ? `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>` : ""
+      })
+      .join("") +
+    "</cols>"
+
+  let head = sheet.slice(0, sheet.indexOf("<sheetData"))
+  head = head.replace(/<cols>[\s\S]*?<\/cols>/, colsXml).replace(/<dimension ref="[^"]*"\/>/, `<dimension ref="A1:${lastLetter}${lastRow}"/>`)
+  // Mises en forme conditionnelles du modèle : elles visaient des lettres de colonnes qui changent avec la sélection.
+  const tail = sheet
+    .slice(sheet.indexOf("</sheetData>") + "</sheetData>".length)
+    .replace(/<conditionalFormatting[\s\S]*?<\/conditionalFormatting>/g, "")
+  entries.set(SHEET_PATH, new TextEncoder().encode(head + `<sheetData>${rows}</sheetData>` + tail))
+
+  // Tableau : une colonne par colonne exportée, dans le même ordre ; les noms doivent suivre les en-têtes.
   const table = new TextDecoder().decode(entries.get(TABLE_PATH))
-  entries.set(TABLE_PATH, new TextEncoder().encode(table.split("B3:V63").join(`B3:V${lastRow}`)))
+  const tableColumns = chosen
+    .map((c, i) => `<tableColumn id="${i + 1}" name="${escapeXml(c.header)}"/>`)
+    .join("")
+  const withColumns = table
+    .replace(/<tableColumns [^>]*>[\s\S]*?<\/tableColumns>/, `<tableColumns count="${chosen.length}">${tableColumns}</tableColumns>`)
+    .replace(/ref="[A-Z]+3:[A-Z]+\d+"/g, `ref="A3:${lastLetter}${lastRow}"`)
+  entries.set(TABLE_PATH, new TextEncoder().encode(withColumns))
 
   // Recalcul complet à l'ouverture : les formules se calculent avec les paramètres réels.
   const workbook = new TextDecoder().decode(entries.get(WORKBOOK_PATH))
-  entries.set(WORKBOOK_PATH, new TextEncoder().encode(workbook.replace("<calcPr calcId=\"191029\"/>", "<calcPr calcId=\"191029\" fullCalcOnLoad=\"1\"/>")))
+  entries.set(WORKBOOK_PATH, new TextEncoder().encode(workbook.replace('<calcPr calcId="191029"/>', '<calcPr calcId="191029" fullCalcOnLoad="1"/>')))
 
   return writeZip(entries)
 }
