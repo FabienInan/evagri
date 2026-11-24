@@ -87,3 +87,33 @@ describe("historique d'une entité", () => {
     expect([...dates].sort((a, b) => b - a)).toEqual(dates)
   })
 })
+
+describe("historique du panier : transactions désignées par leur numéro d'inscription", () => {
+  it("l'ajout et le retrait nomment la transaction par son numéro d'inscription", async () => {
+    const { addTransactionsToPanier, removeTransactionFromPanier } = await import("@/repositories/dossier.repository")
+    const champ = await prisma.champ.create({
+      data: { organisationId: orgId, codeMachine: "numero_inscription", nomAffichage: "N° d'inscription", typeDonnees: "TEXTE", nature: "IMPORTE" },
+    })
+    const tx = await prisma.transaction.create({ data: { organisationId: orgId, systemeSource: "TEST", statut: "ANALYSEE" } })
+    await prisma.valeurChamp.create({ data: { transactionId: tx.id, champId: champ.id, valeurTexte: "30420525" } })
+    const panier = await prisma.panier.create({ data: { organisationId: orgId, dossierId, nom: "Panier numéros" } })
+
+    await addTransactionsToPanier(orgId, panier.id, [tx.id], { tableCible: "panier_transaction", action: "INSERT" })
+    const ajout = await prisma.journalAudit.findFirstOrThrow({
+      where: { organisationId: orgId, tableCible: "panier_transaction", enregistrementId: panier.id, action: "INSERT" },
+    })
+    expect((ajout.diff as { modifications: string[] }).modifications).toEqual(["Transaction 30420525 ajoutée"])
+
+    await removeTransactionFromPanier(orgId, panier.id, tx.id, { tableCible: "panier_transaction", action: "DELETE" })
+    const retrait = await prisma.journalAudit.findFirstOrThrow({
+      where: { organisationId: orgId, tableCible: "panier_transaction", enregistrementId: panier.id, action: "DELETE" },
+    })
+    expect((retrait.diff as { numeroInscription: string }).numeroInscription).toBe("30420525")
+
+    await prisma.panierTransaction.deleteMany({ where: { panierId: panier.id } })
+    await prisma.panier.delete({ where: { id: panier.id } })
+    await prisma.valeurChamp.deleteMany({ where: { transactionId: tx.id } })
+    await prisma.transaction.delete({ where: { id: tx.id } })
+    await prisma.champ.delete({ where: { id: champ.id } })
+  })
+})

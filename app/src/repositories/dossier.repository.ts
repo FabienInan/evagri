@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { ecrireAvecJournal, type JournalBase } from "@/repositories/audit.repository"
 
@@ -129,6 +130,16 @@ export async function findPanierById(organisationId: string, id: string) {
  * Le panier et les transactions doivent appartenir à l'organisation : une mutation inter-organisation
  * n'insère rien, même si l'appelant a oublié son pré-contrôle. Rien n'est journalisé quand le panier est absent.
  */
+/** Numéro d'inscription of each given transaction (the value of its champ numero_inscription), read in the same transaction. */
+async function numerosInscription(client: Prisma.TransactionClient, transactionIds: string[]): Promise<Map<string, string>> {
+  if (transactionIds.length === 0) return new Map()
+  const valeurs = await client.valeurChamp.findMany({
+    where: { transactionId: { in: transactionIds }, champ: { codeMachine: "numero_inscription" } },
+    select: { transactionId: true, valeurTexte: true },
+  })
+  return new Map(valeurs.flatMap((v) => (v.valeurTexte ? [[v.transactionId, v.valeurTexte] as const] : [])))
+}
+
 export async function addTransactionsToPanier(
   organisationId: string,
   panierId: string,
@@ -157,9 +168,13 @@ export async function addTransactionsToPanier(
             })
           ).count
 
+    // The journal names each transaction by its numéro d'inscription, not by its internal identifier.
+    const numeros = await numerosInscription(tx, owned.map((t) => t.id))
+    const modifications = owned.map((t) => `Transaction ${numeros.get(t.id) ?? "sans numéro"} ajoutée`)
+
     return {
       resultat: added,
-      journal: { ...journal, enregistrementId: panierId, diff: { ajoutees: added } },
+      journal: { ...journal, enregistrementId: panierId, diff: { ajoutees: added, modifications } },
     }
   })
 }
@@ -172,6 +187,7 @@ export async function removeTransactionFromPanier(
   journal: JournalBase
 ): Promise<void> {
   await ecrireAvecJournal(organisationId, async (tx) => {
+    const numero = (await numerosInscription(tx, [transactionId])).get(transactionId)
     await tx.panierTransaction.deleteMany({
       where: {
         panierId,
@@ -180,7 +196,10 @@ export async function removeTransactionFromPanier(
         transaction: { organisationId },
       },
     })
-    return { resultat: undefined, journal: { ...journal, enregistrementId: panierId } }
+    return {
+      resultat: undefined,
+      journal: { ...journal, enregistrementId: panierId, diff: { transactionId, numeroInscription: numero ?? "sans numéro" } },
+    }
   })
 }
 

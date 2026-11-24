@@ -75,7 +75,9 @@ export function libelleEntree(entree: { tableCible: string; action: string; diff
     case "panier_transaction:INSERT":
       return `${texte(diff.ajoutees) || "0"} transaction(s) ajoutée(s) au panier`
     case "panier_transaction:DELETE":
-      return "Transaction retirée du panier"
+      return texte(diff.numeroInscription)
+        ? `Transaction ${texte(diff.numeroInscription)} retirée du panier`
+        : "Transaction retirée du panier"
     default:
       return `${entree.action} (${entree.tableCible})`
   }
