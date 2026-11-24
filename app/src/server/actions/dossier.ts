@@ -180,7 +180,7 @@ export async function createPanier(input: {
       utilisateurId: utilisateur.id,
       tableCible: "panier",
       action: "INSERT",
-      diff: {},
+      diff: { nom: parsed.data.nom },
     })
     revalidatePath(`/dossiers/${parsed.data.dossierId}`)
     return { ok: true, id: panier.id }

@@ -99,9 +99,20 @@ export async function createDocument(
 /** Scoped through the owning transaction so a document id from another tenant matches nothing. Nothing is journalised when no document matched. */
 export async function deleteDocument(organisationId: string, id: string, journal: JournalFiche): Promise<boolean> {
   return ecrireAvecJournal(organisationId, async (tx) => {
-    const result = await tx.documentActe.deleteMany({
+    // Read first: the journal keeps the name and the transaction, so the fiche history can show what was removed.
+    const document = await tx.documentActe.findFirst({
       where: { id, transaction: { organisationId } },
+      select: { nomFichier: true, transactionId: true },
     })
-    return { resultat: result.count > 0, journal: result.count > 0 ? { ...journal, enregistrementId: id } : undefined }
+    if (!document) return { resultat: false }
+    await tx.documentActe.delete({ where: { id } })
+    return {
+      resultat: true,
+      journal: {
+        ...journal,
+        enregistrementId: id,
+        diff: { nomFichier: document.nomFichier, transactionId: document.transactionId },
+      },
+    }
   })
 }

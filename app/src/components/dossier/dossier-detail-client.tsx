@@ -1,5 +1,7 @@
 "use client"
 
+import { HistoriqueBouton } from "@/components/historique/historique-bouton"
+
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -37,6 +39,9 @@ export function DossierDetailClient({
   return (
     <div className="space-y-4">
       <Breadcrumb items={[{ label: "Dossiers", href: "/dossiers" }, { label: dossier.numeroDossier }]} />
+      <div className="flex justify-end">
+        <HistoriqueBouton cible={{ type: "dossier", id: dossier.id }} titre={`Dossier ${dossier.numeroDossier}`} />
+      </div>
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
           {dossier.nom ?? "—"}
