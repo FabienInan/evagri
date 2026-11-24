@@ -1,6 +1,7 @@
 import { writeFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { Prisma, PrismaClient } from "@prisma/client"
+import { PrismaPg } from "@prisma/adapter-pg"
 import { loadEnv } from "./env"
 import { cleanup, E2E_SOURCE, ORG_ID } from "./db"
 import { ENRICH_TEST_CHAMPS, FILTER_TEST_CHAMPS, type TestChamp } from "./test-champs"
@@ -30,7 +31,7 @@ function columnFor(typeDonnees: string, value: SeedValue) {
 }
 
 export default async function globalSetup(): Promise<void> {
-  const prisma = new PrismaClient()
+  const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) })
   try {
     await cleanup(prisma)
 

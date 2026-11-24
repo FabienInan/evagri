@@ -1,7 +1,8 @@
 import { PrismaClient } from "@prisma/client"
+import { PrismaPg } from "@prisma/adapter-pg"
 import { IMPORTED_FIELDS } from "../src/lib/imported-fields"
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) })
 
 const DEFAULT_ORGANISATION_ID = "90a5866e-06e5-46ce-9941-56582b8ca15c"
 

@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test"
 import { PrismaClient } from "@prisma/client"
+import { PrismaPg } from "@prisma/adapter-pg"
 import { E2E_SOURCE, ORG_ID, restoreDefaultLayout } from "./db"
 import { setEnrichLayout } from "./support"
 
@@ -51,7 +52,7 @@ async function enregistrer(page: Page): Promise<void> {
 test.describe.configure({ mode: "serial" })
 
 test.beforeAll(async () => {
-  prisma = new PrismaClient()
+  prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) })
   await setEnrichLayout(prisma)
 
   const champs = await prisma.champ.findMany({

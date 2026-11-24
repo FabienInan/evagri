@@ -1,3 +1,15 @@
+// Business-logic tests: authorization is covered by tests/server/zones-guards.test.ts, so every zone is granted here.
+// A real row of the test organisation: the contributeur of a fiche is a foreign key to utilisateur.
+const TEST_USER = vi.hoisted(() => ({ id: "5b1e0c2a-7d3f-4e8a-9c61-0f2a4b6d8e10" }))
+
+vi.mock("@/lib/session", () => ({
+  // The test organisation is the one the test sets in DEFAULT_ORGANISATION_ID.
+  verifierZone: async () => ({ ok: true, utilisateur: { id: TEST_USER.id, organisationId: process.env.DEFAULT_ORGANISATION_ID } }),
+  utilisateurPourZone: async () => ({ id: TEST_USER.id, organisationId: process.env.DEFAULT_ORGANISATION_ID }),
+  exigerZonePage: async () => ({ organisationId: process.env.DEFAULT_ORGANISATION_ID }),
+  zonesDeLUtilisateur: async () => ["evaluation", "configuration", "administration"],
+}))
+
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
@@ -52,6 +64,9 @@ function fixtureFormData(): FormData {
 beforeAll(async () => {
   const org = await prisma.organisation.create({ data: { nom: "Test E2E Org" } })
   orgId = org.id
+  await prisma.utilisateur.create({
+    data: { id: TEST_USER.id, organisationId: orgId, email: "evaluateur.e2e@test.invalid", role: "EVALUATEUR", passwordHash: "x" },
+  })
   process.env.DEFAULT_ORGANISATION_ID = orgId
 
   for (const t of TYPOLOGIES) {
@@ -131,6 +146,7 @@ afterAll(async () => {
   await prisma.journalAudit.deleteMany({ where: { organisationId: orgId } })
   await prisma.champ.deleteMany({ where: { organisationId: orgId } })
   await prisma.typologie.deleteMany({ where: { organisationId: orgId } })
+  await prisma.utilisateur.deleteMany({ where: { organisationId: orgId } })
   await prisma.organisation.delete({ where: { id: orgId } })
 
   await rm(join(uploadedFilesRoot, orgId), { recursive: true, force: true })
@@ -216,6 +232,9 @@ describe("E2E — cycle de vie import → recherche → fiche → statut → act
     })
     const result = await setFicheStatut(txId, "ANALYSEE")
     expect(result).toEqual({ ok: true })
+    // §7.5.5 : l'évaluateur devient le contributeur, en base (clé étrangère réelle).
+    const analysee = await prisma.transaction.findUniqueOrThrow({ where: { id: txId } })
+    expect(analysee.contributeurId).toBe(TEST_USER.id)
 
     const updated = await readSingleTransaction()
     expect(updated.statut).toBe("ANALYSEE")
@@ -226,7 +245,7 @@ describe("E2E — cycle de vie import → recherche → fiche → statut → act
     const analysedAt = new Date("2026-01-15T12:00:00.000Z")
     await prisma.transaction.update({
       where: { id: txId },
-      data: { contributeurId: "contributeur-historique", dateStatut: analysedAt },
+      data: { contributeurId: TEST_USER.id, dateStatut: analysedAt },
     })
 
     const result = await setFicheStatut(txId, "NON_ANALYSEE")
@@ -234,7 +253,7 @@ describe("E2E — cycle de vie import → recherche → fiche → statut → act
 
     const updated = await prisma.transaction.findUniqueOrThrow({ where: { id: txId } })
     expect(updated.statut).toBe("NON_ANALYSEE")
-    expect(updated.contributeurId).toBe("contributeur-historique")
+    expect(updated.contributeurId).toBe(TEST_USER.id)
     expect(updated.dateStatut?.toISOString()).toBe(analysedAt.toISOString())
   })
 

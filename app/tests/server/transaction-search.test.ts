@@ -1,3 +1,13 @@
+import { vi } from "vitest"
+// Business-logic tests: authorization is covered by tests/server/zones-guards.test.ts, so every zone is granted here.
+vi.mock("@/lib/session", () => ({
+  // The test organisation is the one the test sets in DEFAULT_ORGANISATION_ID.
+  verifierZone: async () => ({ ok: true, utilisateur: { id: "test-user", organisationId: process.env.DEFAULT_ORGANISATION_ID } }),
+  utilisateurPourZone: async () => ({ id: "test-user", organisationId: process.env.DEFAULT_ORGANISATION_ID }),
+  exigerZonePage: async () => ({ organisationId: process.env.DEFAULT_ORGANISATION_ID }),
+  zonesDeLUtilisateur: async () => ["evaluation", "configuration", "administration"],
+}))
+
 import { describe, it, expect, beforeAll, afterAll } from "vitest"
 import { prisma } from "@/lib/prisma"
 
@@ -72,6 +82,7 @@ afterAll(async () => {
   await prisma.valeurChamp.deleteMany({ where: { transaction: { organisationId: orgId } } })
   await prisma.transaction.deleteMany({ where: { organisationId: orgId } })
   await prisma.champ.deleteMany({ where: { organisationId: orgId } })
+  await prisma.journalAudit.deleteMany({ where: { organisationId: orgId } })
   await prisma.organisation.delete({ where: { id: orgId } })
   if (previousOrganisationId === undefined) delete process.env.DEFAULT_ORGANISATION_ID
   else process.env.DEFAULT_ORGANISATION_ID = previousOrganisationId

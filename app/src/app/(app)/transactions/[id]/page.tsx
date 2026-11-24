@@ -1,5 +1,5 @@
+import { exigerZonePage } from "@/lib/session"
 import { notFound } from "next/navigation"
-import { getCurrentOrganisationId } from "@/repositories/organisation.repository"
 import { listChampsEnrichissablesByOrganisation } from "@/repositories/champs.repository"
 import { getEffectiveFicheLayout } from "@/server/fiche-layout"
 import { listTypologiesByOrganisation } from "@/repositories/typologie.repository"
@@ -24,9 +24,10 @@ export default async function FicheTransactionPage({
   params: Promise<{ id: string }>
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
+  const utilisateur = await exigerZonePage("evaluation")
   const { id } = await params
   const sp = await searchParams
-  const organisationId = getCurrentOrganisationId()
+  const organisationId = utilisateur.organisationId
 
   const record = await findTransactionFiche(organisationId, id)
   if (!record) notFound()

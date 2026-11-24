@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test"
 import { PrismaClient } from "@prisma/client"
+import { PrismaPg } from "@prisma/adapter-pg"
 import { ORG_ID } from "./db"
 import { fixtures } from "./fixtures"
 
@@ -12,7 +13,7 @@ const fx = fixtures()
 const DOSSIER_NUMERO = "99-99-013"
 
 test("l'export recadre la carte après le retrait d'une transaction éloignée", async ({ page }) => {
-  const prisma = new PrismaClient()
+  const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) })
   const dossier = await prisma.dossier.create({
     data: { organisationId: ORG_ID, numeroDossier: DOSSIER_NUMERO, nom: "Carte e2e" },
   })

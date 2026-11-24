@@ -1,5 +1,5 @@
+import { exigerZonePage } from "@/lib/session"
 import { notFound } from "next/navigation"
-import { getCurrentOrganisationId } from "@/repositories/organisation.repository"
 import { findPanierById, listTransactionsOfPanier } from "@/repositories/dossier.repository"
 import { serializePanier } from "@/serializers/dossier.serializer"
 import { listChampsEnrichissablesByOrganisation } from "@/repositories/champs.repository"
@@ -15,8 +15,9 @@ export default async function PanierPage({
 }: {
   params: Promise<{ id: string }>
 }) {
+  const utilisateur = await exigerZonePage("evaluation")
   const { id } = await params
-  const organisationId = getCurrentOrganisationId()
+  const organisationId = utilisateur.organisationId
 
   const panier = await findPanierById(organisationId, id)
   if (!panier) notFound()

@@ -11,7 +11,7 @@ setup("authenticate", async ({ page }) => {
   }
 
   await page.goto("/login")
-  await page.getByLabel("Nom d'utilisateur").fill(username)
+  await page.getByLabel("Courriel").fill(username)
   await page.getByLabel("Mot de passe").fill(password)
   await page.getByRole("button", { name: "Se connecter" }).click()
 

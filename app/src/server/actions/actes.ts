@@ -1,6 +1,6 @@
 "use server"
 
-import { getCurrentOrganisationId } from "@/repositories/organisation.repository"
+import { verifierZone } from "@/lib/session"
 import {
   createDocumentActe,
   findDocumentActeByFileName,
@@ -27,10 +27,13 @@ export type ImportActesResult =
   | { ok: false; error: string }
 
 export async function importActesPDF(formData: FormData): Promise<ImportActesResult> {
+  const acces = await verifierZone("configuration")
+  if (!acces.ok) return acces
+  const utilisateur = acces.utilisateur
   const files = formData.getAll("files") as File[]
   if (files.length === 0) return { ok: false, error: "Aucun fichier PDF fourni." }
 
-  const organisationId = getCurrentOrganisationId()
+  const organisationId = utilisateur.organisationId
   const matched: { filename: string; numeroInscription: string | null; transactionId: string }[] = []
   const unmatched: string[] = []
 

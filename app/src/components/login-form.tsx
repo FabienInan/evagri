@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Loader2, Lock, User } from "lucide-react"
+import { Loader2, Lock, Mail } from "lucide-react"
+import { login } from "@/server/actions/auth"
 
 export function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [username, setUsername] = useState("")
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -22,21 +23,17 @@ export function LoginForm() {
     setIsLoading(true)
 
     try {
-      const response = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      })
+      const result = await login(email, password)
 
-      if (!response.ok) {
-        setError("Identifiants invalides")
+      if (!result.ok) {
+        setError(result.error)
         setIsLoading(false)
         return
       }
 
       // Only same-origin relative paths: blocks open redirects via ?from=https://evil.com.
       const from = searchParams.get("from")
-      const redirect = from && from.startsWith("/") && !from.startsWith("//") ? from : "/transactions"
+      const redirect = from && from.startsWith("/") && !from.startsWith("//") ? from : "/"
       router.push(redirect)
       router.refresh()
     } catch {
@@ -56,15 +53,17 @@ export function LoginForm() {
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="username">Nom d&apos;utilisateur</Label>
+            <Label htmlFor="email">Courriel</Label>
             <div className="relative">
-              <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                id="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="pl-9"
                 autoComplete="username"
+                required
               />
             </div>
           </div>
@@ -80,6 +79,7 @@ export function LoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 className="pl-9"
                 autoComplete="current-password"
+                required
               />
             </div>
           </div>

@@ -2,6 +2,9 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { logout } from "@/server/actions/auth"
+import type { Zone } from "@/lib/roles"
+import type { LucideIcon } from "lucide-react"
 import {
   LayoutList,
   FolderOpen,
@@ -11,24 +14,31 @@ import {
   LogOut,
   PanelLeftClose,
   Sprout,
+  Users,
+  History,
+  KeyRound,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
-const NAV_ITEMS = [
-  { href: "/transactions", label: "Liste des transactions", icon: LayoutList },
-  { href: "/dossiers", label: "Dossiers", icon: FolderOpen },
-  { href: "/admin/import", label: "Gestion des imports", icon: Upload },
-  { href: "/admin/filters", label: "Configuration des filtres", icon: SlidersHorizontal },
-  { href: "/admin/champs", label: "Champs enrichissables", icon: ListTree },
+const NAV_ITEMS: readonly { href: string; label: string; icon: LucideIcon; zone: Zone }[] = [
+  { href: "/transactions", label: "Liste des transactions", icon: LayoutList, zone: "evaluation" },
+  { href: "/dossiers", label: "Dossiers", icon: FolderOpen, zone: "evaluation" },
+  { href: "/admin/import", label: "Gestion des imports", icon: Upload, zone: "configuration" },
+  { href: "/admin/filters", label: "Configuration des filtres", icon: SlidersHorizontal, zone: "configuration" },
+  { href: "/admin/champs", label: "Champs enrichissables", icon: ListTree, zone: "configuration" },
+  { href: "/admin/utilisateurs", label: "Utilisateurs", icon: Users, zone: "administration" },
+  { href: "/admin/journal", label: "Journal d'audit", icon: History, zone: "administration" },
 ]
 
 export function Sidebar({
   onCollapseClick,
   collapsed = false,
+  zones,
 }: {
   onCollapseClick: () => void
   collapsed?: boolean
+  zones: readonly Zone[]
 }) {
   const pathname = usePathname()
 
@@ -76,7 +86,7 @@ export function Sidebar({
 
       <nav className="flex-1 overflow-auto px-3 py-4">
         <ul className="space-y-1">
-          {NAV_ITEMS.map((item) => {
+          {NAV_ITEMS.filter((item) => zones.includes(item.zone)).map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
             const Icon = item.icon
             return (
@@ -101,7 +111,20 @@ export function Sidebar({
         </ul>
       </nav>
 
-      <div className={cn("border-t border-border p-3", collapsed && "px-2")}>
+      <div className={cn("space-y-1 border-t border-border p-3", collapsed && "px-2")}>
+        {/* Offered to every signed-in user, whatever their zones: changing one's own password needs no zone. */}
+        <Link
+          href="/compte/mot-de-passe"
+          className={cn(
+            "flex items-center gap-3 rounded-md py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+            collapsed ? "justify-center px-2" : "px-3",
+            pathname === "/compte/mot-de-passe" && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
+          )}
+          title="Changer mon mot de passe"
+        >
+          <KeyRound className="h-4 w-4 shrink-0" />
+          {!collapsed && <span>Changer mon mot de passe</span>}
+        </Link>
         <Button
           variant="ghost"
           className={cn(
@@ -110,7 +133,7 @@ export function Sidebar({
           )}
           title="Déconnexion"
           onClick={() => {
-            window.location.href = "/api/logout"
+            void logout()
           }}
         >
           <LogOut className="h-4 w-4 shrink-0" />

@@ -14,7 +14,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/champs": "Champs enrichissables",
 }
 
-export function Header({ title }: { title: string }) {
+export function Header({ title, nomUtilisateur }: { title: string; nomUtilisateur: string }) {
   const pathname = usePathname()
   const resolvedTitle =
     PAGE_TITLES[pathname] ??
@@ -46,7 +46,7 @@ export function Header({ title }: { title: string }) {
         <span className="hidden lg:inline">Connecté en tant que</span>
         <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-1.5">
           <User className="h-4 w-4" />
-          <span className="font-medium text-foreground">Simon Audoire</span>
+          <span className="font-medium text-foreground">{nomUtilisateur}</span>
         </div>
       </div>
     </header>

@@ -11,7 +11,7 @@ test("redirige vers /login quand la session est absente", async ({ page }) => {
 
 test("refuse des identifiants invalides", async ({ page }) => {
   await page.goto("/login")
-  await page.getByLabel("Nom d'utilisateur").fill("utilisateur-invalide")
+  await page.getByLabel("Courriel").fill("invalide@evagri.test")
   await page.getByLabel("Mot de passe").fill("mot-de-passe-invalide")
   await page.getByRole("button", { name: "Se connecter" }).click()
   await expect(page.getByText("Identifiants invalides")).toBeVisible()
@@ -20,7 +20,7 @@ test("refuse des identifiants invalides", async ({ page }) => {
 
 test("connecte avec des identifiants valides et atteint la liste", async ({ page }) => {
   await page.goto("/login")
-  await page.getByLabel("Nom d'utilisateur").fill(process.env.AUTH_USER ?? "")
+  await page.getByLabel("Courriel").fill(process.env.AUTH_USER ?? "")
   await page.getByLabel("Mot de passe").fill(process.env.AUTH_PASSWORD ?? "")
   await page.getByRole("button", { name: "Se connecter" }).click()
   await expect(page).toHaveURL(/\/transactions/)
@@ -29,7 +29,7 @@ test("connecte avec des identifiants valides et atteint la liste", async ({ page
 
 test("la déconnexion purge la session", async ({ page }) => {
   await page.goto("/login")
-  await page.getByLabel("Nom d'utilisateur").fill(process.env.AUTH_USER ?? "")
+  await page.getByLabel("Courriel").fill(process.env.AUTH_USER ?? "")
   await page.getByLabel("Mot de passe").fill(process.env.AUTH_PASSWORD ?? "")
   await page.getByRole("button", { name: "Se connecter" }).click()
   await expect(page).toHaveURL(/\/transactions/)

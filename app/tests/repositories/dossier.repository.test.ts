@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest"
 import { prisma } from "@/lib/prisma"
+import type { JournalBase } from "@/repositories/audit.repository"
 
 let orgId = ""
 let dossierId = ""
@@ -9,6 +10,7 @@ let otherOrgId = ""
 let otherPanierId = ""
 let otherTransactionId = ""
 const previousOrganisationId = process.env.DEFAULT_ORGANISATION_ID
+const JOURNAL: JournalBase = { tableCible: "panier", action: "TEST", diff: {} }
 
 beforeAll(async () => {
   const org = await prisma.organisation.create({ data: { nom: "Test Dossier Repo Org" } })
@@ -42,6 +44,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
+  await prisma.journalAudit.deleteMany({ where: { organisationId: { in: [orgId, otherOrgId] } } })
   await prisma.panierTransaction.deleteMany({ where: { panier: { organisationId: { in: [orgId, otherOrgId] } } } })
   await prisma.panier.deleteMany({ where: { organisationId: { in: [orgId, otherOrgId] } } })
   await prisma.dossier.deleteMany({ where: { organisationId: { in: [orgId, otherOrgId] } } })
@@ -54,8 +57,8 @@ afterAll(async () => {
 describe("dossier.repository", () => {
   it("ajoute une transaction au panier", async () => {
     const { addTransactionsToPanier } = await import("@/repositories/dossier.repository")
-    expect(await addTransactionsToPanier(orgId, panierId, [analyseeId])).toBe(1)
-    expect(await addTransactionsToPanier(orgId, panierId, [analyseeId])).toBe(0) // idempotent (skipDuplicates)
+    expect(await addTransactionsToPanier(orgId, panierId, [analyseeId], JOURNAL)).toBe(1)
+    expect(await addTransactionsToPanier(orgId, panierId, [analyseeId], JOURNAL)).toBe(0) // idempotent (skipDuplicates)
     expect(await prisma.panierTransaction.count({ where: { panierId } })).toBe(1)
   })
 
@@ -67,20 +70,20 @@ describe("dossier.repository", () => {
 
   it("retire une transaction du panier (idempotent si absente)", async () => {
     const { removeTransactionFromPanier } = await import("@/repositories/dossier.repository")
-    await removeTransactionFromPanier(orgId, panierId, analyseeId)
+    await removeTransactionFromPanier(orgId, panierId, analyseeId, JOURNAL)
     expect(await prisma.panierTransaction.count({ where: { panierId } })).toBe(0)
-    await expect(removeTransactionFromPanier(orgId, panierId, analyseeId)).resolves.toBeUndefined()
+    await expect(removeTransactionFromPanier(orgId, panierId, analyseeId, JOURNAL)).resolves.toBeUndefined()
   })
 
   it("refuse d'ajouter une transaction ou un panier d'une autre organisation", async () => {
     const { addTransactionsToPanier, listTransactionsOfPanier } = await import("@/repositories/dossier.repository")
 
     // Transaction de l'autre organisation dans notre panier.
-    expect(await addTransactionsToPanier(orgId, panierId, [otherTransactionId])).toBe(0)
+    expect(await addTransactionsToPanier(orgId, panierId, [otherTransactionId], JOURNAL)).toBe(0)
     expect(await prisma.panierTransaction.count({ where: { panierId } })).toBe(0)
 
     // Notre transaction dans le panier de l'autre organisation.
-    expect(await addTransactionsToPanier(orgId, otherPanierId, [analyseeId])).toBe(0)
+    expect(await addTransactionsToPanier(orgId, otherPanierId, [analyseeId], JOURNAL)).toBe(0)
     expect(await prisma.panierTransaction.count({ where: { panierId: otherPanierId } })).toBe(0)
 
     // Lecture d'un panier étranger → liste vide.
@@ -94,7 +97,7 @@ describe("dossier.repository", () => {
     })
 
     // Panier étranger : le lien reste intact.
-    await removeTransactionFromPanier(orgId, otherPanierId, otherTransactionId)
+    await removeTransactionFromPanier(orgId, otherPanierId, otherTransactionId, JOURNAL)
     expect(
       await prisma.panierTransaction.findUnique({
         where: { panierId_transactionId: { panierId: otherPanierId, transactionId: otherTransactionId } },
@@ -105,7 +108,7 @@ describe("dossier.repository", () => {
     await prisma.panierTransaction.create({
       data: { panierId, transactionId: otherTransactionId },
     })
-    await removeTransactionFromPanier(orgId, panierId, otherTransactionId)
+    await removeTransactionFromPanier(orgId, panierId, otherTransactionId, JOURNAL)
     expect(
       await prisma.panierTransaction.findUnique({
         where: { panierId_transactionId: { panierId, transactionId: otherTransactionId } },
@@ -133,13 +136,13 @@ describe("dossier.repository", () => {
   it("supprime un panier et ses liens, sans supprimer les transactions, et refuse une autre organisation", async () => {
     const { deletePanier, addTransactionsToPanier } = await import("@/repositories/dossier.repository")
     const panier = await prisma.panier.create({ data: { organisationId: orgId, dossierId, nom: "À supprimer" } })
-    await addTransactionsToPanier(orgId, panier.id, [analyseeId])
+    await addTransactionsToPanier(orgId, panier.id, [analyseeId], JOURNAL)
 
     // Panier d'une autre organisation : rien n'est supprimé.
-    expect(await deletePanier(orgId, otherPanierId)).toBe(false)
+    expect(await deletePanier(orgId, otherPanierId, JOURNAL)).toBe(false)
     expect(await prisma.panier.findUnique({ where: { id: otherPanierId } })).not.toBeNull()
 
-    expect(await deletePanier(orgId, panier.id)).toBe(true)
+    expect(await deletePanier(orgId, panier.id, JOURNAL)).toBe(true)
     expect(await prisma.panier.findUnique({ where: { id: panier.id } })).toBeNull()
     expect(await prisma.panierTransaction.count({ where: { panierId: panier.id } })).toBe(0)
     expect(await prisma.transaction.findUnique({ where: { id: analyseeId } })).not.toBeNull()
@@ -150,5 +153,41 @@ describe("dossier.repository", () => {
     const rows = await listDossiers(orgId)
     const row = rows.find((d) => d.id === dossierId)
     expect(row?._count.paniers).toBe(1)
+  })
+})
+
+describe("dossier.repository : journal écrit dans la même transaction que la modification", () => {
+  it("un panier créé apparaît avec son entrée de journal", async () => {
+    const { createPanier } = await import("@/repositories/dossier.repository")
+    const panier = await createPanier(
+      orgId,
+      { dossierId, nom: "Journalisé", tauxCroissancePct: 3 },
+      { tableCible: "panier", action: "INSERT", diff: {} }
+    )
+    const entree = await prisma.journalAudit.findFirst({ where: { organisationId: orgId, enregistrementId: panier.id } })
+    expect(entree?.action).toBe("INSERT")
+    expect(entree?.tableCible).toBe("panier")
+  })
+
+  it("régression : si l'entrée de journal est refusée, la modification est annulée (rien n'est écrit)", async () => {
+    const { createPanier } = await import("@/repositories/dossier.repository")
+    const avant = await prisma.panier.count({ where: { organisationId: orgId } })
+    // Sans action, Prisma refuse l'entrée de journal : la création du panier, faite avant, doit être annulée.
+    await expect(
+      createPanier(
+        orgId,
+        { dossierId, nom: "Ne doit pas exister", tauxCroissancePct: 3 },
+        { tableCible: "panier", action: undefined as unknown as string }
+      )
+    ).rejects.toThrow()
+    expect(await prisma.panier.count({ where: { organisationId: orgId } })).toBe(avant)
+    expect(await prisma.panier.findFirst({ where: { organisationId: orgId, nom: "Ne doit pas exister" } })).toBeNull()
+  })
+
+  it("aucune entrée de journal quand rien n'a été modifié (panier d'une autre organisation)", async () => {
+    const { updatePanierTauxCroissance } = await import("@/repositories/dossier.repository")
+    const avant = await prisma.journalAudit.count({ where: { organisationId: orgId } })
+    expect(await updatePanierTauxCroissance(orgId, otherPanierId, 5, JOURNAL)).toBe(false)
+    expect(await prisma.journalAudit.count({ where: { organisationId: orgId } })).toBe(avant)
   })
 })

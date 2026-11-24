@@ -1,4 +1,7 @@
 import { prisma } from "@/lib/prisma"
+import { ecrireAvecJournal, type JournalBase } from "@/repositories/audit.repository"
+
+// Each write below records its journal entry in the same transaction: the change and its trace commit together.
 
 export async function listDossiers(organisationId: string) {
   return prisma.dossier.findMany({
@@ -28,19 +31,23 @@ export async function createDossier(
     lotsCadastraux: string[]
     latitude: number
     longitude: number
-  }
+  },
+  journal: JournalBase
 ) {
-  return prisma.dossier.create({
-    data: {
-      organisationId,
-      numeroDossier: data.numeroDossier,
-      nom: data.nom ?? null,
-      dateEvaluation: new Date(data.dateEvaluation),
-      lotsCadastraux: data.lotsCadastraux,
-      latitude: data.latitude,
-      longitude: data.longitude,
-      createurId: null,
-    },
+  return ecrireAvecJournal(organisationId, async (tx) => {
+    const dossier = await tx.dossier.create({
+      data: {
+        organisationId,
+        numeroDossier: data.numeroDossier,
+        nom: data.nom ?? null,
+        dateEvaluation: new Date(data.dateEvaluation),
+        lotsCadastraux: data.lotsCadastraux,
+        latitude: data.latitude,
+        longitude: data.longitude,
+        createurId: null,
+      },
+    })
+    return { resultat: dossier, journal: { ...journal, enregistrementId: dossier.id } }
   })
 }
 
@@ -56,33 +63,40 @@ export async function listPaniersByDossier(organisationId: string, dossierId: st
   })
 }
 
-/** Modifie le taux de croissance d'un panier (fraction stockée, comme à la création). Renvoie false si absent. */
+/** Modifie le taux de croissance d'un panier (fraction stockée, comme à la création). Renvoie false si absent : rien n'est journalisé. */
 export async function updatePanierTauxCroissance(
   organisationId: string,
   panierId: string,
-  tauxCroissancePct: number
+  tauxCroissancePct: number,
+  journal: JournalBase
 ): Promise<boolean> {
-  const { count } = await prisma.panier.updateMany({
-    where: { id: panierId, organisationId },
-    data: { tauxCroissance: tauxCroissancePct / 100 },
+  return ecrireAvecJournal(organisationId, async (tx) => {
+    const { count } = await tx.panier.updateMany({
+      where: { id: panierId, organisationId },
+      data: { tauxCroissance: tauxCroissancePct / 100 },
+    })
+    return { resultat: count > 0, journal: count > 0 ? { ...journal, enregistrementId: panierId } : undefined }
   })
-  return count > 0
 }
 
 export async function createPanier(
   organisationId: string,
-  data: { dossierId: string; nom: string; typeTransactionId?: string | null; tauxCroissancePct: number }
+  data: { dossierId: string; nom: string; typeTransactionId?: string | null; tauxCroissancePct: number },
+  journal: JournalBase
 ) {
-  return prisma.panier.create({
-    data: {
-      organisationId,
-      dossierId: data.dossierId,
-      nom: data.nom,
-      typeTransactionId: data.typeTransactionId ?? null,
-      // Stocké en fraction (3.25 % → 0.0325), comme l'ancienne analyse.
-      tauxCroissance: data.tauxCroissancePct / 100,
-      createurId: null,
-    },
+  return ecrireAvecJournal(organisationId, async (tx) => {
+    const panier = await tx.panier.create({
+      data: {
+        organisationId,
+        dossierId: data.dossierId,
+        nom: data.nom,
+        typeTransactionId: data.typeTransactionId ?? null,
+        // Stocké en fraction (3.25 % → 0.0325), comme l'ancienne analyse.
+        tauxCroissance: data.tauxCroissancePct / 100,
+        createurId: null,
+      },
+    })
+    return { resultat: panier, journal: { ...journal, enregistrementId: panier.id } }
   })
 }
 
@@ -100,32 +114,40 @@ export async function findPanierById(organisationId: string, id: string) {
 /**
  * Renvoie le nombre de lignes réellement insérées : `skipDuplicates` rend l'ajout idempotent.
  * Le panier et les transactions doivent appartenir à l'organisation : une mutation inter-organisation
- * n'insère rien, même si l'appelant a oublié son pré-contrôle.
+ * n'insère rien, même si l'appelant a oublié son pré-contrôle. Rien n'est journalisé quand le panier est absent.
  */
 export async function addTransactionsToPanier(
   organisationId: string,
   panierId: string,
-  transactionIds: string[]
+  transactionIds: string[],
+  journal: JournalBase
 ): Promise<number> {
   const ids = Array.from(new Set(transactionIds))
-  return prisma.$transaction(async (tx) => {
+  return ecrireAvecJournal(organisationId, async (tx) => {
     const panier = await tx.panier.findFirst({
       where: { id: panierId, organisationId },
       select: { id: true },
     })
-    if (!panier) return 0
+    if (!panier) return { resultat: 0 }
 
     const owned = await tx.transaction.findMany({
       where: { id: { in: ids }, organisationId },
       select: { id: true },
     })
-    if (owned.length === 0) return 0
+    const added =
+      owned.length === 0
+        ? 0
+        : (
+            await tx.panierTransaction.createMany({
+              data: owned.map(({ id }) => ({ panierId, transactionId: id })),
+              skipDuplicates: true,
+            })
+          ).count
 
-    const result = await tx.panierTransaction.createMany({
-      data: owned.map(({ id }) => ({ panierId, transactionId: id })),
-      skipDuplicates: true,
-    })
-    return result.count
+    return {
+      resultat: added,
+      journal: { ...journal, enregistrementId: panierId, diff: { ajoutees: added } },
+    }
   })
 }
 
@@ -133,15 +155,19 @@ export async function addTransactionsToPanier(
 export async function removeTransactionFromPanier(
   organisationId: string,
   panierId: string,
-  transactionId: string
+  transactionId: string,
+  journal: JournalBase
 ): Promise<void> {
-  await prisma.panierTransaction.deleteMany({
-    where: {
-      panierId,
-      transactionId,
-      panier: { organisationId },
-      transaction: { organisationId },
-    },
+  await ecrireAvecJournal(organisationId, async (tx) => {
+    await tx.panierTransaction.deleteMany({
+      where: {
+        panierId,
+        transactionId,
+        panier: { organisationId },
+        transaction: { organisationId },
+      },
+    })
+    return { resultat: undefined, journal: { ...journal, enregistrementId: panierId } }
   })
 }
 
@@ -175,14 +201,18 @@ export async function countEligibleTransactions(
 
 /**
  * Supprime le panier et ses liens vers les transactions. Les transactions elles-mêmes restent intactes :
- * seul le regroupement disparaît. Retourne false si le panier n'appartient pas à l'organisation.
+ * seul le regroupement disparaît. Retourne false si le panier n'appartient pas à l'organisation (rien n'est journalisé).
  */
-export async function deletePanier(organisationId: string, panierId: string): Promise<boolean> {
-  return prisma.$transaction(async (tx) => {
+export async function deletePanier(
+  organisationId: string,
+  panierId: string,
+  journal: JournalBase
+): Promise<boolean> {
+  return ecrireAvecJournal(organisationId, async (tx) => {
     const panier = await tx.panier.findFirst({ where: { id: panierId, organisationId }, select: { id: true } })
-    if (!panier) return false
+    if (!panier) return { resultat: false }
     await tx.panierTransaction.deleteMany({ where: { panierId } })
     await tx.panier.delete({ where: { id: panierId } })
-    return true
+    return { resultat: true, journal: { ...journal, enregistrementId: panierId } }
   })
 }

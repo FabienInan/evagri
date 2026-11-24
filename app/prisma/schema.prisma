@@ -4,14 +4,13 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model Organisation {
-  id           String                @id @default(uuid())
+  id           String               @id @default(uuid())
   nom          String
-  actif        Boolean               @default(true)
-  createdAt    DateTime              @default(now()) @map("date_creation")
+  actif        Boolean              @default(true)
+  createdAt    DateTime             @default(now()) @map("date_creation")
   champs       Champ[]
   dossiers     Dossier[]
   filtres      FiltreRecherche[]
@@ -28,16 +27,20 @@ model Organisation {
 }
 
 model Utilisateur {
-  id                      String       @id @default(uuid())
-  organisationId          String       @map("id_organisation")
+  id                      String        @id @default(uuid())
+  organisationId          String        @map("id_organisation")
   email                   String
   nom                     String?
   role                    String
-  passwordHash            String       @map("mot_de_passe")
-  consentementPolitiqueAt DateTime?    @map("consentement_politique_date")
-  actif                   Boolean      @default(true)
-  createdAt               DateTime     @default(now()) @map("date_creation")
-  organisation            Organisation @relation(fields: [organisationId], references: [id])
+  passwordHash            String        @map("mot_de_passe")
+  consentementPolitiqueAt DateTime?     @map("consentement_politique_date")
+  motDePasseTemporaire    Boolean       @default(false) @map("mot_de_passe_temporaire")
+  echecsConnexion         Int           @default(0) @map("echecs_connexion")
+  verrouilleJusqua        DateTime?     @map("verrouille_jusqua")
+  actif                   Boolean       @default(true)
+  createdAt               DateTime      @default(now()) @map("date_creation")
+  organisation            Organisation  @relation(fields: [organisationId], references: [id])
+  transactionsContribuees Transaction[] @relation("ContributeurTransaction")
 
   @@unique([organisationId, email])
   @@map("utilisateur")
@@ -68,14 +71,15 @@ model Transaction {
   systemeSource  String            @map("systeme_source")
   statut         StatutTransaction @default(NON_ANALYSEE)
   contributeurId String?           @map("id_contributeur")
+  contributeur   Utilisateur?      @relation("ContributeurTransaction", fields: [contributeurId], references: [id], onDelete: Restrict)
   dateStatut     DateTime?         @map("date_statut")
   createdAt      DateTime          @default(now()) @map("date_creation")
   updatedAt      DateTime          @updatedAt @map("date_modification")
 
-  valeurs    ValeurChamp[]
-  documents  DocumentActe[]
-  paniers    PanierTransaction[]
-  importation Importation?         @relation(fields: [importationId], references: [id])
+  valeurs      ValeurChamp[]
+  documents    DocumentActe[]
+  paniers      PanierTransaction[]
+  importation  Importation?        @relation(fields: [importationId], references: [id])
   organisation Organisation        @relation(fields: [organisationId], references: [id])
 
   @@index([organisationId])
@@ -90,26 +94,26 @@ enum NatureChamp {
 }
 
 model Champ {
-  id                   String      @id @default(uuid())
-  organisationId       String      @map("id_organisation")
-  codeMachine          String      @map("code_machine")
-  nomAffichage         String      @map("nom_affichage")
-  typeDonnees          String      @map("type_donnees")
-  typeFiltreRecommande String?     @map("type_filtre_recommande")
+  id                   String            @id @default(uuid())
+  organisationId       String            @map("id_organisation")
+  codeMachine          String            @map("code_machine")
+  nomAffichage         String            @map("nom_affichage")
+  typeDonnees          String            @map("type_donnees")
+  typeFiltreRecommande String?           @map("type_filtre_recommande")
   nature               NatureChamp
-  unite                String      @default("N/A") @map("unite")
-  plageMin             Decimal?    @map("plage_min") @db.Decimal(18, 4)
-  plageMax             Decimal?    @map("plage_max") @db.Decimal(18, 4)
-  optionsListe         Json?       @map("options_liste")
-  regleCalcul          String?     @map("regle_calcul")
-  entetesImport        Json?       @map("entetes_import")
-  applicableATypes     Json        @default("[]") @map("applicable_a_types")
-  ordreAffichage       Int         @default(0) @map("ordre_affichage")
-  estAffiche           Boolean     @default(true) @map("est_affiche")
-  estLectureSeule      Boolean     @default(true) @map("est_lecture_seule")
-  estObligatoire       Boolean     @default(false) @map("est_obligatoire")
-  actif                Boolean     @default(true)
-  organisation         Organisation @relation(fields: [organisationId], references: [id])
+  unite                String            @default("N/A") @map("unite")
+  plageMin             Decimal?          @map("plage_min") @db.Decimal(18, 4)
+  plageMax             Decimal?          @map("plage_max") @db.Decimal(18, 4)
+  optionsListe         Json?             @map("options_liste")
+  regleCalcul          String?           @map("regle_calcul")
+  entetesImport        Json?             @map("entetes_import")
+  applicableATypes     Json              @default("[]") @map("applicable_a_types")
+  ordreAffichage       Int               @default(0) @map("ordre_affichage")
+  estAffiche           Boolean           @default(true) @map("est_affiche")
+  estLectureSeule      Boolean           @default(true) @map("est_lecture_seule")
+  estObligatoire       Boolean           @default(false) @map("est_obligatoire")
+  actif                Boolean           @default(true)
+  organisation         Organisation      @relation(fields: [organisationId], references: [id])
   filtres              FiltreRecherche[]
   valeurs              ValeurChamp[]
 
@@ -187,21 +191,27 @@ model Typologie {
 }
 
 model Dossier {
-  id             String           @id @default(uuid())
-  organisationId String           @map("id_organisation")
-  numeroDossier  String           @map("numero_dossier")
+  id             String       @id @default(uuid())
+  organisationId String       @map("id_organisation")
+  numeroDossier  String       @map("numero_dossier")
   nom            String?
-  createurId     String?          @map("id_createur")
-  createdAt      DateTime         @default(now()) @map("date_creation")
-  actif          Boolean          @default(true)
-  /** Date d'évaluation du dossier, fixée à la création : sert au calcul des indicateurs ajustés à l'export. */
-  dateEvaluation DateTime? @map("date_evaluation") @db.Date
-  /** Numéros de lots cadastraux du dossier : sert au géocodage (Demeter) à la création. */
-  lotsCadastraux String[]        @default([]) @map("lots_cadastraux")
-  /** Coordonnées du dossier : géocodées à partir des lots, ou saisies à la main si aucun lot n'est trouvé. */
-  latitude       Decimal?        @db.Decimal(9, 6)
-  longitude      Decimal?        @db.Decimal(9, 6)
-  organisation   Organisation     @relation(fields: [organisationId], references: [id])
+  createurId     String?      @map("id_createur")
+  createdAt      DateTime     @default(now()) @map("date_creation")
+  actif          Boolean      @default(true)
+  /**
+   * Date d'évaluation du dossier, fixée à la création : sert au calcul des indicateurs ajustés à l'export.
+   */
+  dateEvaluation DateTime?    @map("date_evaluation") @db.Date
+  /**
+   * Numéros de lots cadastraux du dossier : sert au géocodage (Demeter) à la création.
+   */
+  lotsCadastraux String[]     @default([]) @map("lots_cadastraux")
+  /**
+   * Coordonnées du dossier : géocodées à partir des lots, ou saisies à la main si aucun lot n'est trouvé.
+   */
+  latitude       Decimal?     @db.Decimal(9, 6)
+  longitude      Decimal?     @db.Decimal(9, 6)
+  organisation   Organisation @relation(fields: [organisationId], references: [id])
   paniers        Panier[]
 
   @@unique([organisationId, numeroDossier])
@@ -214,7 +224,9 @@ model Panier {
   dossierId         String              @map("id_dossier")
   nom               String
   typeTransactionId String?             @map("id_type_transaction")
-  /** Taux de croissance annuel du panier (fraction, ex. 0.0325), fixé à la création : utilisé à l'export. */
+  /**
+   * Taux de croissance annuel du panier (fraction, ex. 0.0325), fixé à la création : utilisé à l'export.
+   */
   tauxCroissance    Decimal?            @map("taux_croissance") @db.Decimal(5, 4)
   createurId        String?             @map("id_createur")
   createdAt         DateTime            @default(now()) @map("date_creation")
@@ -227,11 +239,11 @@ model Panier {
 }
 
 model PanierTransaction {
-  panierId    String   @map("id_panier")
-  transactionId String @map("id_transaction")
-  dateAjout   DateTime @default(now()) @map("date_ajout")
-  panier      Panier   @relation(fields: [panierId], references: [id])
-  transaction Transaction @relation(fields: [transactionId], references: [id])
+  panierId      String      @map("id_panier")
+  transactionId String      @map("id_transaction")
+  dateAjout     DateTime    @default(now()) @map("date_ajout")
+  panier        Panier      @relation(fields: [panierId], references: [id])
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
 
   @@id([panierId, transactionId])
   @@map("panier_transaction")
@@ -250,17 +262,17 @@ model DocumentActe {
 }
 
 model Importation {
-  id             String              @id @default(uuid())
-  organisationId String              @map("id_organisation")
-  typeSource     String              @map("type_source")
+  id             String        @id @default(uuid())
+  organisationId String        @map("id_organisation")
+  typeSource     String        @map("type_source")
   statut         String
-  lignesTotal    Int                 @map("lignes_total")
-  lignesInserees Int                 @map("lignes_inserees")
-  lignesIgnorees Int                 @map("lignes_ignorees")
-  lignesErreurs  Int                 @map("lignes_erreurs")
+  lignesTotal    Int           @map("lignes_total")
+  lignesInserees Int           @map("lignes_inserees")
+  lignesIgnorees Int           @map("lignes_ignorees")
+  lignesErreurs  Int           @map("lignes_erreurs")
   details        Json?
-  createdAt      DateTime            @default(now()) @map("date_creation")
-  organisation   Organisation        @relation(fields: [organisationId], references: [id])
+  createdAt      DateTime      @default(now()) @map("date_creation")
+  organisation   Organisation  @relation(fields: [organisationId], references: [id])
   transactions   Transaction[]
 
   @@map("importation")

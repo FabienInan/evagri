@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test"
 import { PrismaClient } from "@prisma/client"
+import { PrismaPg } from "@prisma/adapter-pg"
 import { ORG_ID } from "./db"
 
 /**
@@ -11,7 +12,7 @@ let prisma: PrismaClient
 let createdFiltreId: string | null = null
 
 test.beforeAll(async () => {
-  prisma = new PrismaClient()
+  prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) })
   const existing = await prisma.filtreRecherche.findFirst({
     where: { organisationId: ORG_ID, champ: { codeMachine: "mrc" } },
   })

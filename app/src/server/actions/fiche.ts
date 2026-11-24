@@ -1,7 +1,7 @@
 "use server"
 
+import { verifierZone } from "@/lib/session"
 import { revalidatePath } from "next/cache"
-import { getCurrentOrganisationId } from "@/repositories/organisation.repository"
 import { listChampsEnrichissablesByOrganisation } from "@/repositories/champs.repository"
 import { getEffectiveFicheLayout } from "@/server/fiche-layout"
 import { listTypologiesByOrganisation } from "@/repositories/typologie.repository"
@@ -9,8 +9,8 @@ import {
   createDocument,
   deleteDocument as deleteDocumentRepo,
   findTransactionFiche,
-  saveFicheValues,
-  updateFicheStatut,
+  saveFicheValuesAvecJournal,
+  updateFicheStatutAvecJournal,
 } from "@/repositories/fiche.repository"
 import { serializeTransaction } from "@/serializers/transaction.serializer"
 import {
@@ -30,8 +30,28 @@ export type FicheActionResult =
   | { ok: true }
   | { ok: false; error: string; errors?: FicheFieldError[]; avertissements?: FicheFieldError[] }
 
+/** Forme comparable d'une valeur stockée : deux valeurs de même forme sont identiques. */
+function signatureValeur(valeur: {
+  valeurNombre: { toString(): string } | number | null
+  valeurTexte: string | null
+  valeurTexteMultiple: string[]
+  valeurBooleen: boolean | null
+  valeurDate: Date | null
+}): string {
+  return JSON.stringify([
+    valeur.valeurNombre === null ? null : Number(valeur.valeurNombre),
+    valeur.valeurTexte,
+    valeur.valeurTexteMultiple,
+    valeur.valeurBooleen,
+    valeur.valeurDate ? valeur.valeurDate.toISOString().slice(0, 10) : null,
+  ])
+}
+
 export async function saveFiche(input: unknown): Promise<FicheActionResult> {
-  const organisationId = getCurrentOrganisationId()
+  const acces = await verifierZone("evaluation")
+  if (!acces.ok) return acces
+  const utilisateur = acces.utilisateur
+  const organisationId = utilisateur.organisationId
   const parsed = saveFicheSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: "Données invalides." }
 
@@ -39,12 +59,28 @@ export async function saveFiche(input: unknown): Promise<FicheActionResult> {
   if (!record) return { ok: false, error: "Transaction introuvable." }
 
   const champs = await listChampsEnrichissablesByOrganisation(organisationId)
+  const entries = buildStorageEntries(champs, parsed.data.valeurs, parsed.data.typeTransactionCode)
+  // Le journal garde les codes des champs modifiés, jamais leurs valeurs (données personnelles possibles).
+  const anciennes = new Map(record.valeurs.map((v) => [v.champId, signatureValeur(v)]))
+  const nouvelles = new Map(entries.map((e) => [e.champId, signatureValeur(e)]))
+  const champsModifies = champs
+    .filter((c) => anciennes.get(c.id) !== nouvelles.get(c.id))
+    .map((c) => c.codeMachine)
+
   // Enregistrer ne valide pas : les règles bloquantes et les avertissements ne s'appliquent qu'à Finaliser
   // (setFicheStatut). Une fiche incomplète peut donc être sauvegardée en cours de saisie.
-  await saveFicheValues(
-    record.id,
-    buildStorageEntries(champs, parsed.data.valeurs, parsed.data.typeTransactionCode)
-  )
+  try {
+    await saveFicheValuesAvecJournal(organisationId, record.id, entries, {
+      utilisateurId: utilisateur.id,
+      tableCible: "transaction",
+      enregistrementId: record.id,
+      action: "SAVE_FICHE",
+      diff: { champsModifies: champsModifies.join(", ") },
+    })
+  } catch (error) {
+    console.error("saveFiche: échec d'enregistrement", error)
+    return { ok: false, error: "Impossible d'enregistrer la fiche. Réessayez." }
+  }
 
   revalidatePath(`/transactions/${record.id}`)
   revalidatePath("/transactions")
@@ -60,7 +96,11 @@ export async function setFicheStatut(
   statut: string,
   options: { forcerAvertissements?: boolean } = {}
 ): Promise<FicheActionResult> {
-  const organisationId = getCurrentOrganisationId()
+  const acces = await verifierZone("evaluation")
+  if (!acces.ok) return acces
+  const utilisateur = acces.utilisateur
+  const organisationId = utilisateur.organisationId
+  if (statut !== "ANALYSEE" && statut !== "NON_ANALYSEE") return { ok: false, error: "Statut invalide." }
   const record = await findTransactionFiche(organisationId, id)
   if (!record) return { ok: false, error: "Transaction introuvable." }
 
@@ -99,7 +139,28 @@ export async function setFicheStatut(
     }
   }
 
-  await updateFicheStatut(record.id, statut, statut === "ANALYSEE" ? new Date() : record.dateStatut ?? null)
+  // §7.5.5 : passer à « Analysée » enregistre l'évaluateur comme Contributeur. Un retour à « Non analysée »
+  // ne le touche pas : le contributeur historique reste consultable.
+  const analysee = statut === "ANALYSEE"
+  try {
+    await updateFicheStatutAvecJournal(
+      organisationId,
+      record.id,
+      statut,
+      analysee ? new Date() : record.dateStatut ?? null,
+      analysee ? utilisateur.id : undefined,
+      {
+        utilisateurId: utilisateur.id,
+        tableCible: "transaction",
+        enregistrementId: record.id,
+        action: "STATUT",
+        diff: { statut, ...(analysee ? { contributeurId: utilisateur.id } : {}) },
+      }
+    )
+  } catch (error) {
+    console.error("setFicheStatut: échec d'enregistrement", error)
+    return { ok: false, error: "Impossible de changer le statut. Réessayez." }
+  }
 
   revalidatePath(`/transactions/${id}`)
   revalidatePath("/transactions")
@@ -110,7 +171,10 @@ export async function uploadDocument(
   transactionId: string,
   formData: FormData
 ): Promise<FicheActionResult> {
-  const organisationId = getCurrentOrganisationId()
+  const acces = await verifierZone("evaluation")
+  if (!acces.ok) return acces
+  const utilisateur = acces.utilisateur
+  const organisationId = utilisateur.organisationId
   const file = formData.get("file")
   if (!(file instanceof File) || file.size === 0) {
     return { ok: false, error: "Aucun fichier sélectionné." }
@@ -124,11 +188,20 @@ export async function uploadDocument(
 
   try {
     const stored = await saveActePDF(file, organisationId, transactionId)
-    await createDocument({
-      transactionId,
-      nomFichier: stored.nomFichier,
-      cheminStockage: stored.cheminStockage,
-    })
+    await createDocument(
+      organisationId,
+      {
+        transactionId,
+        nomFichier: stored.nomFichier,
+        cheminStockage: stored.cheminStockage,
+      },
+      {
+        utilisateurId: utilisateur.id,
+        tableCible: "document_acte",
+        action: "INSERT",
+        diff: { nomFichier: file.name },
+      }
+    )
   } catch {
     return { ok: false, error: "Échec de l'enregistrement du document." }
   }
@@ -138,8 +211,22 @@ export async function uploadDocument(
 }
 
 export async function deleteDocument(documentId: string): Promise<FicheActionResult> {
-  const organisationId = getCurrentOrganisationId()
-  const deleted = await deleteDocumentRepo(organisationId, documentId)
+  const acces = await verifierZone("evaluation")
+  if (!acces.ok) return acces
+  const utilisateur = acces.utilisateur
+  const organisationId = utilisateur.organisationId
+  let deleted: boolean
+  try {
+    deleted = await deleteDocumentRepo(organisationId, documentId, {
+      utilisateurId: utilisateur.id,
+      tableCible: "document_acte",
+      action: "DELETE",
+      diff: {},
+    })
+  } catch (error) {
+    console.error("deleteDocument: échec de suppression", error)
+    return { ok: false, error: "Impossible de supprimer le document. Réessayez." }
+  }
   if (!deleted) {
     return { ok: false, error: "Document introuvable." }
   }

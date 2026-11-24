@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test"
 import { PrismaClient } from "@prisma/client"
+import { PrismaPg } from "@prisma/adapter-pg"
 import { restoreDefaultLayout } from "./db"
 
 /**
@@ -79,7 +80,7 @@ async function dragWithMouse(page: Page, source: Locator, target: Locator): Prom
 }
 
 test.beforeAll(async () => {
-  prisma = new PrismaClient()
+  prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) })
 })
 
 test.afterAll(async () => {

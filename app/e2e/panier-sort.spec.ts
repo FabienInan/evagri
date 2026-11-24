@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test"
 import { PrismaClient } from "@prisma/client"
+import { PrismaPg } from "@prisma/adapter-pg"
 import { ORG_ID } from "./db"
 import { fixtures } from "./fixtures"
 
@@ -18,7 +19,7 @@ let panierA = ""
 let panierB = ""
 
 test.beforeAll(async () => {
-  prisma = new PrismaClient()
+  prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) })
   const dossier = await prisma.dossier.create({
     data: { organisationId: ORG_ID, numeroDossier: DOSSIER_NUMERO, nom: "Tri e2e" },
   })

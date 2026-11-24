@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test"
 import { PrismaClient } from "@prisma/client"
+import { PrismaPg } from "@prisma/adapter-pg"
 import { fixtures } from "./fixtures"
 import { restoreDefaultLayout } from "./db"
 import { resetTestValues, setEnrichLayout } from "./support"
@@ -58,7 +59,7 @@ async function finaliserAndWait(page: Page): Promise<void> {
 }
 
 test.beforeAll(async () => {
-  prisma = new PrismaClient()
+  prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) })
   await setEnrichLayout(prisma)
 })
 

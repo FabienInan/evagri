@@ -1,8 +1,8 @@
 "use server"
 
+import { utilisateurPourZone, verifierZone } from "@/lib/session"
 import { revalidatePath } from "next/cache"
 import { Prisma } from "@prisma/client"
-import { getCurrentOrganisationId } from "@/repositories/organisation.repository"
 import {
   createChampEnrichissable,
   findChampByOrganisationAndCode,
@@ -18,17 +18,20 @@ import { recalculerChampsCalcules } from "@/services/calcul.service"
 import { placeChampInFicheLayout } from "@/server/fiche-layout"
 import type { ChampEnrichissableConfig, ChampEnrichissableInput, TypeDonneesChamp } from "@/types/champ"
 import { champInputSchema, type ChampInput } from "@/validators/champ.validator"
+import { journaliser } from "@/server/journal"
 
 export type { ChampInput } from "@/validators/champ.validator"
 
 export async function listChamps() {
-  const organisationId = getCurrentOrganisationId()
-  return listChampsEnrichissablesByOrganisation(organisationId)
+  const utilisateur = await utilisateurPourZone("configuration")
+  if (!utilisateur) return []
+  return listChampsEnrichissablesByOrganisation(utilisateur.organisationId)
 }
 
 export async function listTypologies() {
-  const organisationId = getCurrentOrganisationId()
-  return listTypologiesByOrganisation(organisationId)
+  const utilisateur = await utilisateurPourZone("configuration")
+  if (!utilisateur) return []
+  return listTypologiesByOrganisation(utilisateur.organisationId)
 }
 
 /**
@@ -89,7 +92,10 @@ function withCalculatedType<T extends { nature: string; regleCalcul: string | nu
 }
 
 export async function createChamp(input: ChampInput): Promise<CreateChampResult> {
-  const organisationId = getCurrentOrganisationId()
+  const acces = await verifierZone("configuration")
+  if (!acces.ok) return acces
+  const utilisateur = acces.utilisateur
+  const organisationId = utilisateur.organisationId
   const parsed = parseChampInput(input)
   if (!parsed.ok) return parsed
 
@@ -135,13 +141,28 @@ export async function createChamp(input: ChampInput): Promise<CreateChampResult>
     await placeChampInFicheLayout(organisationId, champ.id)
   }
 
+  await journaliser(utilisateur, {
+
+    tableCible: "champ",
+
+    enregistrementId: champ.id,
+
+    action: "INSERT",
+
+    diff: { codeMachine: champ.codeMachine, nature: champ.nature },
+
+  })
+
   revalidatePath("/admin/champs")
   revalidatePath("/transactions")
   return { ok: true, champ }
 }
 
 export async function updateChamp(id: string, input: ChampInput): Promise<ChampActionResult> {
-  const organisationId = getCurrentOrganisationId()
+  const acces = await verifierZone("configuration")
+  if (!acces.ok) return acces
+  const utilisateur = acces.utilisateur
+  const organisationId = utilisateur.organisationId
   const parsed = parseChampInput(input)
   if (!parsed.ok) return parsed
 
@@ -170,16 +191,37 @@ export async function updateChamp(id: string, input: ChampInput): Promise<ChampA
     await recalculerChampsCalcules(organisationId)
   }
 
+  await journaliser(utilisateur, {
+
+    tableCible: "champ",
+
+    enregistrementId: id,
+
+    action: "UPDATE",
+
+    diff: { codeMachine: normalized.codeMachine, nature: normalized.nature },
+
+  })
+
   revalidatePath("/admin/champs")
   return { ok: true }
 }
 
 export async function toggleChampActif(id: string, actif: boolean): Promise<ChampActionResult> {
-  const organisationId = getCurrentOrganisationId()
+  const acces = await verifierZone("configuration")
+  if (!acces.ok) return acces
+  const utilisateur = acces.utilisateur
+  const organisationId = utilisateur.organisationId
   const updated = await setChampActif(organisationId, id, actif)
   if (!updated) {
     return { ok: false, error: "Champ introuvable." }
   }
+  await journaliser(utilisateur, {
+    tableCible: "champ",
+    enregistrementId: id,
+    action: "UPDATE",
+    diff: { actif },
+  })
   revalidatePath("/admin/champs")
   return { ok: true }
 }

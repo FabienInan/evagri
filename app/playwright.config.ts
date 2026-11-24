@@ -43,6 +43,9 @@ export default defineConfig({
   ],
   webServer: {
     command: `npm run dev -- -p ${PORT}`,
+    // Auth.js builds its redirects from AUTH_URL: it must be the origin the browser uses, or sign-in and
+    // sign-out send the browser to another port.
+    env: { AUTH_URL: baseURL },
     url: `${baseURL}/api/health`,
     reuseExistingServer: true,
     timeout: 180_000,

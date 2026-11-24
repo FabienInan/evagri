@@ -1,8 +1,12 @@
 import { searchTransactions } from "@/server/actions/transaction"
+import { gardeApi } from "@/lib/api-guard"
 import { filterSearchParamsSchema } from "@/validators/filter.validator"
 import { NextRequest, NextResponse } from "next/server"
 
 export async function GET(request: NextRequest) {
+  const refus = await gardeApi("evaluation")
+  if (refus) return refus
+
   const { searchParams } = new URL(request.url)
   const parsed = filterSearchParamsSchema.safeParse({
     page: searchParams.get("page") ?? "1",

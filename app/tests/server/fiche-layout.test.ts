@@ -37,6 +37,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await prisma.champ.deleteMany({ where: { organisationId: orgId } })
   await prisma.vueFicheEvaluation.deleteMany({ where: { organisationId: orgId } })
+  await prisma.journalAudit.deleteMany({ where: { organisationId: orgId } })
   await prisma.organisation.delete({ where: { id: orgId } })
 })
 

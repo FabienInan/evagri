@@ -1,8 +1,8 @@
 "use server"
 
+import { utilisateurPourZone, verifierZone } from "@/lib/session"
 import { revalidatePath } from "next/cache"
 import { Prisma } from "@prisma/client"
-import { getCurrentOrganisationId } from "@/repositories/organisation.repository"
 import type { FilterConfig, FilterOperator, FilterType } from "@/types/filter"
 import { createFilterSchema, type CreateFilterInput } from "@/validators/filter.validator"
 
@@ -18,15 +18,18 @@ import {
   type CreateFilterRepositoryInput,
 } from "@/repositories/filters.repository"
 import { findChampForOrganisation } from "@/repositories/champs.repository"
+import { journaliser } from "@/server/journal"
 
 export async function listFilters() {
-  const organisationId = getCurrentOrganisationId()
-  return findFiltersByOrganisation(organisationId)
+  const utilisateur = await utilisateurPourZone("configuration")
+  if (!utilisateur) return []
+  return findFiltersByOrganisation(utilisateur.organisationId)
 }
 
 export async function listChamps() {
-  const organisationId = getCurrentOrganisationId()
-  return findChampsByOrganisation(organisationId)
+  const utilisateur = await utilisateurPourZone("configuration")
+  if (!utilisateur) return []
+  return findChampsByOrganisation(utilisateur.organisationId)
 }
 
 /** Server actions return errors instead of throwing them: in production Next.js masks the message of a
@@ -39,7 +42,10 @@ export type CreateFilterResult =
   | { ok: false; error: string }
 
 export async function createFilter(input: CreateFilterInput): Promise<CreateFilterResult> {
-  const organisationId = getCurrentOrganisationId()
+  const acces = await verifierZone("configuration")
+  if (!acces.ok) return acces
+  const utilisateur = acces.utilisateur
+  const organisationId = utilisateur.organisationId
   const parsed = createFilterSchema.safeParse(input)
   if (!parsed.success) {
     return { ok: false, error: "Données invalides." }
@@ -95,6 +101,12 @@ export async function createFilter(input: CreateFilterInput): Promise<CreateFilt
     return { ok: false, error: "Impossible d'enregistrer le filtre. Réessayez." }
   }
 
+  await journaliser(utilisateur, {
+    tableCible: "filtre_recherche",
+    enregistrementId: created.id,
+    action: "INSERT",
+    diff: { nomFiltre: created.nomFiltre },
+  })
   revalidatePath("/admin/filters")
   return {
     ok: true,
@@ -121,18 +133,36 @@ export async function publishFilters(
     operateursDisponibles?: FilterOperator[] | null
   }[]
 ): Promise<FilterActionResult> {
-  const organisationId = getCurrentOrganisationId()
+  const acces = await verifierZone("configuration")
+  if (!acces.ok) return acces
+  const utilisateur = acces.utilisateur
+  const organisationId = utilisateur.organisationId
   await updateFiltersOrder(organisationId, filters)
+  await journaliser(utilisateur, {
+    tableCible: "filtre_recherche",
+    enregistrementId: undefined,
+    action: "UPDATE",
+    diff: { nombre: filters.length },
+  })
   revalidatePath("/admin/filters")
   return { ok: true }
 }
 
 export async function deleteFilter(id: string): Promise<FilterActionResult> {
-  const organisationId = getCurrentOrganisationId()
+  const acces = await verifierZone("configuration")
+  if (!acces.ok) return acces
+  const utilisateur = acces.utilisateur
+  const organisationId = utilisateur.organisationId
   const deleted = await deleteFilterRepo(organisationId, id)
   if (!deleted) {
     return { ok: false, error: "Filtre introuvable." }
   }
+  await journaliser(utilisateur, {
+    tableCible: "filtre_recherche",
+    enregistrementId: id,
+    action: "DELETE",
+    diff: {},
+  })
   revalidatePath("/admin/filters")
   return { ok: true }
 }

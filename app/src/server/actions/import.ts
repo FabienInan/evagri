@@ -1,7 +1,7 @@
 "use server"
 
+import { utilisateurPourZone, verifierZone } from "@/lib/session"
 import { parseWorkbook, rowToSourceFields } from "@/parsers/excel.parser"
-import { findDefaultOrganisation, getCurrentOrganisationId } from "@/repositories/organisation.repository"
 import { ensureEnrichmentChamps } from "@/repositories/enrichment.repository"
 import {
   createImportation,
@@ -16,6 +16,7 @@ import { importSheet } from "@/services/import.service"
 import { createAuditLog } from "@/repositories/audit.repository"
 import { findTypologieByCode } from "@/repositories/import.repository"
 import type { ParsedRow } from "@/types/import"
+import { journaliser } from "@/server/journal"
 
 export type ImportExcelResult =
   | { ok: true; totalRows: number; inserted: number; ignored: number; errors: { sheet: string; row: number; message: string }[] }
@@ -24,6 +25,9 @@ export type ImportExcelResult =
 /** Server actions return errors instead of throwing them: in production Next.js masks the message of a
  *  thrown action error, so a validation message would reach the user as a generic error. */
 export async function importExcel(formData: FormData): Promise<ImportExcelResult> {
+  const acces = await verifierZone("configuration")
+  if (!acces.ok) return acces
+  const utilisateur = acces.utilisateur
   const file = formData.get("file")
   if (!(file instanceof File)) return { ok: false, error: "No file provided" }
 
@@ -39,9 +43,7 @@ export async function importExcel(formData: FormData): Promise<ImportExcelResult
       return { ok: false, error: "Aucune feuille reconnue (Terre, Bois, Ventes erablière)" }
     }
 
-    organisationId = getCurrentOrganisationId()
-    const org = await findDefaultOrganisation()
-    if (!org) return { ok: false, error: "Organisation par défaut non initialisée" }
+    organisationId = utilisateur.organisationId
 
     importation = await createImportation(organisationId, "EXISTANT_EVAGRI")
   } catch (e) {
@@ -114,14 +116,18 @@ export async function importExcel(formData: FormData): Promise<ImportExcelResult
 }
 
 export async function listImports() {
-  const organisationId = getCurrentOrganisationId()
-  return listImportRecords(organisationId)
+  const utilisateur = await utilisateurPourZone("configuration")
+  if (!utilisateur) return []
+  return listImportRecords(utilisateur.organisationId)
 }
 
 export type RetryImportResult = { ok: true; message: string } | { ok: false; error: string }
 
 export async function retryImport(importationId: string): Promise<RetryImportResult> {
-  const organisationId = getCurrentOrganisationId()
+  const acces = await verifierZone("configuration")
+  if (!acces.ok) return acces
+  const utilisateur = acces.utilisateur
+  const organisationId = utilisateur.organisationId
   const importation = await findImportationById(importationId, organisationId)
   if (!importation) return { ok: false, error: "Importation introuvable" }
   if (importation.typeSource === "EXISTANT_EVAGRI") {
@@ -132,5 +138,11 @@ export async function retryImport(importationId: string): Promise<RetryImportRes
   }
 
   await resetImportForRetry(importationId)
+  await journaliser(utilisateur, {
+    tableCible: "importation",
+    enregistrementId: importationId,
+    action: "RETRY",
+    diff: {},
+  })
   return { ok: true, message: "Importation marquée pour relance." }
 }

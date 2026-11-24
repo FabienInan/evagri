@@ -1,5 +1,5 @@
+import { exigerZonePage } from "@/lib/session"
 import { notFound } from "next/navigation"
-import { getCurrentOrganisationId } from "@/repositories/organisation.repository"
 import { findDossierById, listPaniersByDossier } from "@/repositories/dossier.repository"
 import { listTypologiesByOrganisation } from "@/repositories/typologie.repository"
 import { serializeDossier, serializePanier } from "@/serializers/dossier.serializer"
@@ -12,8 +12,9 @@ export default async function DossierDetailPage({
 }: {
   params: Promise<{ id: string }>
 }) {
+  const utilisateur = await exigerZonePage("evaluation")
   const { id } = await params
-  const organisationId = getCurrentOrganisationId()
+  const organisationId = utilisateur.organisationId
 
   const dossier = await findDossierById(organisationId, id)
   if (!dossier) notFound()

@@ -177,7 +177,9 @@ export function FicheTransactionClient({
         </p>
       )}
 
-      {/* Une seule ligne : Précédent à gauche, les actions au centre, Suivant à droite. */}
+      {/* Barre flottante : Précédent à gauche, les actions au centre, Suivant à droite. Collée au bas de la zone
+          de défilement, elle reste accessible pendant qu'on parcourt la fiche. */}
+      <div className="sticky bottom-4 z-30 rounded-lg border border-border bg-card/95 p-2 shadow-lg backdrop-blur">
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
         <div className="justify-self-start">
           {navigation && (
@@ -221,6 +223,7 @@ export function FicheTransactionClient({
             </Button>
           )}
         </div>
+      </div>
       </div>
 
       <FicheHeader

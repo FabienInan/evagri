@@ -14,6 +14,7 @@ afterAll(async () => {
   await prisma.valeurChamp.deleteMany({ where: { transaction: { organisationId: orgId } } })
   await prisma.transaction.deleteMany({ where: { organisationId: orgId } })
   await prisma.champ.deleteMany({ where: { organisationId: orgId } })
+  await prisma.journalAudit.deleteMany({ where: { organisationId: orgId } })
   await prisma.organisation.delete({ where: { id: orgId } })
 })
 

@@ -25,6 +25,6 @@ test("page admin de gestion des imports", async ({ page }) => {
   await expect(page.getByText("Importer un fichier Excel EVAGRI")).toBeVisible()
   await expect(page.getByLabel("Fichier Excel")).toBeVisible()
   await expect(page.getByText("Importer des actes PDF")).toBeVisible()
-  await expect(page.getByLabel("Documents PDF")).toBeVisible()
+  await expect(page.getByLabel("Dossier des actes")).toBeVisible()
   await expect(page.getByText("Historique des importations")).toBeVisible()
 })

@@ -1,3 +1,12 @@
+// Business-logic tests: authorization is covered by tests/server/zones-guards.test.ts, so every zone is granted here.
+vi.mock("@/lib/session", () => ({
+  // The test organisation is the one the test sets in DEFAULT_ORGANISATION_ID.
+  verifierZone: async () => ({ ok: true, utilisateur: { id: "test-user", organisationId: process.env.DEFAULT_ORGANISATION_ID } }),
+  utilisateurPourZone: async () => ({ id: "test-user", organisationId: process.env.DEFAULT_ORGANISATION_ID }),
+  exigerZonePage: async () => ({ organisationId: process.env.DEFAULT_ORGANISATION_ID }),
+  zonesDeLUtilisateur: async () => ["evaluation", "configuration", "administration"],
+}))
+
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, fireEvent, screen, waitFor } from "@testing-library/react"
