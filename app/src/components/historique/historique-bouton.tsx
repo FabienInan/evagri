@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { createPortal } from "react-dom"
 import { History, Loader2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { listHistorique, type HistoriqueResult } from "@/server/actions/historique"
@@ -67,7 +68,8 @@ export function HistoriqueBouton({ cible, titre }: { cible: CibleHistorique; tit
         Historique
       </Button>
 
-      {ouvert && (
+      {/* Rendered in <body>: a fixed panel inside a blurred or sticky bar would be positioned relative to that bar. */}
+      {ouvert && createPortal(
         <aside
           role="dialog"
           aria-modal="true"
@@ -114,7 +116,8 @@ export function HistoriqueBouton({ cible, titre }: { cible: CibleHistorique; tit
               </ol>
             )}
           </div>
-        </aside>
+        </aside>,
+        document.body
       )}
     </>
   )
