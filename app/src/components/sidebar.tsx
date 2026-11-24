@@ -15,7 +15,6 @@ import {
   PanelLeftClose,
   Sprout,
   Users,
-  History,
   KeyRound,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -28,7 +27,6 @@ const NAV_ITEMS: readonly { href: string; label: string; icon: LucideIcon; zone:
   { href: "/admin/filters", label: "Configuration des filtres", icon: SlidersHorizontal, zone: "configuration" },
   { href: "/admin/champs", label: "Champs enrichissables", icon: ListTree, zone: "configuration" },
   { href: "/admin/utilisateurs", label: "Utilisateurs", icon: Users, zone: "administration" },
-  { href: "/admin/journal", label: "Journal d'audit", icon: History, zone: "administration" },
 ]
 
 export function Sidebar({

@@ -38,8 +38,8 @@ export function DossierDetailClient({
 
   return (
     <div className="space-y-4">
-      <Breadcrumb items={[{ label: "Dossiers", href: "/dossiers" }, { label: dossier.numeroDossier }]} />
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between gap-3">
+        <Breadcrumb items={[{ label: "Dossiers", href: "/dossiers" }, { label: dossier.numeroDossier }]} />
         <HistoriqueBouton cible={{ type: "dossier", id: dossier.id }} titre={`Dossier ${dossier.numeroDossier}`} />
       </div>
       <div className="flex items-center justify-between gap-3">

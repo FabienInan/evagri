@@ -1,17 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 
 const createAuditLog = vi.hoisted(() => vi.fn())
-const prismaMock = vi.hoisted(() => ({
-  journalAudit: { findMany: vi.fn() },
-  utilisateur: { findMany: vi.fn() },
-}))
 
 vi.mock("@/repositories/audit.repository", () => ({ createAuditLog }))
-vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }))
 
 import { journaliser } from "@/server/journal"
-import { listJournalByOrganisation } from "@/repositories/journal.repository"
 
 const src = (rel: string) => readFileSync(new URL(`../../src/${rel}`, import.meta.url), "utf8")
 
@@ -63,44 +57,10 @@ describe("chaque écriture est journalisée", () => {
   }
 })
 
-describe("lecture du journal", () => {
-  beforeEach(() => vi.clearAllMocks())
-
-  it("ne lit que les entrées de l'organisation demandée, les plus récentes d'abord", async () => {
-    prismaMock.journalAudit.findMany.mockResolvedValue([])
-    await listJournalByOrganisation("org-1", 50)
-    expect(prismaMock.journalAudit.findMany).toHaveBeenCalledWith({
-      where: { organisationId: "org-1" },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-    })
-  })
-
-  it("résout le courriel de l'auteur, et laisse vide pour une entrée système", async () => {
-    prismaMock.journalAudit.findMany.mockResolvedValue([
-      { id: "e1", createdAt: new Date(), utilisateurId: "user-1", tableCible: "champ", enregistrementId: "c", action: "UPDATE", diff: null },
-      { id: "e2", createdAt: new Date(), utilisateurId: null, tableCible: "importation", enregistrementId: null, action: "INSERT", diff: null },
-    ])
-    prismaMock.utilisateur.findMany.mockResolvedValue([{ id: "user-1", email: "admin@org1.test" }])
-
-    const entrees = await listJournalByOrganisation("org-1")
-    expect(entrees[0].utilisateurEmail).toBe("admin@org1.test")
-    expect(entrees[1].utilisateurEmail).toBeNull()
-  })
-
-  it("régression : la résolution des courriels reste dans l'organisation (pas de fuite d'un autre compte)", async () => {
-    prismaMock.journalAudit.findMany.mockResolvedValue([
-      { id: "e1", createdAt: new Date(), utilisateurId: "user-x", tableCible: "champ", enregistrementId: null, action: "UPDATE", diff: null },
-    ])
-    prismaMock.utilisateur.findMany.mockResolvedValue([])
-    const entrees = await listJournalByOrganisation("org-1")
-    expect(prismaMock.utilisateur.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ organisationId: "org-1" }) }))
-    expect(entrees[0].utilisateurEmail).toBeNull()
-  })
-})
-
-describe("écran du journal", () => {
-  it("réservé à la zone administration", () => {
-    expect(src("app/(app)/admin/journal/page.tsx")).toContain('exigerZonePage("administration")')
+describe("le journal d'audit n'a plus de vue dédiée", () => {
+  it("la page Journal d'audit et son entrée de menu ont été retirées ; l'historique par entité reste", () => {
+    expect(existsSync(new URL("../../src/app/(app)/admin/journal/page.tsx", import.meta.url))).toBe(false)
+    expect(src("components/sidebar.tsx")).not.toContain("/admin/journal")
+    expect(src("repositories/journal.repository.ts")).toContain("listHistoriqueEntite")
   })
 })

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 import { listChampsEnrichissablesByOrganisation } from "@/repositories/champs.repository"
 import { getEffectiveFicheLayout } from "@/server/fiche-layout"
 import { listTypologiesByOrganisation } from "@/repositories/typologie.repository"
+import { formaterModification, formaterValeur, type ValeurAffichee } from "@/lib/historique"
 import {
   createDocument,
   deleteDocument as deleteDocumentRepo,
@@ -47,6 +48,23 @@ function signatureValeur(valeur: {
   ])
 }
 
+/** A stored row as a plain value for the history (the decimal becomes a number). */
+function versValeurAffichee(valeur: {
+  valeurNombre: { toString(): string } | number | null
+  valeurTexte: string | null
+  valeurTexteMultiple: string[]
+  valeurBooleen: boolean | null
+  valeurDate: Date | null
+}): ValeurAffichee {
+  return {
+    nombre: valeur.valeurNombre === null ? null : Number(valeur.valeurNombre),
+    texte: valeur.valeurTexte,
+    multiple: valeur.valeurTexteMultiple,
+    booleen: valeur.valeurBooleen,
+    date: valeur.valeurDate,
+  }
+}
+
 export async function saveFiche(input: unknown): Promise<FicheActionResult> {
   const acces = await verifierZone("evaluation")
   if (!acces.ok) return acces
@@ -67,15 +85,29 @@ export async function saveFiche(input: unknown): Promise<FicheActionResult> {
     .filter((c) => anciennes.get(c.id) !== nouvelles.get(c.id))
     .map((c) => c.codeMachine)
 
-  // Enregistrer ne valide pas : les règles bloquantes et les avertissements ne s'appliquent qu'à Finaliser
-  // (setFicheStatut). Une fiche incomplète peut donc être sauvegardée en cours de saisie.
+  // Journal : pour chaque champ modifié, son nom, son ancienne valeur et sa nouvelle. Le type de transaction est
+  // affiché par son nom de typologie, et non par son code.
+  const typologies = await listTypologiesByOrganisation(organisationId)
+  const libellesTypes = new Map(typologies.map((t) => [t.code, t.nom]))
+  const anciennesValeurs = new Map(record.valeurs.map((v) => [v.champId, versValeurAffichee(v)]))
+  const nouvellesValeurs = new Map(entries.map((e) => [e.champId, versValeurAffichee(e)]))
+  const modifications = champs
+    .filter((c) => anciennes.get(c.id) !== nouvelles.get(c.id))
+    .map((c) =>
+      formaterModification(
+        c.nomAffichage,
+        formaterValeur(anciennesValeurs.get(c.id) ?? null, libellesTypes),
+        formaterValeur(nouvellesValeurs.get(c.id) ?? null, libellesTypes)
+      )
+    )
+
   try {
     await saveFicheValuesAvecJournal(organisationId, record.id, entries, {
       utilisateurId: utilisateur.id,
       tableCible: "transaction",
       enregistrementId: record.id,
       action: "SAVE_FICHE",
-      diff: { champsModifies: champsModifies.join(", ") },
+      diff: { champsModifies: champsModifies.join(", "), modifications },
     })
   } catch (error) {
     console.error("saveFiche: échec d'enregistrement", error)

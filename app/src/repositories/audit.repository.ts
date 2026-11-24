@@ -7,7 +7,7 @@ export interface AuditLogInput {
   enregistrementId?: string
   utilisateurId?: string
   action: string
-  diff?: Record<string, string | number | boolean | null>
+  diff?: Record<string, string | number | boolean | null | string[]>
   adresseIp?: string
 }
 

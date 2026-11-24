@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { History, Loader2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { listHistorique, type HistoriqueResult } from "@/server/actions/historique"
-import { libelleEntree } from "@/lib/historique"
+import { detailsEntree, libelleEntree } from "@/lib/historique"
 import type { CibleHistorique } from "@/repositories/journal.repository"
 
 type Entree = Extract<HistoriqueResult, { ok: true }>["entrees"][number]
@@ -102,6 +102,13 @@ export function HistoriqueBouton({ cible, titre }: { cible: CibleHistorique; tit
                       {dateFormatee(e.createdAt)} · {e.auteur}
                     </p>
                     <p className="mt-0.5 text-sm text-foreground">{libelleEntree(e)}</p>
+                    {detailsEntree(e).length > 0 && (
+                      <ul className="mt-1 space-y-0.5 text-sm text-muted-foreground">
+                        {detailsEntree(e).map((ligne, i) => (
+                          <li key={i}>{ligne}</li>
+                        ))}
+                      </ul>
+                    )}
                   </li>
                 ))}
               </ol>

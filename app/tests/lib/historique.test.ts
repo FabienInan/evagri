@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { libelleEntree } from "@/lib/historique"
+import { detailsEntree, formaterModification, formaterValeur, libelleEntree } from "@/lib/historique"
 
 describe("libellé des entrées d'historique", () => {
   it("décrit une fiche enregistrée avec les champs modifiés, sans leurs valeurs", () => {
@@ -27,5 +27,29 @@ describe("libellé des entrées d'historique", () => {
 
   it("ne lève jamais : une entrée inconnue reste lisible", () => {
     expect(libelleEntree({ tableCible: "importation", action: "RETRY", diff: null })).toBe("RETRY (importation)")
+  })
+
+  it("formate les valeurs : nombre, texte avec libellé, liste, oui/non, date, vide", () => {
+    const vide = { nombre: null, texte: null, multiple: [], booleen: null, date: null }
+    expect(formaterValeur({ ...vide, nombre: 250000 })).toBe("250000")
+    expect(formaterValeur({ ...vide, texte: "TERRES_BOISEES" }, new Map([["TERRES_BOISEES", "Terres boisées"]]))).toBe("Terres boisées")
+    expect(formaterValeur({ ...vide, multiple: ["a", "b"] })).toBe("a, b")
+    expect(formaterValeur({ ...vide, booleen: false })).toBe("Non")
+    expect(formaterValeur({ ...vide, date: new Date("2026-01-15T00:00:00Z") })).toBe("2026-01-15")
+    expect(formaterValeur(null)).toBe("vide")
+    expect(formaterValeur({ ...vide, texte: "x".repeat(300) }).length).toBeLessThanOrEqual(120)
+  })
+
+  it("présente chaque modification sur une ligne « libellé : ancienne → nouvelle »", () => {
+    expect(formaterModification("Prix de vente", "100000", "250000")).toBe("Prix de vente : 100000 → 250000")
+    const entree = { tableCible: "transaction", action: "SAVE_FICHE", diff: { modifications: ["Prix de vente : 1 → 2", "Vendeur : vide → Alice"] } }
+    expect(detailsEntree(entree)).toEqual(["Prix de vente : 1 → 2", "Vendeur : vide → Alice"])
+    expect(libelleEntree(entree)).toBe("Fiche enregistrée (2 modifications)")
+  })
+
+  it("décrit l'ancien et le nouveau taux de croissance d'un panier", () => {
+    const entree = { tableCible: "panier", action: "UPDATE", diff: { tauxCroissancePct: 4, ancienTauxCroissancePct: 3.25 } }
+    expect(detailsEntree(entree)).toEqual(["Taux de croissance : 3.25 % → 4 %"])
+    expect(libelleEntree(entree)).toBe("Taux de croissance : 3.25 % → 4 %")
   })
 })

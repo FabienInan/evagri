@@ -139,14 +139,14 @@ describe("journal de la sauvegarde de fiche", () => {
     vi.clearAllMocks()
     mocks.verifierZone.mockResolvedValue({ ok: true, utilisateur: EVALUATEUR })
     mocks.listChampsEnrichissablesByOrganisation.mockResolvedValue([
-      { id: "c1", codeMachine: "PRIX_VENTE" },
-      { id: "c2", codeMachine: "SUPERFICIE" },
-      { id: "c3", codeMachine: "COMMENTAIRE" },
+      { id: "c1", codeMachine: "PRIX_VENTE", nomAffichage: "Prix de vente" },
+      { id: "c2", codeMachine: "SUPERFICIE", nomAffichage: "Superficie" },
+      { id: "c3", codeMachine: "COMMENTAIRE", nomAffichage: "Commentaire" },
     ])
     mocks.saveFicheValuesAvecJournal.mockResolvedValue(undefined)
   })
 
-  it("liste les codes des champs modifiés, jamais leurs valeurs", async () => {
+  it("décrit chaque champ modifié : nom, ancienne valeur et nouvelle valeur", async () => {
     mocks.findTransactionFiche.mockResolvedValue(
       transaction([
         { champId: "c1", valeurNombre: 100000 },
@@ -156,16 +156,18 @@ describe("journal de la sauvegarde de fiche", () => {
     mocks.buildStorageEntries.mockReturnValue([
       { champId: "c1", valeurNombre: 250000, valeurTexte: null, valeurTexteMultiple: [], valeurBooleen: null, valeurDate: null },
       { champId: "c2", valeurNombre: 12, valeurTexte: null, valeurTexteMultiple: [], valeurBooleen: null, valeurDate: null },
-      { champId: "c3", valeurNombre: null, valeurTexte: "confidentiel", valeurTexteMultiple: [], valeurBooleen: null, valeurDate: null },
+      { champId: "c3", valeurNombre: null, valeurTexte: "Vente entre proches", valeurTexteMultiple: [], valeurBooleen: null, valeurDate: null },
     ])
 
     const result = await saveFiche({ id: "t-1", valeurs: {}, typeTransactionCode: null })
 
     expect(result).toEqual({ ok: true })
     const journal = mocks.saveFicheValuesAvecJournal.mock.calls[0][3]
-    expect(journal.diff).toEqual({ champsModifies: "PRIX_VENTE, COMMENTAIRE" })
-    expect(JSON.stringify(journal)).not.toContain("250000")
-    expect(JSON.stringify(journal)).not.toContain("confidentiel")
+    expect(journal.diff.champsModifies).toBe("PRIX_VENTE, COMMENTAIRE")
+    expect(journal.diff.modifications).toEqual([
+      "Prix de vente : 100000 → 250000",
+      "Commentaire : vide → Vente entre proches",
+    ])
   })
 
   it("une sauvegarde sans changement n'énumère aucun champ", async () => {
@@ -176,6 +178,6 @@ describe("journal de la sauvegarde de fiche", () => {
 
     await saveFiche({ id: "t-1", valeurs: {}, typeTransactionCode: null })
 
-    expect(mocks.saveFicheValuesAvecJournal.mock.calls[0][3].diff).toEqual({ champsModifies: "" })
+    expect(mocks.saveFicheValuesAvecJournal.mock.calls[0][3].diff).toEqual({ champsModifies: "", modifications: [] })
   })
 })

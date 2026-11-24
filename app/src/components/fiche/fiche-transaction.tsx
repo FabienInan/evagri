@@ -179,13 +179,6 @@ export function FicheTransactionClient({
         </p>
       )}
 
-      <div className="flex justify-end">
-        <HistoriqueBouton
-          cible={{ type: "transaction", id: fiche.id }}
-          titre={`Transaction ${String(fiche.fields.numero_inscription ?? "")}`.trim()}
-        />
-      </div>
-
       {/* Barre flottante : Précédent à gauche, les actions au centre, Suivant à droite. Collée en haut de la zone
           de défilement : elle reste sous les yeux pendant qu'on parcourt la fiche. */}
       <div className="sticky top-0 z-30 rounded-lg border border-border bg-card/95 p-2 shadow-lg backdrop-blur">
@@ -207,14 +200,20 @@ export function FicheTransactionClient({
           )}
         </div>
 
-        <FicheActions
-          mode={mode}
-          saving={saving}
-          onSave={() => void handleSave()}
-          onAnalyse={() => setAnalyseConfirmOpen(true)}
-          onReopen={() => setReopenConfirmOpen(true)}
-          onAddToPanier={() => setAddToPanierOpen(true)}
-        />
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <FicheActions
+            mode={mode}
+            saving={saving}
+            onSave={() => void handleSave()}
+            onAnalyse={() => setAnalyseConfirmOpen(true)}
+            onReopen={() => setReopenConfirmOpen(true)}
+            onAddToPanier={() => setAddToPanierOpen(true)}
+          />
+          <HistoriqueBouton
+            cible={{ type: "transaction", id: fiche.id }}
+            titre={`Transaction ${String(fiche.fields.numero_inscription ?? "")}`.trim()}
+          />
+        </div>
 
         <div className="justify-self-end">
           {navigation && (

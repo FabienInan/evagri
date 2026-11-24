@@ -71,11 +71,24 @@ export async function updatePanierTauxCroissance(
   journal: JournalBase
 ): Promise<boolean> {
   return ecrireAvecJournal(organisationId, async (tx) => {
-    const { count } = await tx.panier.updateMany({
+    // The previous rate is read first, so the journal shows what changed.
+    const avant = await tx.panier.findFirst({ where: { id: panierId, organisationId }, select: { tauxCroissance: true } })
+    if (!avant) return { resultat: false }
+    await tx.panier.updateMany({
       where: { id: panierId, organisationId },
       data: { tauxCroissance: tauxCroissancePct / 100 },
     })
-    return { resultat: count > 0, journal: count > 0 ? { ...journal, enregistrementId: panierId } : undefined }
+    return {
+      resultat: true,
+      journal: {
+        ...journal,
+        enregistrementId: panierId,
+        diff: {
+          tauxCroissancePct,
+          ancienTauxCroissancePct: Math.round(Number(avant.tauxCroissance) * 10000) / 100,
+        },
+      },
+    }
   })
 }
 

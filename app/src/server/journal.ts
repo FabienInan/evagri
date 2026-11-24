@@ -4,7 +4,7 @@ export type EntreeJournal = {
   tableCible: string
   enregistrementId?: string
   action: string
-  diff?: Record<string, string | number | boolean | null>
+  diff?: Record<string, string | number | boolean | null | string[]>
 }
 
 /**

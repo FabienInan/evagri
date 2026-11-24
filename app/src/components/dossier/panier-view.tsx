@@ -1,6 +1,5 @@
 "use client"
 
-import { HistoriqueBouton } from "@/components/historique/historique-bouton"
 
 import type { DossierLocalisation } from "@/components/transaction-map/dossier-pin"
 import { useMemo, useState, useTransition } from "react"
@@ -271,7 +270,6 @@ export function PanierView({
               {typeTransactionNom}
             </Badge>
           )}
-          <HistoriqueBouton cible={{ type: "panier", id: panierId }} titre={nom} />
         </span>
       }
       totalCount={rows.length}

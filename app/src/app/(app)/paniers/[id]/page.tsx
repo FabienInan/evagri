@@ -7,6 +7,7 @@ import { serializeTransaction } from "@/serializers/transaction.serializer"
 import { IMPORTED_FIELDS } from "@/lib/imported-fields"
 import { PanierView } from "@/components/dossier/panier-view"
 import { Breadcrumb } from "@/components/breadcrumb"
+import { HistoriqueBouton } from "@/components/historique/historique-bouton"
 
 export const dynamic = "force-dynamic"
 
@@ -39,13 +40,16 @@ export default async function PanierPage({
 
   return (
     <div className="space-y-4">
-      <Breadcrumb
-        items={[
-          { label: "Dossiers", href: "/dossiers" },
-          { label: panier.dossier.numeroDossier, href: `/dossiers/${panier.dossierId}` },
-          { label: panier.nom },
-        ]}
-      />
+      <div className="flex items-center justify-between gap-3">
+        <Breadcrumb
+          items={[
+            { label: "Dossiers", href: "/dossiers" },
+            { label: panier.dossier.numeroDossier, href: `/dossiers/${panier.dossierId}` },
+            { label: panier.nom },
+          ]}
+        />
+        <HistoriqueBouton cible={{ type: "panier", id: id }} titre={panier.nom} />
+      </div>
       <PanierView
         panierId={id}
         nom={panier.nom}
