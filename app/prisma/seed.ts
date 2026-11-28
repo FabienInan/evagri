@@ -4,7 +4,8 @@ import { IMPORTED_FIELDS } from "../src/lib/imported-fields"
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) })
 
-const DEFAULT_ORGANISATION_ID = "90a5866e-06e5-46ce-9941-56582b8ca15c"
+/** Organisation that receives the reference data. Defaults to the EVAGRI organisation; set SEED_ORGANISATION_ID for another one (for example the test organisation). */
+const DEFAULT_ORGANISATION_ID = process.env.SEED_ORGANISATION_ID ?? "90a5866e-06e5-46ce-9941-56582b8ca15c"
 
 /** Types de transaction applicables par défaut : un champ sans type ne peut pas être enregistré dans l'admin. */
 const TOUS_TYPES = ["TERRES_CULTIVEES", "TERRES_BOISEES", "ERABLIERES", "BATIMENTS_AGRICOLES", "FERME"]
@@ -183,27 +184,24 @@ async function main() {
     })
   }
 
-  await prisma.filtreRecherche.upsert({
-    where: { id: "00000000-0000-0000-0000-000000000001" },
-    update: {
-      nomFiltre: "Type de transaction",
-      typeFiltre: "LISTE",
-      operateursDisponibles: ["="],
-      ordreAffichage: 0,
-      estActif: true,
-    },
-    create: {
-      id: "00000000-0000-0000-0000-000000000001",
-      organisationId: org.id,
-      champId: typeTransaction.id,
-      nomFiltre: "Type de transaction",
-      typeFiltre: "LISTE",
-      operateursDisponibles: ["="],
-      ordreAffichage: 0,
-      estActif: true,
-      applicableATypes: [],
-    },
+  // Identifiers are generated: fixed ones would collide across organisations (primary key is global).
+  const filtreType = {
+    nomFiltre: "Type de transaction",
+    typeFiltre: "LISTE" as const,
+    operateursDisponibles: ["="],
+    ordreAffichage: 0,
+    estActif: true,
+  }
+  const existant = await prisma.filtreRecherche.findFirst({
+    where: { organisationId: org.id, champId: typeTransaction.id },
   })
+  if (existant) {
+    await prisma.filtreRecherche.update({ where: { id: existant.id }, data: filtreType })
+  } else {
+    await prisma.filtreRecherche.create({
+      data: { ...filtreType, organisationId: org.id, champId: typeTransaction.id, applicableATypes: [] },
+    })
+  }
 
   await prisma.filtreRecherche.upsert({
     where: { organisationId_codeMachine: { organisationId: org.id, codeMachine: "statut" } },
@@ -215,7 +213,6 @@ async function main() {
       estActif: true,
     },
     create: {
-      id: "00000000-0000-0000-0000-000000000002",
       organisationId: org.id,
       codeMachine: "statut",
       nomFiltre: "Statut d'analyse",

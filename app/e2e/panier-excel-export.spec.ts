@@ -11,7 +11,8 @@ test("affiche la date d'évaluation du dossier et le taux du panier dans l'expor
   await page.getByRole("button", { name: "Exporter Excel" }).click()
   await expect(page.getByRole("heading", { name: "Exporter en Excel" })).toBeVisible()
   await expect(page.getByText("01/01/2026")).toBeVisible()
-  await expect(page.getByText("5 %")).toBeVisible()
+  // Scoped to the export dialog: the panier header also shows the rate, so an unscoped match is ambiguous.
+  await expect(page.getByRole("dialog").getByText("5 %", { exact: true })).toBeVisible()
 })
 
 test("exporte le panier en Excel avec le prix actualisé", async ({ page }) => {
