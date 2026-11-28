@@ -37,6 +37,9 @@ const NATURE_ORDER: ExportColumnNature[] = ["importe", "saisissable", "calcule",
  * Export Excel d'un panier (§7.9). Les indicateurs ajustés se calculent à l'export, à partir de la date d'évaluation
  * du dossier et du taux de croissance du panier, fixés à leur création. Le classeur est généré côté client.
  */
+/** Au-delà, l'export est refusé : le fichier se construit dans le navigateur. */
+export const LIMITE_EXPORT_TRANSACTIONS = 50
+
 export function PanierExcelExport({
   transactions,
   nom,
@@ -90,6 +93,10 @@ export function PanierExcelExport({
   }
 
   async function handleExport() {
+    if (transactions.length > LIMITE_EXPORT_TRANSACTIONS) {
+      setError(`L'export est limité à ${LIMITE_EXPORT_TRANSACTIONS} transactions (ce panier en contient ${transactions.length}).`)
+      return
+    }
     if (selected.size === 0) {
       setError("Sélectionnez au moins une colonne.")
       return
@@ -154,8 +161,14 @@ export function PanierExcelExport({
         size="sm"
         className="h-8 gap-2 text-xs"
         onClick={openModal}
-        disabled={transactions.length === 0}
-        title={transactions.length === 0 ? "Aucune transaction dans ce panier" : undefined}
+        disabled={transactions.length === 0 || transactions.length > LIMITE_EXPORT_TRANSACTIONS}
+        title={
+          transactions.length === 0
+            ? "Aucune transaction dans ce panier"
+            : transactions.length > LIMITE_EXPORT_TRANSACTIONS
+              ? `Export limité à ${LIMITE_EXPORT_TRANSACTIONS} transactions (ce panier en contient ${transactions.length})`
+              : undefined
+        }
       >
         <FileSpreadsheet className="h-4 w-4" />
         Exporter Excel

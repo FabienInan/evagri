@@ -64,7 +64,8 @@ export function serializePanier(panier: PanierWithRelations): SerializedPanier {
     typeTransactionId: panier.typeTransactionId,
     typeTransactionNom: panier.typeTransaction?.nom ?? null,
     typeTransactionCode: panier.typeTransaction?.code ?? null,
-    tauxCroissancePct: panier.tauxCroissance === null ? null : panier.tauxCroissance.toNumber() * 100,
+    // Arrondi : 0,58 × 100 donnerait 57,99999… en virgule flottante.
+    tauxCroissancePct: panier.tauxCroissance === null ? null : Math.round(panier.tauxCroissance.toNumber() * 1e6) / 1e4,
     createdAt: panier.createdAt.toISOString(),
     transactionCount: panier._count.transactions,
   }

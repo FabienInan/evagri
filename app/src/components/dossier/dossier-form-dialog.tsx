@@ -34,7 +34,6 @@ export function DossierFormDialog({
   onCreated: (id: string) => void
 }) {
   const [numeroDossier, setNumeroDossier] = useState("")
-  const [nom, setNom] = useState("")
   const [dateEvaluation, setDateEvaluation] = useState("")
   const [lots, setLots] = useState("")
   const [apercu, setApercu] = useState<Apercu | null>(null)
@@ -71,7 +70,6 @@ export function DossierFormDialog({
     setError(null)
     const res = await createDossier({
       numeroDossier,
-      nom: nom.trim() || undefined,
       dateEvaluation,
       lotsCadastraux: parseLots(lots),
       latitude: coordonneesRequises ? parseDecimal(latitude) : undefined,
@@ -188,10 +186,6 @@ export function DossierFormDialog({
           </div>
         )}
 
-        <div className="space-y-1.5">
-          <Label htmlFor="nom-dossier">Nom (optionnel)</Label>
-          <Input id="nom-dossier" value={nom} onChange={(e) => setNom(e.target.value)} />
-        </div>
         {error && <p className="text-sm text-destructive">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="outline" size="sm" onClick={onClose} disabled={saving}>

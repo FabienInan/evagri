@@ -17,7 +17,6 @@ test("crée un dossier puis un panier depuis le détail", async ({ page }) => {
   await page.getByLabel("Numéro de dossier").fill("99-99-999")
   await page.getByLabel("Date d'évaluation").fill("2026-01-01")
   await page.getByLabel("Numéros de lots").fill("4 128 182")
-  await page.getByLabel("Nom (optionnel)").fill("Dossier créé par test")
   await page.getByRole("button", { name: "Créer" }).click()
 
   // La création route vers la page de détail du nouveau dossier.
