@@ -6,6 +6,8 @@ import { Card, CardContent } from "@/components/ui/card"
 
 type TransactionMapSelectedPanelProps = {
   selectedCount: number
+  /** Le filtre par zone n'a de sens qu'avec un polygone dessiné. */
+  canFilter: boolean
   onClear: () => void
   onFilter: () => void
   onAddToPanier: () => void
@@ -13,6 +15,7 @@ type TransactionMapSelectedPanelProps = {
 
 export function TransactionMapSelectedPanel({
   selectedCount,
+  canFilter,
   onClear,
   onFilter,
   onAddToPanier,
@@ -39,10 +42,12 @@ export function TransactionMapSelectedPanel({
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
-        <Button size="sm" className="w-full gap-2" onClick={onFilter}>
-          <Filter className="h-4 w-4" />
-          Filtrer dans la liste
-        </Button>
+        {canFilter && (
+          <Button size="sm" className="w-full gap-2" onClick={onFilter}>
+            <Filter className="h-4 w-4" />
+            Filtrer dans la liste
+          </Button>
+        )}
         <Button size="sm" variant="outline" className="w-full gap-2" onClick={onAddToPanier}>
           <Plus className="h-4 w-4" />
           Ajouter au panier

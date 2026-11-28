@@ -1,21 +1,24 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useMap } from "react-leaflet"
 import L from "leaflet"
 import "./leaflet-plugins"
 import { getThemeColors } from "@/lib/theme-colors"
 
 type DrawControlProps = {
+  polygon: { lat: number; lng: number }[] | null
   onPolygonChange: (polygon: { lat: number; lng: number }[] | null) => void
 }
 
-export function DrawControl({ onPolygonChange }: DrawControlProps) {
+export function DrawControl({ polygon, onPolygonChange }: DrawControlProps) {
   const map = useMap()
+  const drawnItemsRef = useRef<L.FeatureGroup | null>(null)
 
   useEffect(() => {
     const colors = getThemeColors()
     const drawnItems = new L.FeatureGroup()
+    drawnItemsRef.current = drawnItems
     map.addLayer(drawnItems)
 
     const drawControl = new L.Control.Draw({
@@ -43,6 +46,8 @@ export function DrawControl({ onPolygonChange }: DrawControlProps) {
       },
       edit: {
         featureGroup: drawnItems,
+        // Bouton « Modifier les couches » masqué : seule la suppression reste disponible.
+        edit: false,
         remove: true,
       },
     })
@@ -61,32 +66,22 @@ export function DrawControl({ onPolygonChange }: DrawControlProps) {
       onPolygonChange(null)
     }
 
-    const handleEdited = (event: L.LeafletEvent) => {
-      const e = event as L.DrawEvents.Edited
-      const layers = e.layers
-      layers.eachLayer((layer) => {
-        if (layer instanceof L.Polygon) {
-          const latlngs = layer.getLatLngs()
-          const flat = Array.isArray(latlngs[0])
-            ? (latlngs[0] as L.LatLng[])
-            : (latlngs as L.LatLng[])
-          onPolygonChange(flat.map((ll) => ({ lat: ll.lat, lng: ll.lng })))
-        }
-      })
-    }
-
     map.on("draw:created", handleCreated)
     map.on("draw:deleted", handleDeleted)
-    map.on("draw:edited", handleEdited)
 
     return () => {
       map.off("draw:created", handleCreated)
       map.off("draw:deleted", handleDeleted)
-      map.off("draw:edited", handleEdited)
       map.removeControl(drawControl)
       map.removeLayer(drawnItems)
+      drawnItemsRef.current = null
     }
   }, [map, onPolygonChange])
+
+  // Quand l'état part à null (effacement depuis le panneau), la zone dessinée disparaît aussi de la carte.
+  useEffect(() => {
+    if (!polygon) drawnItemsRef.current?.clearLayers()
+  }, [polygon])
 
   return null
 }

@@ -147,7 +147,7 @@ export function TransactionMap({ filters, onGeoFilter }: TransactionMapProps) {
           tauxClasses={tauxClasses}
         />
         {pinToShow && <DossierPin localisation={pinToShow} />}
-        <DrawControl onPolygonChange={setPolygon} />
+        <DrawControl polygon={polygon} onPolygonChange={setPolygon} />
       </MapContainer>
 
       <TauxLegend classes={tauxClasses} />
@@ -158,9 +158,10 @@ export function TransactionMap({ filters, onGeoFilter }: TransactionMapProps) {
         </div>
       )}
 
-      {polygon && (
+      {(polygon || selectedIds.size > 0) && (
         <TransactionMapSelectedPanel
           selectedCount={selectedIds.size}
+          canFilter={Boolean(polygon && polygon.length >= 3)}
           onClear={() => {
             setPolygon(null)
             clearSelected()
