@@ -30,6 +30,20 @@ export function TransactionsPageClient({
   importedFields,
   champs,
 }: TransactionsPageClientProps) {
+  // Précharge le code de la carte pendant que la liste s'affiche : le premier passage à la carte n'attend plus
+  // son téléchargement. Le même module sert au chargement dynamique de la page carte : rien n'est téléchargé deux fois.
+  useEffect(() => {
+    const precharger = () => {
+      void import("@/components/transaction-map")
+    }
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(precharger)
+      return () => window.cancelIdleCallback(id)
+    }
+    const id = window.setTimeout(precharger, 1000)
+    return () => window.clearTimeout(id)
+  }, [])
+
   const { filters, setFilters } = useTransactionFilters()
   const { selectedIds, toggleSelected } = useSelectedTransactions()
 
