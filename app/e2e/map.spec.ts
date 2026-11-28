@@ -81,3 +81,25 @@ test("la bulle d'un pin sélectionné s'affiche dès que le pin est visible, san
   await expect(page.locator('img[src*="pin-selected"]')).toHaveCount(1)
   await expect(page.locator(".leaflet-tooltip").first()).toBeVisible()
 })
+
+test("désélectionner un pin retire sa bulle et rétablit son icône", async ({ page }) => {
+  await page.goto("/transactions/map")
+  await page.locator(".leaflet-container").waitFor()
+  await expect(page.locator(".marker-cluster-custom, img.leaflet-marker-icon").first()).toBeVisible({ timeout: 20_000 })
+
+  for (let i = 0; i < 8 && (await page.locator("img.leaflet-marker-icon").count()) === 0; i++) {
+    await page.locator(".marker-cluster-custom").first().click()
+    await page.waitForTimeout(800)
+  }
+  const pin = page.locator("img.leaflet-marker-icon").first()
+  await expect(pin).toBeVisible()
+
+  await pin.click({ force: true })
+  await expect(page.locator('img[src*="pin-selected"]')).toHaveCount(1)
+  await expect(page.locator(".leaflet-tooltip").first()).toBeVisible()
+
+  // Second clic : la sélection est retirée, la bulle disparaît et le pin ne porte plus l'icône sélectionnée.
+  await page.locator('img[src*="pin-selected"]').click({ force: true })
+  await expect(page.locator('img[src*="pin-selected"]')).toHaveCount(0)
+  await expect(page.locator(".leaflet-tooltip")).toHaveCount(0)
+})

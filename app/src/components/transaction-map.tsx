@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { MapContainer, TileLayer } from "react-leaflet"
+import { MapContainer, TileLayer, useMapEvents } from "react-leaflet"
 import { DrawControl } from "@/components/transaction-map/draw-control"
 import { ClusterLayer } from "@/components/transaction-map/cluster-layer"
 import { TauxLegend } from "@/components/transaction-map/taux-legend"
@@ -25,8 +25,26 @@ interface TransactionMapProps {
 // Module-level cache: makes list->map view switches instant after the first load.
 const mapDataCache = new Map<string, MapTransaction[]>()
 
+// Dernière vue de la carte (centre, zoom) : la carte est démontée à chaque passage liste <-> carte.
+const DEFAULT_VUE = { centre: [49.5, -71.5] as [number, number], zoom: 5 }
+let vueMemorisee: { centre: [number, number]; zoom: number } | null = null
+
+/** Garde en mémoire la vue courante à chaque déplacement ou zoom. */
+function MemoriseVue() {
+  useMapEvents({
+    moveend: (event) => {
+      const map = event.target
+      const c = map.getCenter()
+      vueMemorisee = { centre: [c.lat, c.lng], zoom: map.getZoom() }
+    },
+  })
+  return null
+}
+
 export function TransactionMap({ filters, onGeoFilter }: TransactionMapProps) {
   const filtersCacheKey = JSON.stringify(filters ?? [])
+  // Calculé une fois au montage : une vue déjà mémorisée prime sur l'ajustement automatique à la sélection.
+  const [vueDejaChoisie] = useState(() => vueMemorisee !== null)
   const [transactions, setTransactions] = useState<MapTransaction[]>(
     () => mapDataCache.get(filtersCacheKey) ?? []
   )
@@ -131,8 +149,8 @@ export function TransactionMap({ filters, onGeoFilter }: TransactionMapProps) {
     <div className="relative h-full w-full">
       <MapContainer
         // Vue d'ensemble du Québec : zoom 5, centre décalé vers le nord pour que la province entière soit visible.
-        center={[49.5, -71.5]}
-        zoom={5}
+        center={(vueMemorisee ?? DEFAULT_VUE).centre}
+        zoom={(vueMemorisee ?? DEFAULT_VUE).zoom}
         scrollWheelZoom={true}
         className="h-full w-full"
       >
@@ -145,7 +163,9 @@ export function TransactionMap({ filters, onGeoFilter }: TransactionMapProps) {
           selectedIds={selectedIds}
           onMarkerClick={toggleSelected}
           tauxClasses={tauxClasses}
+          ajusterAuSelection={!vueDejaChoisie}
         />
+        <MemoriseVue />
         {pinToShow && <DossierPin localisation={pinToShow} />}
         <DrawControl polygon={polygon} onPolygonChange={setPolygon} />
       </MapContainer>

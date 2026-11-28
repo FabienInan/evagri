@@ -46,6 +46,8 @@ type ClusterLayerProps = {
   onMarkerClick?: (id: string) => void
   /** Classes de taux global (quantiles) ; sans elles, tous les pins gardent la couleur par défaut. */
   tauxClasses?: TauxClasse[]
+  /** Ajuste la vue sur les transactions sélectionnées au premier affichage ; faux quand une vue a déjà été choisie. */
+  ajusterAuSelection?: boolean
 }
 
 interface MarkerOptionsWithSelection extends L.MarkerOptions {
@@ -92,24 +94,82 @@ function detailHtml(t: MapTransaction): string {
   </div>`
 }
 
-export function ClusterLayer({ transactions, selectedIds, onMarkerClick, tauxClasses = [] }: ClusterLayerProps) {
+/** Valeur par défaut stable : un tableau neuf à chaque rendu relancerait les effets. */
+const AUCUNE_CLASSE: TauxClasse[] = []
+
+/** Un marqueur et son état courant : seule la sélection et les classes de taux le modifient après sa construction. */
+type Pin = {
+  marker: L.Marker
+  transaction: MapTransaction
+  selected: boolean
+  icon: L.Icon | L.DivIcon
+}
+
+function iconePour(selected: boolean, classe: TauxClasse | null): L.Icon | L.DivIcon {
+  return selected ? selectedPinIcon : classe ? tauxPinIcon(classe.color) : pinIcon
+}
+
+/**
+ * Met un pin à jour sans le reconstruire : icône, options lues par les clusters, et bulle permanente
+ * (ajoutée à la sélection, retirée à la désélection). Leaflet ouvre la bulle d'un pin déjà affiché.
+ */
+function appliquerEtat(pin: Pin, selected: boolean, tauxClasses: TauxClasse[]) {
+  const icon = iconePour(selected, tauxClasseFor(pin.transaction.tauxGlobal, tauxClasses))
+  if (icon !== pin.icon) {
+    pin.marker.setIcon(icon)
+    pin.icon = icon
+  }
+  if (selected === pin.selected) return
+  pin.selected = selected
+  ;(pin.marker.options as MarkerOptionsWithSelection).selected = selected
+  if (selected) {
+    pin.marker.bindTooltip(detailHtml(pin.transaction), {
+      permanent: true,
+      direction: "top",
+      offset: L.point(0, -36),
+    })
+  } else {
+    pin.marker.unbindTooltip()
+  }
+}
+
+export function ClusterLayer({
+  transactions,
+  selectedIds,
+  onMarkerClick,
+  tauxClasses = AUCUNE_CLASSE,
+  ajusterAuSelection = true,
+}: ClusterLayerProps) {
   const map = useMap()
   // One-shot per map mount: don't re-center on every subsequent pin toggle.
   const hasAutoFittedRef = useRef(false)
+  const groupRef = useRef<L.MarkerClusterGroup | null>(null)
+  const pinsRef = useRef<Pin[]>([])
+  // Dernières valeurs, lues à la construction : la construction ne dépend pas de la sélection.
+  const selectedIdsRef = useRef(selectedIds)
+  const tauxClassesRef = useRef(tauxClasses)
+  const onMarkerClickRef = useRef(onMarkerClick)
 
+  useEffect(() => {
+    selectedIdsRef.current = selectedIds
+    tauxClassesRef.current = tauxClasses
+    onMarkerClickRef.current = onMarkerClick
+  }, [selectedIds, tauxClasses, onMarkerClick])
+
+  // Construction : seulement quand les transactions changent (filtres, rechargement).
   useEffect(() => {
     const group = L.markerClusterGroup({
       iconCreateFunction: createClusterIcon(getThemeColors()),
       chunkedLoading: true,
     })
-    transactions.forEach((t) => {
-      const isSelected = selectedIds.has(t.id)
-      const classe = tauxClasseFor(t.tauxGlobal, tauxClasses)
+    const pins: Pin[] = transactions.map((t) => {
+      const selected = selectedIdsRef.current.has(t.id)
+      const icon = iconePour(selected, tauxClasseFor(t.tauxGlobal, tauxClassesRef.current))
       const marker = L.marker([t.latitude, t.longitude], {
-        icon: isSelected ? selectedPinIcon : classe ? tauxPinIcon(classe.color) : pinIcon,
-        selected: isSelected,
+        icon,
+        selected,
       } as MarkerOptionsWithSelection)
-      if (isSelected) {
+      if (selected) {
         // Bulle permanente : Leaflet l'ouvre à chaque ajout du marqueur à la carte (événement « add »), donc
         // elle suit le pin à travers les clusters, à tout niveau de zoom, et disparaît avec lui.
         marker.bindTooltip(detailHtml(t), {
@@ -118,17 +178,18 @@ export function ClusterLayer({ transactions, selectedIds, onMarkerClick, tauxCla
           offset: L.point(0, -36),
         })
       }
-      if (onMarkerClick) {
-        marker.on("click", () => onMarkerClick(t.id))
-      }
+      marker.on("click", () => onMarkerClickRef.current?.(t.id))
       group.addLayer(marker)
+      return { marker, transaction: t, selected, icon }
     })
     map.addLayer(group)
+    groupRef.current = group
+    pinsRef.current = pins
 
-    if (!hasAutoFittedRef.current && transactions.length > 0) {
+    if (ajusterAuSelection && !hasAutoFittedRef.current && transactions.length > 0) {
       hasAutoFittedRef.current = true
       const selectedCoords = transactions
-        .filter((t) => selectedIds.has(t.id))
+        .filter((t) => selectedIdsRef.current.has(t.id))
         .map((t) => [t.latitude, t.longitude] as [number, number])
       if (selectedCoords.length > 0) {
         map.fitBounds(L.latLngBounds(selectedCoords), { padding: [60, 60], maxZoom: 12 })
@@ -137,8 +198,18 @@ export function ClusterLayer({ transactions, selectedIds, onMarkerClick, tauxCla
 
     return () => {
       map.removeLayer(group)
+      groupRef.current = null
+      pinsRef.current = []
     }
-  }, [map, transactions, selectedIds, onMarkerClick, tauxClasses])
+  }, [map, transactions, ajusterAuSelection])
+
+  // Sélection et classes de taux : mise à jour des pins existants, puis recalcul des couleurs de cluster.
+  useEffect(() => {
+    for (const pin of pinsRef.current) {
+      appliquerEtat(pin, selectedIds.has(pin.transaction.id), tauxClasses)
+    }
+    groupRef.current?.refreshClusters()
+  }, [selectedIds, tauxClasses])
 
   return null
 }
