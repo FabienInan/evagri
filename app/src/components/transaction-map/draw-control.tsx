@@ -44,12 +44,7 @@ export function DrawControl({ polygon, onPolygonChange }: DrawControlProps) {
           },
         },
       },
-      edit: {
-        featureGroup: drawnItems,
-        // Bouton « Modifier les couches » masqué : seule la suppression reste disponible.
-        edit: false,
-        remove: true,
-      },
+      // Pas de barre d'édition : la zone s'efface par « Supprimer la sélection » dans le panneau.
     })
     map.addControl(drawControl)
 
@@ -62,16 +57,10 @@ export function DrawControl({ polygon, onPolygonChange }: DrawControlProps) {
       onPolygonChange(flat.map((ll) => ({ lat: ll.lat, lng: ll.lng })))
     }
 
-    const handleDeleted = () => {
-      onPolygonChange(null)
-    }
-
     map.on("draw:created", handleCreated)
-    map.on("draw:deleted", handleDeleted)
 
     return () => {
       map.off("draw:created", handleCreated)
-      map.off("draw:deleted", handleDeleted)
       map.removeControl(drawControl)
       map.removeLayer(drawnItems)
       drawnItemsRef.current = null
