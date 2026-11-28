@@ -87,7 +87,8 @@ export function ImportPdfForm({ onImported }: { onImported?: () => void }) {
       setReport(cumul)
       onImported?.()
       router.refresh()
-    } catch {
+    } catch (erreur) {
+      console.error("Import des actes PDF interrompu", erreur)
       setError("Échec de l'import des PDF. Réessayez.")
     } finally {
       setProgression(null)

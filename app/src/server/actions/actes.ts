@@ -58,17 +58,20 @@ export async function importActesPDF(formData: FormData): Promise<ImportActesRes
       continue
     }
 
-    const { nomFichier, cheminStockage } = await saveActePDF(
-      file,
-      organisationId,
-      transaction.id
-    )
+    // Un échec d'écriture ne fait pas tomber le lot : le fichier est signalé et les suivants sont traités.
+    try {
+      const { nomFichier, cheminStockage } = await saveActePDF(file, organisationId, transaction.id)
 
-    const existing = await findDocumentActeByFileName(transaction.id, nomFichier)
-    if (existing) {
-      await updateDocumentActePath(existing.id, cheminStockage)
-    } else {
-      await createDocumentActe(transaction.id, nomFichier, cheminStockage)
+      const existing = await findDocumentActeByFileName(transaction.id, nomFichier)
+      if (existing) {
+        await updateDocumentActePath(existing.id, cheminStockage)
+      } else {
+        await createDocumentActe(transaction.id, nomFichier, cheminStockage)
+      }
+    } catch (erreur) {
+      console.error(`Import d'acte échoué pour ${file.name}`, erreur)
+      unmatched.push(`${file.name} (échec de l'enregistrement du fichier)`)
+      continue
     }
 
     matched.push({
