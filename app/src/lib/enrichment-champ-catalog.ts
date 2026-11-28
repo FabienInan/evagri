@@ -1,4 +1,5 @@
 import {
+  SOUS_CLASSE_OPTIONS,
   CULTURE_OPTIONS,
   CPTAQ_ZONE_OPTIONS,
   FEUILLUS_RESINEUX_OPTIONS,
@@ -26,6 +27,7 @@ export interface EnrichmentChampDef {
 
 export const ENRICHMENT_CHAMP_CATALOG: Record<string, EnrichmentChampDef> = {
   topographie: { typeDonnees: "LISTE", optionsListe: TOPOGRAPHY_OPTIONS },
+  sousclasse_dominante: { typeDonnees: "LISTE", optionsListe: SOUS_CLASSE_OPTIONS },
   feuillusrsineux: { typeDonnees: "LISTE", optionsListe: FEUILLUS_RESINEUX_OPTIONS },
   cptaq: { typeDonnees: "LISTE", optionsListe: CPTAQ_ZONE_OPTIONS },
   zone_agricole_cptaq: { typeDonnees: "LISTE", optionsListe: CPTAQ_ZONE_OPTIONS },

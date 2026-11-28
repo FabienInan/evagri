@@ -119,6 +119,7 @@ export function normalizeNumeroInscription(value: unknown): string | null {
 const TEXT_NORMALIZERS: Record<string, (value: unknown) => string | null> = {
   cptaq: (value) => normalizeZoneAgricoleCptaq(value).zone,
   numero_inscription: normalizeNumeroInscription,
+  sousclasse_dominante: normalizeSousClasse,
 }
 
 /** Canonicalizes a text enrichment value by its field code. Unknown codes, and values a normalizer cannot
@@ -185,6 +186,30 @@ export function normalizeTypeSol(value: unknown): string | null {
   const tokens = raw.split(/[,;/&]| et /i).map((s) => s.trim()).filter(Boolean)
   const mapped = tokens.map((t) => SOL_MAP[toKey(t)] ?? null).filter((v): v is string => Boolean(v))
   return [...new Set(mapped)].sort().join(" / ") || null
+}
+
+/** Lettres admises pour la sous-classe dominante. Un code vaut une lettre, ou deux lettres dans un ordre indifférent. */
+export const SOUS_CLASSE_LETTRES = ["C", "D", "E", "F", "I", "M", "N", "P", "R", "S", "T", "W", "X"] as const
+
+/** Options fermées du champ : 13 lettres seules et les combinaisons de deux lettres distinctes (CD, DC = CD). */
+export const SOUS_CLASSE_OPTIONS: string[] = [
+  ...SOUS_CLASSE_LETTRES,
+  ...SOUS_CLASSE_LETTRES.flatMap((a, i) => SOUS_CLASSE_LETTRES.slice(i + 1).map((b) => `${a}${b}`)),
+]
+
+/**
+ * Canonical du code de classe de sol : lettres en majuscules, triées (« dc » → « CD »).
+ * Renvoie null si la valeur n'est ni une lettre admise, ni deux lettres admises et distinctes.
+ */
+export function normalizeSousClasse(value: unknown): string | null {
+  if (value === null || value === undefined) return null
+  // Seuls les espaces sont tolérés : tout autre caractère (chiffre, tiret) rend la valeur non admise.
+  const lettres = String(value).toUpperCase().replace(/\s+/g, "")
+  if (lettres.length < 1 || lettres.length > 2) return null
+  const admises = new Set<string>(SOUS_CLASSE_LETTRES)
+  if (![...lettres].every((l) => admises.has(l))) return null
+  if (lettres.length === 2 && lettres[0] === lettres[1]) return null
+  return [...lettres].sort().join("")
 }
 
 export function normalizeDensitePlantation(value: unknown): number | null {
